@@ -1,3 +1,4 @@
+mod search;
 mod window;
 
 use std::sync::Mutex;
@@ -44,6 +45,12 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            search::list_files,
+            search::search_filenames,
+            search::get_file_metadata,
+            search::get_basic_preview,
+            search::open_file,
+            search::open_containing_folder,
             window::show_lumen_window,
             window::hide_lumen_window,
             window::focus_lumen_input,
