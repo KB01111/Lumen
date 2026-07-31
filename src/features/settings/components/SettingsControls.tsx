@@ -206,6 +206,7 @@ export function LumenSelect<T extends string>({options, value, onChange, ...prop
   };
   return (
     <Select aria-label={props['aria-label']} selectedKey={value} onSelectionChange={handleChange}>
+      <Label {...stylex.props(styles.sliderLabel)}>{props['aria-label']}</Label>
       <Button className={({isFocusVisible}) => stylex.props(styles.selectButton, isFocusVisible && styles.focused).className ?? ''}>
         <SelectValue />
         <CaretDownIcon aria-hidden="true" size={14} />

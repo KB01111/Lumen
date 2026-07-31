@@ -91,6 +91,11 @@ input[type='search']::-webkit-search-cancel-button {
   display: none;
 }
 
+[data-transparency='disabled'] [data-material],
+[data-contrast='high'] [data-material] {
+  backdrop-filter: none !important;
+}
+
 [data-reduced-motion='true'],
 [data-reduced-motion='true'] *,
 [data-reduced-motion='true'] *::before,
