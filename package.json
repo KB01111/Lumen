@@ -1,0 +1,52 @@
+{
+  "name": "lumen",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@astryxdesign/core": "^0.2.0",
+    "@astryxdesign/theme-neutral": "^0.2.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "@stylexjs/stylex": "^0.19.0",
+    "@tanstack/react-virtual": "^3.14.9",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "motion": "^12.43.0",
+    "react": "^19.1.0",
+    "react-aria-components": "^1.19.0",
+    "react-dom": "^19.1.0",
+    "sonner": "^2.0.7",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@astryxdesign/cli": "^0.2.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@stylexjs/unplugin": "^0.19.0",
+    "@tauri-apps/cli": "^2",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^6.0.5",
+    "eslint": "^10.8.0",
+    "jsdom": "^30.0.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.65.0",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}
