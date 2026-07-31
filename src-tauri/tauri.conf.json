@@ -12,13 +12,35 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Lumen",
-        "width": 800,
-        "height": 600
+        "width": 700,
+        "height": 66,
+        "minWidth": 620,
+        "maxWidth": 760,
+        "minHeight": 66,
+        "maxHeight": 66,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "decorations": false,
+        "transparent": true,
+        "visible": false,
+        "focus": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "zoomHotkeysEnabled": false,
+        "backgroundColor": "#00000000",
+        "windowEffects": {
+          "effects": ["acrylic", "mica", "blur"],
+          "color": "#0a121bc4"
+        }
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost",
+      "devCsp": "default-src 'self' http://localhost:1420; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline' http://localhost:1420; script-src 'self' 'unsafe-eval' http://localhost:1420; connect-src ipc: http://ipc.localhost http://localhost:1420 ws://localhost:1420"
     }
   },
   "bundle": {
