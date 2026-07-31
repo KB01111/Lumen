@@ -1,3 +1,9 @@
+import {AppProviders} from './AppProviders';
+
 export function App() {
-  return <main role="application" aria-label="Lumen" />;
+  return (
+    <AppProviders>
+      <main />
+    </AppProviders>
+  );
 }
