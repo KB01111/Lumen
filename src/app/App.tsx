@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {lazy, Suspense, useEffect, useState} from 'react';
 
 import * as stylex from '@stylexjs/stylex';
 
@@ -8,6 +8,7 @@ import {LumenText} from '../design-system/primitives/LumenText';
 import type {AppearancePreferences} from '../design-system/themes.stylex';
 import {tokens} from '../design-system/tokens.stylex';
 import {SearchExperience} from '../features/launcher/SearchExperience';
+import {useOnboardingStore} from '../features/onboarding/onboarding.store';
 import {DevelopmentSearchService} from '../services/search/development-search-service';
 import {UnavailableSearchService} from '../services/search/unavailable-search-service';
 import {AppProviders} from './AppProviders';
@@ -119,14 +120,36 @@ function createDefaultSearchService() {
 }
 
 const defaultSearchService = createDefaultSearchService();
+const OnboardingFlow = lazy(async () => {
+  const module = await import('../features/onboarding/OnboardingFlow');
+  return {default: module.OnboardingFlow};
+});
 
 function isFoundationPreview() {
   return import.meta.env.DEV &&
     new URLSearchParams(window.location.search).get('mode') === 'foundation';
 }
 
+function getOnboardingMode() {
+  if (!import.meta.env.DEV) {
+    return 'persisted' as const;
+  }
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('onboarding') === '1') {
+    return 'forced' as const;
+  }
+  if (params.get('onboarded') === '1' || params.get('service') === 'memory') {
+    return 'bypassed' as const;
+  }
+  return 'persisted' as const;
+}
+
 export function App() {
   const foundationPreview = isFoundationPreview();
+  const onboardingMode = getOnboardingMode();
+  const onboardingCompleted = useOnboardingStore((state) => state.completed);
+  const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
+  const hydrateOnboarding = useOnboardingStore((state) => state.hydrate);
   const [foundationAppearance, setFoundationAppearance] = useState(0);
 
   useEffect(() => {
@@ -146,6 +169,20 @@ export function App() {
     window.addEventListener('keydown', cycleFoundationAppearance);
     return () => window.removeEventListener('keydown', cycleFoundationAppearance);
   }, [foundationPreview]);
+
+  useEffect(() => {
+    if (!foundationPreview && onboardingMode === 'persisted') {
+      void hydrateOnboarding();
+    }
+  }, [foundationPreview, hydrateOnboarding, onboardingMode]);
+
+  const showOnboarding = !foundationPreview && (
+    onboardingMode === 'forced' ||
+    (onboardingMode === 'persisted' && onboardingHydrated && !onboardingCompleted)
+  );
+  const onboardingPending = !foundationPreview &&
+    onboardingMode === 'persisted' &&
+    !onboardingHydrated;
 
   return (
     <AppProviders
@@ -191,7 +228,11 @@ export function App() {
               </kbd>
             </div>
           </LumenSurface>
-        ) : (
+        ) : showOnboarding ? (
+          <Suspense fallback={null}>
+            <OnboardingFlow />
+          </Suspense>
+        ) : onboardingPending ? null : (
           <SearchExperience service={defaultSearchService} />
         )}
       </main>
