@@ -11,9 +11,11 @@ import {SearchExperience} from '../features/launcher/SearchExperience';
 import {useLauncherStore} from '../features/launcher/launcher.store';
 import {useQueryStore} from '../features/launcher/query.store';
 import {useOnboardingStore} from '../features/onboarding/onboarding.store';
+import {createIndexedRoot} from '../features/settings/indexed-root';
+import {useSettingsStore} from '../features/settings/settings.store';
 import {createWindowService} from '../platform/window/tauri-window-service';
+import {DevelopmentFileSearchService} from '../services/search/development-file-search-service';
 import {DevelopmentSearchService} from '../services/search/development-search-service';
-import {UnavailableSearchService} from '../services/search/unavailable-search-service';
 import {AppProviders} from './AppProviders';
 
 const styles = stylex.create({
@@ -117,9 +119,23 @@ const foundationAppearances: AppearancePreferences[] = [
 function createDefaultSearchService() {
   const useDevelopmentService = import.meta.env.DEV &&
     new URLSearchParams(window.location.search).get('service') === 'memory';
-  return useDevelopmentService
-    ? new DevelopmentSearchService()
-    : new UnavailableSearchService();
+  if (useDevelopmentService) {
+    return new DevelopmentSearchService();
+  }
+  return new DevelopmentFileSearchService({
+    getRoots: () => {
+      const settingsRoots = useSettingsStore
+        .getState()
+        .roots
+        .filter((root) => !root.paused)
+        .map((root) => root.path);
+      if (settingsRoots.length > 0) {
+        return settingsRoots;
+      }
+      const onboardingRoot = useOnboardingStore.getState().root;
+      return onboardingRoot ? [onboardingRoot] : [];
+    },
+  });
 }
 
 const defaultSearchService = createDefaultSearchService();
@@ -162,6 +178,7 @@ export function App() {
   const onboardingCompleted = useOnboardingStore((state) => state.completed);
   const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
   const hydrateOnboarding = useOnboardingStore((state) => state.hydrate);
+  const hydrateSettings = useSettingsStore((state) => state.hydrate);
   const [foundationAppearance, setFoundationAppearance] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -188,6 +205,23 @@ export function App() {
       void hydrateOnboarding();
     }
   }, [foundationPreview, hydrateOnboarding, onboardingMode]);
+
+  useEffect(() => {
+    if (!foundationPreview) {
+      void hydrateSettings();
+    }
+  }, [foundationPreview, hydrateSettings]);
+
+  const completeOnboarding = useCallback(() => {
+    const root = useOnboardingStore.getState().root;
+    if (!root) {
+      return;
+    }
+    const settings = useSettingsStore.getState();
+    if (!settings.roots.some((item) => item.path.toLocaleLowerCase() === root.toLocaleLowerCase())) {
+      void settings.setRoots([...settings.roots, createIndexedRoot(root)]);
+    }
+  }, []);
 
   const showOnboarding = !foundationPreview && (
     (onboardingMode === 'forced' && !onboardingCompleted) ||
@@ -250,7 +284,7 @@ export function App() {
           </LumenSurface>
         ) : showOnboarding ? (
           <Suspense fallback={null}>
-            <OnboardingFlow />
+            <OnboardingFlow onComplete={completeOnboarding} />
           </Suspense>
         ) : settingsOpen ? (
           <Suspense fallback={null}>

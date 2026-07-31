@@ -4,6 +4,7 @@ import type {SearchService} from '../../services/search/search-service';
 import {
   flattenSearchGroups,
   isSelectableResult,
+  searchErrorSchema,
   searchResponseSchema,
   type SearchError,
   type SearchGroup,
@@ -38,6 +39,10 @@ function invalidResponseError(): SearchError {
 }
 
 function searchFailure(error: unknown): SearchError {
+  const parsed = searchErrorSchema.safeParse(error);
+  if (parsed.success) {
+    return parsed.data;
+  }
   return {
     code: 'search-failed',
     message: error instanceof Error ? error.message : 'Search could not be completed.',
@@ -189,4 +194,3 @@ export function useSearchController(service: SearchService): SearchController {
     refresh,
   };
 }
-

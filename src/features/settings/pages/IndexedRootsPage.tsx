@@ -11,6 +11,7 @@ import {
   type RootSelectionService,
 } from '../../onboarding/root-selection-service';
 import {IndexedRootRow} from '../components/IndexedRootRow';
+import {createIndexedRoot} from '../indexed-root';
 import {SettingSection} from '../components/SettingSection';
 import {SettingsCallout, SettingsPage} from '../components/SettingsPage';
 import {useSettingsStore} from '../settings.store';
@@ -38,10 +39,6 @@ const styles = stylex.create({
   },
 });
 
-function rootId(path: string) {
-  return `root-${path.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
-}
-
 export function IndexedRootsPage({rootService = defaultRootService}: {rootService?: RootSelectionService}) {
   const roots = useSettingsStore((state) => state.roots);
   const setRoots = useSettingsStore((state) => state.setRoots);
@@ -61,15 +58,7 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
         setMessage('That folder is already an indexed root.');
         return;
       }
-      await setRoots([...roots, {
-        id: rootId(path),
-        path,
-        paused: false,
-        exclusions: [],
-        includeHidden: false,
-        maxFileSizeMb: 256,
-        status: 'indexing',
-      }]);
+      await setRoots([...roots, createIndexedRoot(path)]);
       setMessage(`${path} is ready for the development filename adapter.`);
     } finally {
       setChoosing(false);
