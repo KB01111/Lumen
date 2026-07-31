@@ -14,6 +14,7 @@ import {settingsPages, SettingsNav} from './SettingsNav';
 import {PersistenceNotice} from './components/PersistenceNotice';
 import {AppearancePage} from './pages/AppearancePage';
 import {AgentGatewayPage} from './pages/AgentGatewayPage';
+import {ActivityPage} from './pages/ActivityPage';
 import {GeneralPage} from './pages/GeneralPage';
 import {IndexedRootsPage} from './pages/IndexedRootsPage';
 import {LocalAiPage} from './pages/LocalAiPage';
@@ -97,6 +98,7 @@ function defaultPageContent(page: SettingsPageId) {
     case 'search': return <SearchPage />;
     case 'local-ai': return <LocalAiPage />;
     case 'agent-gateway': return <AgentGatewayPage />;
+    case 'activity': return <ActivityPage />;
     default: return null;
   }
 }
