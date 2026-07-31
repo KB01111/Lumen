@@ -3,7 +3,7 @@ import type {ReactNode} from 'react';
 import * as stylex from '@stylexjs/stylex';
 import {Dialog, DialogTrigger, Heading, Modal, ModalOverlay} from 'react-aria-components';
 
-import {LumenButton} from '../../../design-system/primitives/LumenButton';
+import {LumenButton, type LumenButtonVariant} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {tokens} from '../../../design-system/tokens.stylex';
 
@@ -38,12 +38,13 @@ export interface ConfirmationDialogProps {
   cancelLabel?: string;
   children: ReactNode;
   confirmLabel: string;
+  confirmVariant?: LumenButtonVariant;
   description: string;
   title: string;
   onConfirm(): void;
 }
 
-export function ConfirmationDialog({cancelLabel = 'Cancel', children, confirmLabel, description, title, onConfirm}: ConfirmationDialogProps) {
+export function ConfirmationDialog({cancelLabel = 'Cancel', children, confirmLabel, confirmVariant = 'danger', description, title, onConfirm}: ConfirmationDialogProps) {
   return (
     <DialogTrigger>
       {children}
@@ -58,7 +59,7 @@ export function ConfirmationDialog({cancelLabel = 'Cancel', children, confirmLab
                   <LumenButton size="small" variant="quiet" onPress={close}>{cancelLabel}</LumenButton>
                   <LumenButton
                     size="small"
-                    variant="danger"
+                    variant={confirmVariant}
                     onPress={() => {
                       onConfirm();
                       close();
