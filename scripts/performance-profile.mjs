@@ -247,7 +247,7 @@ async function profile(baseUrl) {
       generatedAt: new Date().toISOString(),
       gitSha: execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
       browser: {name: 'Microsoft Edge', version: browserVersion},
-      profile: 'warm deterministic browser adapter, 800x540 viewport, 25 Hz isolated input/selection samples plus unpaced 30-update bursts',
+      profile: 'warm deterministic browser adapter, 800x540 viewport, 25 Hz input and 83 Hz selection/hover samples plus unpaced 30-update bursts',
       target: {refreshRateHz: 240, frameBudgetMs: targetFrameBudgetMs},
       budgets,
       measured,
