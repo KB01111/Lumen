@@ -11,6 +11,11 @@ import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
 import {settingsPages, SettingsNav} from './SettingsNav';
+import {PersistenceNotice} from './components/PersistenceNotice';
+import {AppearancePage} from './pages/AppearancePage';
+import {GeneralPage} from './pages/GeneralPage';
+import {IndexedRootsPage} from './pages/IndexedRootsPage';
+import {SearchPage} from './pages/SearchPage';
 import {settingsPageIdSchema, type SettingsPageId} from './settings.schema';
 import {useSettingsStore} from './settings.store';
 
@@ -80,6 +85,16 @@ const styles = stylex.create({
 export interface SettingsShellProps {
   onClose(): void;
   pages?: Partial<Record<SettingsPageId, ReactNode>>;
+}
+
+function defaultPageContent(page: SettingsPageId) {
+  switch (page) {
+    case 'general': return <GeneralPage />;
+    case 'appearance': return <AppearancePage />;
+    case 'indexed-roots': return <IndexedRootsPage />;
+    case 'search': return <SearchPage />;
+    default: return null;
+  }
 }
 
 export function SettingsShell({onClose, pages}: SettingsShellProps) {
@@ -159,7 +174,8 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
                 <LumenText as="h1" variant="title">{page.label}</LumenText>
                 <LumenText tone="secondary">{page.description}</LumenText>
               </div>
-              {pages?.[activePage] ?? (
+              <PersistenceNotice />
+              {pages?.[activePage] ?? defaultPageContent(activePage) ?? (
                 <div {...stylex.props(styles.overview)}>
                   <LumenText tone="secondary">
                     Lumen keeps this area focused on the controls that belong to {page.label.toLowerCase()}.
