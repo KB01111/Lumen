@@ -8,6 +8,7 @@ import {LumenText} from '../design-system/primitives/LumenText';
 import type {AppearancePreferences} from '../design-system/themes.stylex';
 import {tokens} from '../design-system/tokens.stylex';
 import {SearchExperience} from '../features/launcher/SearchExperience';
+import {DevelopmentSearchService} from '../services/search/development-search-service';
 import {UnavailableSearchService} from '../services/search/unavailable-search-service';
 import {AppProviders} from './AppProviders';
 
@@ -109,7 +110,15 @@ const foundationAppearances: AppearancePreferences[] = [
   {mode: 'dark', transparency: 'disabled', effects: 'reduced', motion: 'reduced'},
 ];
 
-const defaultSearchService = new UnavailableSearchService();
+function createDefaultSearchService() {
+  const useDevelopmentService = import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get('service') === 'memory';
+  return useDevelopmentService
+    ? new DevelopmentSearchService()
+    : new UnavailableSearchService();
+}
+
+const defaultSearchService = createDefaultSearchService();
 
 function isFoundationPreview() {
   return import.meta.env.DEV &&

@@ -109,6 +109,7 @@ export function AppProviders({
         data-contrast={highContrast ? 'high' : 'standard'}
         data-effects={resolvedAppearance.effects}
         data-motion={resolvedAppearance.motion}
+        data-reduced-motion={reducedMotion}
       >
         {children}
       </div>

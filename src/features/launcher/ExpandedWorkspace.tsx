@@ -1,3 +1,5 @@
+import {Suspense} from 'react';
+
 import * as stylex from '@stylexjs/stylex';
 import {motion} from 'motion/react';
 
@@ -10,7 +12,7 @@ import type {
   SearchFilter,
   SearchResult,
 } from '../../services/search/search.types';
-import {PreviewPane} from '../preview/PreviewPane';
+import {LazyPreviewPane} from '../preview/LazyPreviewPane';
 import {ResultGrid} from '../results/ResultGrid';
 import type {SearchLifecycle} from './useSearchController';
 import {ContextActions} from './ContextActions';
@@ -61,6 +63,14 @@ const styles = stylex.create({
       default: 'block',
       '@media (max-width: 759px)': 'none',
     },
+  },
+  previewFallback: {
+    minHeight: '320px',
+    display: 'grid',
+    placeItems: 'center',
+    color: tokens.colorTextTertiary,
+    fontFamily: tokens.fontFamilyText,
+    fontSize: tokens.fontSizeMeta,
   },
   hiddenAnnouncement: {
     position: 'absolute',
@@ -151,11 +161,19 @@ export function ExpandedWorkspace({
           />
         </section>
         <div {...stylex.props(styles.preview)}>
-          <PreviewPane
-            fileId={selectedId}
-            reducedMotion={reducedMotion}
-            service={service}
-          />
+          <Suspense
+            fallback={(
+              <div aria-label="File preview" {...stylex.props(styles.previewFallback)}>
+                Preparing preview…
+              </div>
+            )}
+          >
+            <LazyPreviewPane
+              fileId={selectedId}
+              reducedMotion={reducedMotion}
+              service={service}
+            />
+          </Suspense>
         </div>
       </div>
       <ContextActions

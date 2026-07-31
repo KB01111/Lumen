@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {Suspense, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
 import {motionTokens} from '../../design-system/motion';
 import {createWindowService} from '../../platform/window/tauri-window-service';
@@ -6,7 +6,7 @@ import type {WindowService} from '../../platform/window/window-service';
 import type {SearchService} from '../../services/search/search-service';
 import type {SearchFilter} from '../../services/search/search.types';
 import {useLumenKeyboard} from '../keyboard/useLumenKeyboard';
-import {PreviewPane} from '../preview/PreviewPane';
+import {LazyPreviewPane} from '../preview/LazyPreviewPane';
 import {CollapsedLauncher} from './CollapsedLauncher';
 import {ExpandedWorkspace} from './ExpandedWorkspace';
 import {useLauncherStore} from './launcher.store';
@@ -55,10 +55,12 @@ export function SearchExperience({
   const clearFilters = useScopeStore((state) => state.clearFilters);
   const toggleFilter = useScopeStore((state) => state.toggleFilter);
   const mode = useLauncherStore((state) => state.mode);
+  const visible = useLauncherStore((state) => state.visible);
   const hideLauncher = useLauncherStore((state) => state.hide);
   const showLauncher = useLauncherStore((state) => state.show);
   const selectStoreResult = useSelectionStore((state) => state.select);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsMounted, setDetailsMounted] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -138,6 +140,7 @@ export function SearchExperience({
 
   const handleShowDetails = useCallback(() => {
     if (controller.selectedId) {
+      setDetailsMounted(true);
       setDetailsOpen(true);
     }
   }, [controller.selectedId]);
@@ -201,7 +204,7 @@ export function SearchExperience({
   ]);
 
   return (
-    <>
+    <div data-launcher-visible={visible} style={{display: 'contents'}}>
       <CollapsedLauncher
         expandedContent={(
           <ExpandedWorkspace
@@ -225,14 +228,18 @@ export function SearchExperience({
         statusLabel={statusLabel(controller.lifecycle, controller.results.length)}
         windowService={windowService}
       />
-      <PreviewPane
-        fileId={controller.selectedId}
-        isOpen={detailsOpen}
-        mode="dialog"
-        restoreFocusRef={inputRef}
-        service={service}
-        onOpenChange={setDetailsOpen}
-      />
-    </>
+      {detailsMounted ? (
+        <Suspense fallback={null}>
+          <LazyPreviewPane
+            fileId={controller.selectedId}
+            isOpen={detailsOpen}
+            mode="dialog"
+            restoreFocusRef={inputRef}
+            service={service}
+            onOpenChange={setDetailsOpen}
+          />
+        </Suspense>
+      ) : null}
+    </div>
   );
 }

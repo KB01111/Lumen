@@ -88,6 +88,10 @@ describe('ResultGrid', () => {
     await waitFor(() =>
       expect(container.querySelectorAll('[data-result-id]').length).toBeGreaterThan(0),
     );
+    expect(screen.getByRole('grid', {name: 'Search results'})).toHaveAttribute(
+      'aria-rowcount',
+      '10000',
+    );
     expect(container.querySelectorAll('[data-result-id]').length).toBeLessThan(40);
   });
 });

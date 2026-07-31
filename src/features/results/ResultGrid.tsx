@@ -1,4 +1,4 @@
-import {useMemo, useRef} from 'react';
+import {useLayoutEffect, useMemo, useRef} from 'react';
 import {GridList, type Key, type Selection} from 'react-aria-components';
 
 import * as stylex from '@stylexjs/stylex';
@@ -66,6 +66,7 @@ export function ResultGrid({
   onAction,
 }: ResultGridProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const selectedKeys = useMemo(
     () => new Set<Key>(selectedId ? [selectedId] : []),
     [selectedId],
@@ -93,6 +94,10 @@ export function ResultGrid({
     }),
     [results, virtualItems],
   );
+
+  useLayoutEffect(() => {
+    gridRef.current?.setAttribute('aria-rowcount', String(results.length));
+  }, [results.length]);
 
   const handleSelectionChange = (selection: Selection) => {
     if (selection === 'all') {
@@ -126,6 +131,7 @@ export function ResultGrid({
       />
       {isVirtualized ? (
         <GridList
+          ref={gridRef}
           aria-label="Search results"
           aria-rowcount={results.length}
           className={stylex.props(styles.grid).className}
@@ -158,6 +164,7 @@ export function ResultGrid({
         </GridList>
       ) : (
         <GridList
+          ref={gridRef}
           aria-label="Search results"
           aria-rowcount={results.length}
           className={stylex.props(styles.grid).className}

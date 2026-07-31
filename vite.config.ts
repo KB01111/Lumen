@@ -9,6 +9,42 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [stylex.vite({ devMode: "full", useCSSLayers: true }), react()],
 
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "react-aria",
+              test: /node_modules[\\/](?:@react-aria|@react-stately|@react-types|react-aria-components)[\\/]/,
+              priority: 5,
+            },
+            {
+              name: "react-core",
+              test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
+              priority: 4,
+            },
+            {
+              name: "motion",
+              test: /node_modules[\\/](?:motion|motion-dom|motion-utils)[\\/]/,
+              priority: 3,
+            },
+            {
+              name: "data-state",
+              test: /node_modules[\\/](?:@tanstack|zod|zustand)[\\/]/,
+              priority: 2,
+            },
+            {
+              name: "tauri",
+              test: /node_modules[\\/]@tauri-apps[\\/]/,
+              priority: 2,
+            },
+          ],
+        },
+      },
+    },
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
