@@ -58,8 +58,8 @@ export function LumenIcon({
       viewBox="0 0 24 24"
       width={explicitSize}
     >
+      {title ? <title>{title}</title> : null}
       <g vectorEffect="non-scaling-stroke">{children}</g>
     </svg>
   );
 }
-
