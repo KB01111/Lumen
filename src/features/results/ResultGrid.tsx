@@ -45,6 +45,8 @@ interface VirtualResult {
 }
 
 export interface ResultGridProps {
+  emptyLabel?: string;
+  openingId?: string | null;
   results: readonly SearchResult[];
   selectedId: string | null;
   maxHeight?: number;
@@ -54,6 +56,8 @@ export interface ResultGridProps {
 }
 
 export function ResultGrid({
+  emptyLabel = 'No files found',
+  openingId = null,
   results,
   selectedId,
   maxHeight = 384,
@@ -104,7 +108,7 @@ export function ResultGrid({
   const renderEmptyState = () => (
     <div {...stylex.props(styles.empty)}>
       <LumenText tone="secondary" variant="bodyLarge">
-        No files found
+        {emptyLabel}
       </LumenText>
     </div>
   );
@@ -113,7 +117,7 @@ export function ResultGrid({
     <div
       ref={viewportRef}
       {...stylex.props(styles.viewport)}
-      style={{maxHeight, height: isVirtualized ? maxHeight : undefined}}
+      style={{maxHeight, height: maxHeight}}
     >
       <SelectionCapsule
         containerRef={viewportRef}
@@ -137,6 +141,7 @@ export function ResultGrid({
         >
           {(entry) => (
             <ResultRow
+              isOpening={entry.id === openingId}
               positionIndex={entry.index}
               positionStyle={{
                 position: 'absolute',
@@ -165,7 +170,13 @@ export function ResultGrid({
           onAction={handleAction}
           onSelectionChange={handleSelectionChange}
         >
-          {(result) => <ResultRow result={result} totalCount={results.length} />}
+          {(result) => (
+            <ResultRow
+              isOpening={result.id === openingId}
+              result={result}
+              totalCount={results.length}
+            />
+          )}
         </GridList>
       )}
     </div>

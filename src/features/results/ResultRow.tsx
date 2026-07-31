@@ -15,7 +15,10 @@ const styles = stylex.create({
     minWidth: 0,
     minHeight: tokens.resultHeightComfortable,
     display: 'grid',
-    gridTemplateColumns: '36px minmax(0, 1fr) auto minmax(72px, auto) 42px',
+    gridTemplateColumns: {
+      default: '36px minmax(0, 1fr) auto minmax(72px, auto) 42px',
+      '@media (max-width: 759px)': '36px minmax(0, 1fr) minmax(72px, auto)',
+    },
     alignItems: 'center',
     gap: tokens.space6,
     paddingInline: tokens.space8,
@@ -39,6 +42,13 @@ const styles = stylex.create({
   disabled: {
     cursor: 'not-allowed',
     opacity: 0.64,
+  },
+  opening: {
+    backgroundColor: tokens.colorSelectionStrong,
+    transform: 'scale(0.992)',
+    transitionDuration: tokens.durationPress,
+    transitionProperty: 'background-color, transform',
+    transitionTimingFunction: tokens.easingStandard,
   },
   primary: {
     minWidth: 0,
@@ -79,6 +89,10 @@ const styles = stylex.create({
     whiteSpace: 'nowrap',
   },
   badge: {
+    display: {
+      default: 'block',
+      '@media (max-width: 759px)': 'none',
+    },
     flexShrink: 0,
     paddingBlock: tokens.space2,
     paddingInline: tokens.space5,
@@ -93,7 +107,10 @@ const styles = stylex.create({
   },
   shortcut: {
     minWidth: '42px',
-    display: 'flex',
+    display: {
+      default: 'flex',
+      '@media (max-width: 759px)': 'none',
+    },
     justifyContent: 'flex-end',
     color: tokens.colorTextTertiary,
     fontFamily: tokens.fontFamilyText,
@@ -138,6 +155,7 @@ function accessibilityLabel(result: SearchResult) {
 }
 
 export interface ResultRowProps {
+  isOpening?: boolean;
   result: SearchResult;
   positionStyle?: CSSProperties;
   positionIndex?: number;
@@ -145,6 +163,7 @@ export interface ResultRowProps {
 }
 
 export function ResultRow({
+  isOpening = false,
   result,
   positionStyle,
   positionIndex,
@@ -166,8 +185,10 @@ export function ResultRow({
           isFocusVisible && styles.focused,
           isDisabled && styles.disabled,
           isSelected && styles.hovered,
+          isOpening && styles.opening,
         ).className ?? ''
       }
+      data-opening={isOpening || undefined}
       data-result-id={result.id}
       isDisabled={isDisabled}
       style={positionStyle}

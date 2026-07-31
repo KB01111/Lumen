@@ -1,7 +1,7 @@
 import * as stylex from '@stylexjs/stylex';
-import {MotionConfig} from 'motion/react';
 import type {PropsWithChildren} from 'react';
 import {useEffect, useMemo, useSyncExternalStore} from 'react';
+import {LumenMotionProvider} from '../design-system/MotionProvider';
 import {
   darkTheme,
   highContrastTheme,
@@ -91,7 +91,7 @@ export function AppProviders({
   }, [appearance, hydrateAppearance]);
 
   return (
-    <MotionConfig reducedMotion={reducedMotion ? 'always' : 'never'}>
+    <LumenMotionProvider reducedMotion={reducedMotion}>
       <div
         {...stylex.props(
           styles.root,
@@ -112,6 +112,6 @@ export function AppProviders({
       >
         {children}
       </div>
-    </MotionConfig>
+    </LumenMotionProvider>
   );
 }

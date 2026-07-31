@@ -1,12 +1,14 @@
 import {Tab, TabList, TabPanel, Tabs} from 'react-aria-components';
 
 import * as stylex from '@stylexjs/stylex';
+import {motion} from 'motion/react';
 
+import {useLumenMotion} from '../../design-system/MotionProvider';
 import {tokens} from '../../design-system/tokens.stylex';
 import type {SearchScope} from '../../services/search/search.types';
 import {useScopeStore} from './scope.store';
 
-const scopes: ReadonlyArray<{id: SearchScope; label: string}> = [
+export const searchScopes: ReadonlyArray<{id: SearchScope; label: string}> = [
   {id: 'all', label: 'All'},
   {id: 'files', label: 'Files'},
   {id: 'folders', label: 'Folders'},
@@ -59,7 +61,21 @@ const styles = stylex.create({
   },
   selected: {
     color: tokens.colorTextPrimary,
+  },
+  indicator: {
+    position: 'absolute',
+    inset: 0,
+    zIndex: tokens.zSelection,
     backgroundColor: tokens.colorSelectionStrong,
+    borderColor: tokens.colorBorderSubtle,
+    borderStyle: 'solid',
+    borderWidth: '1px',
+    borderRadius: tokens.radiusSmall,
+    boxShadow: tokens.shadowInsetTop,
+  },
+  label: {
+    position: 'relative',
+    zIndex: tokens.zContent,
   },
   focused: {
     outlineColor: tokens.colorFocus,
@@ -70,6 +86,7 @@ const styles = stylex.create({
 });
 
 export function ScopeRail() {
+  const {layoutTransition} = useLumenMotion();
   const activeScope = useScopeStore((state) => state.activeScope);
   const setScope = useScopeStore((state) => state.setScope);
 
@@ -79,7 +96,7 @@ export function ScopeRail() {
       selectedKey={activeScope}
       onSelectionChange={(key) => setScope(key as SearchScope)}
     >
-      <TabList aria-label="Search scopes" items={scopes} {...stylex.props(styles.list)}>
+      <TabList aria-label="Search scopes" items={searchScopes} {...stylex.props(styles.list)}>
         {(scope) => (
           <Tab
             id={scope.id}
@@ -92,11 +109,23 @@ export function ScopeRail() {
               ).className ?? ''
             }
           >
-            {scope.label}
+            {({isSelected}) => (
+              <>
+                {isSelected ? (
+                  <motion.span
+                    aria-hidden="true"
+                    layoutId="lumen-scope-indicator"
+                    transition={layoutTransition}
+                    {...stylex.props(styles.indicator)}
+                  />
+                ) : null}
+                <span {...stylex.props(styles.label)}>{scope.label}</span>
+              </>
+            )}
           </Tab>
         )}
       </TabList>
-      {scopes.map((scope) => (
+      {searchScopes.map((scope) => (
         <TabPanel key={scope.id} id={scope.id} {...stylex.props(styles.panel)} />
       ))}
     </Tabs>

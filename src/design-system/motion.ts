@@ -19,4 +19,8 @@ export const motionTokens = {
     damping: 44,
     mass: 0.72,
   },
+  reduced: {
+    layoutDuration: 0,
+    opacityDuration: 0.08,
+  },
 } as const;

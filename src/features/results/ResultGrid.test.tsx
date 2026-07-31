@@ -63,6 +63,22 @@ describe('ResultGrid', () => {
     );
   });
 
+  it('activates the row that was clicked by stable ID', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    render(
+      <ResultGrid
+        results={[file('alpha'), file('beta')]}
+        selectedId="alpha"
+        onAction={onAction}
+      />,
+    );
+
+    await user.click(screen.getByRole('row', {name: /beta\.tsx/i}));
+
+    expect(onAction).toHaveBeenCalledWith('beta');
+  });
+
   it('virtualizes 10,000 results with a bounded mounted row count', async () => {
     const results = Array.from({length: 10_000}, (_, index) => file(`file-${index}`));
     const {container} = render(
@@ -75,4 +91,3 @@ describe('ResultGrid', () => {
     expect(container.querySelectorAll('[data-result-id]').length).toBeLessThan(40);
   });
 });
-

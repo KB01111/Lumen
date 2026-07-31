@@ -7,7 +7,8 @@ import {LumenSurface} from '../design-system/primitives/LumenSurface';
 import {LumenText} from '../design-system/primitives/LumenText';
 import type {AppearancePreferences} from '../design-system/themes.stylex';
 import {tokens} from '../design-system/tokens.stylex';
-import {CollapsedLauncher} from '../features/launcher/CollapsedLauncher';
+import {SearchExperience} from '../features/launcher/SearchExperience';
+import {UnavailableSearchService} from '../services/search/unavailable-search-service';
 import {AppProviders} from './AppProviders';
 
 const styles = stylex.create({
@@ -108,6 +109,8 @@ const foundationAppearances: AppearancePreferences[] = [
   {mode: 'dark', transparency: 'disabled', effects: 'reduced', motion: 'reduced'},
 ];
 
+const defaultSearchService = new UnavailableSearchService();
+
 function isFoundationPreview() {
   return import.meta.env.DEV &&
     new URLSearchParams(window.location.search).get('mode') === 'foundation';
@@ -180,7 +183,7 @@ export function App() {
             </div>
           </LumenSurface>
         ) : (
-          <CollapsedLauncher />
+          <SearchExperience service={defaultSearchService} />
         )}
       </main>
     </AppProviders>

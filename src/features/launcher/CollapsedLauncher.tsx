@@ -1,4 +1,4 @@
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, type ReactNode, type RefObject} from 'react';
 
 import {MicrophoneIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
@@ -20,6 +20,7 @@ const defaultWindowService = createWindowService();
 const styles = stylex.create({
   shell: {
     width: '100%',
+    height: '54px',
     minWidth: 0,
     borderRadius: tokens.radiusLauncher,
     transitionDuration: tokens.durationExpand,
@@ -27,7 +28,15 @@ const styles = stylex.create({
     transitionTimingFunction: tokens.easingStandard,
   },
   expanded: {
+    height: '100%',
     borderRadius: tokens.radiusLarge,
+  },
+  content: {
+    width: '100%',
+    height: '100%',
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
   },
   row: {
     minWidth: 0,
@@ -83,11 +92,17 @@ const styles = stylex.create({
 });
 
 export interface CollapsedLauncherProps {
+  expandedContent?: ReactNode;
+  inputRef?: RefObject<HTMLInputElement | null>;
+  statusLabel?: string;
   windowService?: WindowService;
   onVoiceRequest?: () => void;
 }
 
 export function CollapsedLauncher({
+  expandedContent,
+  inputRef: providedInputRef,
+  statusLabel,
   windowService = defaultWindowService,
   onVoiceRequest,
 }: CollapsedLauncherProps) {
@@ -95,10 +110,19 @@ export function CollapsedLauncher({
   const mode = useLauncherStore((state) => state.mode);
   const show = useLauncherStore((state) => state.show);
   const hide = useLauncherStore((state) => state.hide);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const fallbackInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = providedInputRef ?? fallbackInputRef;
   const expanded = mode === 'expanded';
 
   useEffect(() => {
+    inputRef.current?.focus();
+    void windowService.focusInput();
+  }, [inputRef, windowService]);
+
+  useEffect(() => {
+    if (mode !== 'collapsed' && mode !== 'expanded') {
+      return;
+    }
     if (committedQuery) {
       show('expanded');
       void windowService.show('expanded');
@@ -119,29 +143,32 @@ export function CollapsedLauncher({
       className={stylex.props(styles.shell, expanded && styles.expanded).className}
       material="mica"
     >
-      <div data-tauri-drag-region {...stylex.props(styles.row)}>
-        <span aria-hidden="true" {...stylex.props(styles.markWell)}>
-          <LumenMark className={stylex.props(styles.mark).className} size="large" />
-        </span>
-        <span aria-hidden="true" {...stylex.props(styles.divider)} />
-        <SearchInput ref={inputRef} onEscapeEmpty={handleEscapeEmpty} />
-        {onVoiceRequest ? (
-          <LumenIconButton
-            aria-label="Start voice input"
-            className={stylex.props(styles.voice).className}
-            size="small"
-            variant="quiet"
-            onPress={onVoiceRequest}
-          >
-            <MicrophoneIcon aria-hidden="true" size={15} />
-          </LumenIconButton>
-        ) : null}
-        <LauncherStatus />
-        <kbd aria-label="Alt plus Space" {...stylex.props(styles.shortcut)}>
-          Alt&nbsp;&nbsp;Space
-        </kbd>
+      <div {...stylex.props(styles.content)}>
+        <div data-tauri-drag-region {...stylex.props(styles.row)}>
+          <span aria-hidden="true" {...stylex.props(styles.markWell)}>
+            <LumenMark className={stylex.props(styles.mark).className} size="large" />
+          </span>
+          <span aria-hidden="true" {...stylex.props(styles.divider)} />
+          <SearchInput ref={inputRef} onEscapeEmpty={handleEscapeEmpty} />
+          {onVoiceRequest ? (
+            <LumenIconButton
+              aria-label="Start voice input"
+              className={stylex.props(styles.voice).className}
+              size="small"
+              variant="quiet"
+              onPress={onVoiceRequest}
+            >
+              <MicrophoneIcon aria-hidden="true" size={15} />
+            </LumenIconButton>
+          ) : null}
+          <LauncherStatus label={statusLabel} />
+          <kbd aria-label="Alt plus Space" {...stylex.props(styles.shortcut)}>
+            Alt&nbsp;&nbsp;Space
+          </kbd>
+        </div>
+        {expanded ? <ScopeRail /> : null}
+        {expanded ? expandedContent : null}
       </div>
-      {expanded ? <ScopeRail /> : null}
     </LumenSurface>
   );
 }

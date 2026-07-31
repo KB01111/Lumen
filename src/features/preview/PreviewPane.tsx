@@ -16,6 +16,11 @@ import {PreviewSkeleton} from './PreviewSkeleton';
 import {usePreviewController, type PreviewController} from './usePreviewController';
 
 const styles = stylex.create({
+  paneRegion: {
+    width: '100%',
+    height: '100%',
+    minHeight: 0,
+  },
   pane: {
     minWidth: 0,
     minHeight: '320px',
@@ -245,7 +250,10 @@ export function PreviewPane({
   service,
   onOpenChange,
 }: PreviewPaneProps) {
-  const controller = usePreviewController(fileId, service);
+  const controller = usePreviewController(
+    mode === 'dialog' && !isOpen ? null : fileId,
+    service,
+  );
   const wasOpen = useRef(isOpen);
 
   useEffect(() => {
@@ -257,7 +265,11 @@ export function PreviewPane({
 
   if (mode === 'pane') {
     return (
-      <section aria-label="File preview">
+      <section
+        aria-label="File preview"
+        tabIndex={0}
+        {...stylex.props(styles.paneRegion)}
+      >
         <PreviewFrame controller={controller} mode={mode} reducedMotion={reducedMotion} />
       </section>
     );

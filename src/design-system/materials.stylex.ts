@@ -66,6 +66,7 @@ export const materialStyles = stylex.create({
   content: {
     position: 'relative',
     zIndex: 0,
+    width: '100%',
+    height: '100%',
   },
 });
-
