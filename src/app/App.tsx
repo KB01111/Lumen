@@ -132,6 +132,10 @@ const SettingsShell = lazy(async () => {
   const module = await import('../features/settings/SettingsShell');
   return {default: module.SettingsShell};
 });
+const DiagnosticsOverlay = lazy(async () => {
+  const module = await import('../features/diagnostics/DiagnosticsOverlay');
+  return {default: module.DiagnosticsOverlay};
+});
 
 function isFoundationPreview() {
   return import.meta.env.DEV &&
@@ -259,6 +263,9 @@ export function App() {
           />
         )}
       </main>
+      {import.meta.env.DEV ? (
+        <Suspense fallback={null}><DiagnosticsOverlay /></Suspense>
+      ) : null}
     </AppProviders>
   );
 }

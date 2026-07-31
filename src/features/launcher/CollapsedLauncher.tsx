@@ -9,6 +9,7 @@ import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {tokens} from '../../design-system/tokens.stylex';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
+import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
 import {LauncherStatus} from './LauncherStatus';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
@@ -111,12 +112,14 @@ export function CollapsedLauncher({
   const show = useLauncherStore((state) => state.show);
   const hide = useLauncherStore((state) => state.hide);
   const fallbackInputRef = useRef<HTMLInputElement>(null);
+  const renderStartedAt = useRef(performance.now());
   const inputRef = providedInputRef ?? fallbackInputRef;
   const expanded = mode === 'expanded';
 
   useEffect(() => {
     inputRef.current?.focus();
     void windowService.focusInput();
+    measureAfterPaint('launcher-visible', renderStartedAt.current);
   }, [inputRef, windowService]);
 
   useEffect(() => {

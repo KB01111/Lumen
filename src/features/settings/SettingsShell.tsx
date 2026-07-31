@@ -15,9 +15,11 @@ import {PersistenceNotice} from './components/PersistenceNotice';
 import {AppearancePage} from './pages/AppearancePage';
 import {AgentGatewayPage} from './pages/AgentGatewayPage';
 import {ActivityPage} from './pages/ActivityPage';
+import {DiagnosticsPage} from './pages/DiagnosticsPage';
 import {GeneralPage} from './pages/GeneralPage';
 import {IndexedRootsPage} from './pages/IndexedRootsPage';
 import {LocalAiPage} from './pages/LocalAiPage';
+import {PrivacyPage} from './pages/PrivacyPage';
 import {SearchPage} from './pages/SearchPage';
 import {settingsPageIdSchema, type SettingsPageId} from './settings.schema';
 import {useSettingsStore} from './settings.store';
@@ -99,6 +101,8 @@ function defaultPageContent(page: SettingsPageId) {
     case 'local-ai': return <LocalAiPage />;
     case 'agent-gateway': return <AgentGatewayPage />;
     case 'activity': return <ActivityPage />;
+    case 'privacy': return <PrivacyPage />;
+    case 'diagnostics': return <DiagnosticsPage />;
     default: return null;
   }
 }

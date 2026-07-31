@@ -6,6 +6,7 @@ import * as stylex from '@stylexjs/stylex';
 
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {tokens} from '../../design-system/tokens.stylex';
+import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
 import {useQueryStore} from './query.store';
 
 const styles = stylex.create({
@@ -76,12 +77,18 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
       }
     };
 
+    const handleChange = (value: string) => {
+      const startedAt = performance.now();
+      setDraft(value);
+      measureAfterPaint('input-paint', startedAt);
+    };
+
     return (
       <SearchField
         aria-label="Search files"
         {...stylex.props(styles.field)}
         value={draft}
-        onChange={setDraft}
+        onChange={handleChange}
       >
         <Input
           ref={ref}

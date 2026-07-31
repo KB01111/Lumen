@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex';
-import type {PropsWithChildren} from 'react';
-import {useEffect, useMemo, useSyncExternalStore} from 'react';
+import type {PropsWithChildren, ProfilerOnRenderCallback} from 'react';
+import {Profiler, useEffect, useMemo, useSyncExternalStore} from 'react';
 import {LumenMotionProvider} from '../design-system/MotionProvider';
 import {
   darkTheme,
@@ -12,6 +12,7 @@ import {
   type AppearancePreferences,
 } from '../design-system/themes.stylex';
 import {tokens} from '../design-system/tokens.stylex';
+import {captureReactCommit, startDiagnosticsObserver} from '../features/diagnostics/diagnostics.metrics';
 import {useAppearanceStore} from '../state/appearance.store';
 
 const styles = stylex.create({
@@ -49,6 +50,10 @@ function useMediaPreference(query: string) {
 interface AppProvidersProps extends PropsWithChildren {
   appearance?: AppearancePreferences;
 }
+
+const recordCommit: ProfilerOnRenderCallback = (_id, _phase, actualDuration) => {
+  captureReactCommit(actualDuration);
+};
 
 export function AppProviders({
   children,
@@ -90,6 +95,8 @@ export function AppProviders({
     }
   }, [appearance, hydrateAppearance]);
 
+  useEffect(() => startDiagnosticsObserver(), []);
+
   return (
     <LumenMotionProvider reducedMotion={reducedMotion}>
       <div
@@ -111,7 +118,7 @@ export function AppProviders({
         data-motion={resolvedAppearance.motion}
         data-reduced-motion={reducedMotion}
       >
-        {children}
+        <Profiler id="Lumen" onRender={recordCommit}>{children}</Profiler>
       </div>
     </LumenMotionProvider>
   );

@@ -6,6 +6,7 @@ import type {WindowService} from '../../platform/window/window-service';
 import type {SearchService} from '../../services/search/search-service';
 import type {SearchFilter} from '../../services/search/search.types';
 import {useLumenKeyboard} from '../keyboard/useLumenKeyboard';
+import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
 import {LazyPreviewPane} from '../preview/LazyPreviewPane';
 import {CollapsedLauncher} from './CollapsedLauncher';
 import {ExpandedWorkspace} from './ExpandedWorkspace';
@@ -90,8 +91,10 @@ export function SearchExperience({
   );
 
   const handleSelect = useCallback((fileId: string | null) => {
+    const startedAt = performance.now();
     controller.select(fileId);
     selectStoreResult(fileId);
+    measureAfterPaint('selection-paint', startedAt);
   }, [controller.select, selectStoreResult]);
 
   const handleOpen = useCallback(async (requestedId?: string) => {
