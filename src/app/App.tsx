@@ -1,4 +1,4 @@
-import {lazy, Suspense, useEffect, useState} from 'react';
+import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
 
 import * as stylex from '@stylexjs/stylex';
 
@@ -8,7 +8,10 @@ import {LumenText} from '../design-system/primitives/LumenText';
 import type {AppearancePreferences} from '../design-system/themes.stylex';
 import {tokens} from '../design-system/tokens.stylex';
 import {SearchExperience} from '../features/launcher/SearchExperience';
+import {useLauncherStore} from '../features/launcher/launcher.store';
+import {useQueryStore} from '../features/launcher/query.store';
 import {useOnboardingStore} from '../features/onboarding/onboarding.store';
+import {createWindowService} from '../platform/window/tauri-window-service';
 import {DevelopmentSearchService} from '../services/search/development-search-service';
 import {UnavailableSearchService} from '../services/search/unavailable-search-service';
 import {AppProviders} from './AppProviders';
@@ -120,9 +123,14 @@ function createDefaultSearchService() {
 }
 
 const defaultSearchService = createDefaultSearchService();
+const appWindowService = createWindowService();
 const OnboardingFlow = lazy(async () => {
   const module = await import('../features/onboarding/OnboardingFlow');
   return {default: module.OnboardingFlow};
+});
+const SettingsShell = lazy(async () => {
+  const module = await import('../features/settings/SettingsShell');
+  return {default: module.SettingsShell};
 });
 
 function isFoundationPreview() {
@@ -151,6 +159,7 @@ export function App() {
   const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
   const hydrateOnboarding = useOnboardingStore((state) => state.hydrate);
   const [foundationAppearance, setFoundationAppearance] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (!foundationPreview) {
@@ -183,6 +192,13 @@ export function App() {
   const onboardingPending = !foundationPreview &&
     onboardingMode === 'persisted' &&
     !onboardingHydrated;
+
+  const closeSettings = useCallback(() => {
+    const targetMode = useQueryStore.getState().committed ? 'expanded' : 'collapsed';
+    useLauncherStore.getState().show(targetMode);
+    setSettingsOpen(false);
+    void appWindowService.show(targetMode);
+  }, []);
 
   return (
     <AppProviders
@@ -232,8 +248,15 @@ export function App() {
           <Suspense fallback={null}>
             <OnboardingFlow />
           </Suspense>
+        ) : settingsOpen ? (
+          <Suspense fallback={null}>
+            <SettingsShell onClose={closeSettings} />
+          </Suspense>
         ) : onboardingPending ? null : (
-          <SearchExperience service={defaultSearchService} />
+          <SearchExperience
+            service={defaultSearchService}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
         )}
       </main>
     </AppProviders>
