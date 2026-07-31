@@ -13,7 +13,11 @@ import {ExpandedWorkspace} from './ExpandedWorkspace';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
 import {useScopeStore} from './scope.store';
-import {useSelectionStore} from './selection.store';
+import {
+  readSelectionIntent,
+  rememberSelectionIntent,
+  useSelectionStore,
+} from './selection.store';
 import {useSearchController} from './useSearchController';
 
 const defaultWindowService = createWindowService();
@@ -50,7 +54,6 @@ export function SearchExperience({
   onOpenSettings,
 }: SearchExperienceProps) {
   const controller = useSearchController(service);
-  const committedQuery = useQueryStore((state) => state.committed);
   const activeScope = useScopeStore((state) => state.activeScope);
   const activeFilters = useScopeStore((state) => state.activeFilters);
   const clearFilters = useScopeStore((state) => state.clearFilters);
@@ -62,20 +65,45 @@ export function SearchExperience({
   const selectStoreResult = useSelectionStore((state) => state.select);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsMounted, setDetailsMounted] = useState(false);
+  const [detailsFileId, setDetailsFileId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const pendingSelectionFrame = useRef(0);
+  const pendingSelectionTimer = useRef(0);
 
-  useEffect(
-    () => controller.setQuery(committedQuery),
-    [committedQuery, controller.setQuery],
-  );
+  useEffect(() => () => {
+    window.cancelAnimationFrame(pendingSelectionFrame.current);
+    window.clearTimeout(pendingSelectionTimer.current);
+  }, []);
+
+  useEffect(() => {
+    let pendingFrame = 0;
+    const scheduleQuery = (query: string) => {
+      window.cancelAnimationFrame(pendingFrame);
+      pendingFrame = window.requestAnimationFrame(() => controller.setQuery(query));
+    };
+    scheduleQuery(useQueryStore.getState().committed);
+    const unsubscribe = useQueryStore.subscribe(
+      (state) => state.committed,
+      scheduleQuery,
+    );
+    return () => {
+      window.cancelAnimationFrame(pendingFrame);
+      unsubscribe();
+    };
+  }, [controller.setQuery]);
   useEffect(
     () => controller.setScope(activeScope),
     [activeScope, controller.setScope],
   );
   useEffect(
-    () => selectStoreResult(controller.selectedId),
+    () => {
+      selectStoreResult(controller.selectedId);
+      window.dispatchEvent(new CustomEvent('lumen:selection-preview', {
+        detail: controller.selectedId,
+      }));
+    },
     [controller.selectedId, selectStoreResult],
   );
   useEffect(() => {
@@ -85,20 +113,21 @@ export function SearchExperience({
     }
   }, [controller.selectedId]);
 
-  const selectedResult = useMemo(
-    () => controller.results.find((result) => result.id === controller.selectedId) ?? null,
-    [controller.results, controller.selectedId],
-  );
-
   const handleSelect = useCallback((fileId: string | null) => {
     const startedAt = performance.now();
-    controller.select(fileId);
-    selectStoreResult(fileId);
+    controller.rememberSelection(fileId);
+    rememberSelectionIntent(fileId);
+    window.dispatchEvent(new CustomEvent('lumen:selection-preview', {detail: fileId}));
     measureAfterPaint('selection-paint', startedAt);
-  }, [controller.select, selectStoreResult]);
+    window.cancelAnimationFrame(pendingSelectionFrame.current);
+    window.clearTimeout(pendingSelectionTimer.current);
+    pendingSelectionFrame.current = window.requestAnimationFrame(() => {
+      pendingSelectionTimer.current = window.setTimeout(() => selectStoreResult(fileId), 0);
+    });
+  }, [controller.rememberSelection, selectStoreResult]);
 
   const handleOpen = useCallback(async (requestedId?: string) => {
-    const fileId = requestedId ?? controller.selectedId;
+    const fileId = requestedId ?? readSelectionIntent() ?? controller.selectedId;
     if (!fileId || openingId) {
       return;
     }
@@ -127,22 +156,25 @@ export function SearchExperience({
   ]);
 
   const handleOpenContainingFolder = useCallback(async () => {
-    const fileId = controller.selectedId;
+    const fileId = readSelectionIntent() ?? controller.selectedId;
     if (!fileId) {
       return;
     }
     try {
       await service.openContainingFolder(fileId);
-      setActionMessage(`Opened the folder containing ${selectedResult?.name ?? 'the result'}`);
+      const result = controller.results.find((item) => item.id === fileId);
+      setActionMessage(`Opened the folder containing ${result?.name ?? 'the result'}`);
     } catch (error) {
       setActionMessage(
         error instanceof Error ? error.message : 'The containing folder could not be opened.',
       );
     }
-  }, [controller.selectedId, selectedResult?.name, service]);
+  }, [controller.results, controller.selectedId, service]);
 
   const handleShowDetails = useCallback(() => {
-    if (controller.selectedId) {
+    const fileId = readSelectionIntent() ?? controller.selectedId;
+    if (fileId) {
+      setDetailsFileId(fileId);
       setDetailsMounted(true);
       setDetailsOpen(true);
     }
@@ -192,10 +224,7 @@ export function SearchExperience({
       return 'No results';
     }
     if (controller.lifecycle === 'ready') {
-      return [
-        `${controller.results.length} ${controller.results.length === 1 ? 'result' : 'results'}`,
-        selectedResult ? `${selectedResult.name} selected` : '',
-      ].filter(Boolean).join('. ');
+      return `${controller.results.length} ${controller.results.length === 1 ? 'result' : 'results'}`;
     }
     return 'Lumen is ready';
   }, [
@@ -203,7 +232,6 @@ export function SearchExperience({
     controller.error?.message,
     controller.lifecycle,
     controller.results.length,
-    selectedResult,
   ]);
 
   return (
@@ -217,7 +245,6 @@ export function SearchExperience({
             lifecycle={controller.lifecycle}
             openingId={openingId}
             results={controller.results}
-            selectedId={controller.selectedId}
             service={service}
             onClearFilters={clearFilters}
             onDetails={handleShowDetails}
@@ -234,7 +261,7 @@ export function SearchExperience({
       {detailsMounted ? (
         <Suspense fallback={null}>
           <LazyPreviewPane
-            fileId={controller.selectedId}
+            fileId={detailsFileId}
             isOpen={detailsOpen}
             mode="dialog"
             restoreFocusRef={inputRef}

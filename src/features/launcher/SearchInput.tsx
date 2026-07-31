@@ -1,5 +1,11 @@
-import {forwardRef, type KeyboardEvent} from 'react';
-import {Input, SearchField} from 'react-aria-components';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
 
 import {XIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
@@ -57,11 +63,57 @@ export interface SearchInputProps {
 
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
   function SearchInput({onEscapeEmpty}, ref) {
-    const draft = useQueryStore((state) => state.draft);
     const setDraft = useQueryStore((state) => state.setDraft);
     const startComposition = useQueryStore((state) => state.startComposition);
     const endComposition = useQueryStore((state) => state.endComposition);
     const clear = useQueryStore((state) => state.clear);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const clearWrapperRef = useRef<HTMLSpanElement>(null);
+    const pendingFrame = useRef(0);
+    const pendingTimer = useRef(0);
+
+    useImperativeHandle(ref, () => inputRef.current as HTMLInputElement, []);
+
+    useEffect(() => {
+      const syncDraft = (value: string) => {
+        if (inputRef.current && inputRef.current.value !== value) {
+          inputRef.current.value = value;
+        }
+        if (clearWrapperRef.current) {
+          clearWrapperRef.current.hidden = value.length === 0;
+        }
+      };
+      syncDraft(useQueryStore.getState().draft);
+      return useQueryStore.subscribe((state) => state.draft, syncDraft);
+    }, []);
+
+    useEffect(() => () => {
+      window.cancelAnimationFrame(pendingFrame.current);
+      window.clearTimeout(pendingTimer.current);
+    }, []);
+
+    const cancelPendingCommit = () => {
+      window.cancelAnimationFrame(pendingFrame.current);
+      window.clearTimeout(pendingTimer.current);
+    };
+
+    const commitAfterInputPaint = (value: string) => {
+      cancelPendingCommit();
+      pendingFrame.current = window.requestAnimationFrame(() => {
+        pendingTimer.current = window.setTimeout(() => setDraft(value), 0);
+      });
+    };
+
+    const clearInput = () => {
+      cancelPendingCommit();
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
+      if (clearWrapperRef.current) {
+        clearWrapperRef.current.hidden = true;
+      }
+      clear();
+    };
 
     const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
       if (event.key !== 'Escape') {
@@ -70,51 +122,59 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
 
       event.preventDefault();
       event.stopPropagation();
-      if (draft) {
-        clear();
+      if (inputRef.current?.value) {
+        clearInput();
       } else {
         onEscapeEmpty();
       }
     };
 
-    const handleChange = (value: string) => {
+    const handleInput = (event: FormEvent<HTMLInputElement>) => {
       const startedAt = performance.now();
-      setDraft(value);
+      const value = event.currentTarget.value;
+      if (clearWrapperRef.current) {
+        clearWrapperRef.current.hidden = value.length === 0;
+      }
       measureAfterPaint('input-paint', startedAt);
+      commitAfterInputPaint(value);
+    };
+
+    const handleCompositionEnd = () => {
+      cancelPendingCommit();
+      setDraft(inputRef.current?.value ?? '');
+      endComposition();
     };
 
     return (
-      <SearchField
-        aria-label="Search files"
-        {...stylex.props(styles.field)}
-        value={draft}
-        onChange={handleChange}
-      >
-        <Input
-          ref={ref}
+      <div role="search" aria-label="File search" {...stylex.props(styles.field)}>
+        <input
+          ref={inputRef}
           aria-label="Search files"
           autoCapitalize="off"
           autoComplete="off"
+          defaultValue={useQueryStore.getState().draft}
           enterKeyHint="search"
           placeholder="Search apps, files, and settings"
           spellCheck={false}
+          type="search"
           {...stylex.props(styles.input)}
-          onCompositionEnd={endComposition}
+          onCompositionEnd={handleCompositionEnd}
           onCompositionStart={startComposition}
+          onInput={handleInput}
           onKeyDown={handleKeyDown}
         />
-        {draft ? (
+        <span ref={clearWrapperRef} hidden={!useQueryStore.getState().draft}>
           <LumenIconButton
             aria-label="Clear search"
             className={stylex.props(styles.clear).className}
             size="small"
             variant="quiet"
-            onPress={clear}
+            onPress={clearInput}
           >
             <XIcon aria-hidden="true" size={15} weight="bold" />
           </LumenIconButton>
-        ) : null}
-      </SearchField>
+        </span>
+      </div>
     );
   },
 );

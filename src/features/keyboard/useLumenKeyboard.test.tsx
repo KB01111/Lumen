@@ -31,6 +31,9 @@ async function searchFor(
   results: readonly SearchResult[],
 ) {
   await user.type(screen.getByRole('searchbox', {name: 'Search files'}), query);
+  await waitFor(() => expect(
+    service.requests.some(({request}) => request.query === query),
+  ).toBe(true));
   await act(() => service.resolve(query, results));
   await screen.findByRole('row', {name: new RegExp(results[0]?.name ?? '')});
 }

@@ -178,13 +178,12 @@ export function ResultRow({
       aria-label={accessibilityLabel(result)}
       aria-posinset={positionIndex === undefined ? undefined : positionIndex + 1}
       aria-setsize={totalCount}
-      className={({isFocusVisible, isHovered, isSelected}) =>
+      className={({isFocusVisible, isHovered}) =>
         stylex.props(
           styles.row,
           isHovered && styles.hovered,
           isFocusVisible && styles.focused,
           isDisabled && styles.disabled,
-          isSelected && styles.hovered,
           isOpening && styles.opening,
         ).className ?? ''
       }
@@ -194,9 +193,8 @@ export function ResultRow({
       style={positionStyle}
       textValue={result.name}
     >
-      {({isSelected}) => (
-        <>
-          <FileGlyph kind={result.kind} selected={isSelected} size="large" />
+      <>
+          <FileGlyph kind={result.kind} size="large" />
           <div {...stylex.props(styles.primary)}>
             <div {...stylex.props(styles.titleLine)}>
               <LumenText
@@ -251,8 +249,7 @@ export function ResultRow({
           <kbd aria-hidden="true" {...stylex.props(styles.shortcut)}>
             Enter
           </kbd>
-        </>
-      )}
+      </>
     </GridListItem>
   );
 }

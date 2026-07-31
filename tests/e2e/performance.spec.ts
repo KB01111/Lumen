@@ -1,0 +1,147 @@
+import {expect, test, type Page} from '@playwright/test';
+
+test.describe.configure({mode: 'serial'});
+
+interface DiagnosticsMetrics {
+  timings: Array<{name: string; durationMs: number}>;
+  longTasks: number[];
+  reactCommits: number[];
+}
+
+function percentile(values: readonly number[], quantile: number) {
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * quantile))] ?? 0;
+}
+
+async function resetMetrics(page: Page) {
+  await page.evaluate(() => {
+    (window as unknown as {__LUMEN_DIAGNOSTICS__: {reset(): void}}).__LUMEN_DIAGNOSTICS__.reset();
+  });
+}
+
+async function readMetrics(page: Page): Promise<DiagnosticsMetrics> {
+  return page.evaluate(() => (
+    window as unknown as {__LUMEN_DIAGNOSTICS__: {read(): DiagnosticsMetrics}}
+  ).__LUMEN_DIAGNOSTICS__.read());
+}
+
+async function waitForSamples(page: Page, name: string, count: number) {
+  await page.waitForFunction(
+    ({sampleName, sampleCount}) => {
+      const diagnostics = (window as unknown as {
+        __LUMEN_DIAGNOSTICS__: {read(): DiagnosticsMetrics};
+      }).__LUMEN_DIAGNOSTICS__.read();
+      return diagnostics.timings.filter((sample) => sample.name === sampleName).length >= sampleCount;
+    },
+    {sampleName: name, sampleCount: count},
+  );
+}
+
+test('warm launcher and ordinary interactions stay inside browser budgets', async ({page}) => {
+  await page.setViewportSize({width: 800, height: 540});
+  await page.goto('/?onboarded=1&service=memory');
+  const search = page.getByRole('searchbox', {name: 'Search files'});
+  await expect(search).toBeFocused();
+
+  await page.keyboard.press('Control+,');
+  await expect(page.getByRole('navigation', {name: 'Settings'})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(search).toBeFocused();
+  await resetMetrics(page);
+
+  for (let index = 1; index <= 24; index += 1) {
+    await page.keyboard.press('Control+,');
+    await expect(page.getByRole('navigation', {name: 'Settings'})).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(search).toBeFocused();
+    await waitForSamples(page, 'launcher-visible', index);
+  }
+  const warmMetrics = await readMetrics(page);
+  const warmOpenP95 = percentile(
+    warmMetrics.timings.filter((sample) => sample.name === 'launcher-visible').map((sample) => sample.durationMs),
+    0.95,
+  );
+  expect(warmOpenP95).toBeLessThan(20);
+
+  await resetMetrics(page);
+  for (let index = 1; index <= 30; index += 1) {
+    await search.fill(`report-${index}`);
+    await waitForSamples(page, 'input-paint', index);
+  }
+  await search.fill('report');
+  await expect(page.getByRole('grid', {name: 'Search results'})).toBeVisible();
+  const frameInterval = await page.evaluate(async () => {
+    const intervals: number[] = [];
+    let previous = performance.now();
+    await new Promise<void>((resolve) => {
+      const sample = (now: number) => {
+        intervals.push(now - previous);
+        previous = now;
+        if (intervals.length >= 60) resolve();
+        else requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    intervals.sort((left, right) => left - right);
+    return intervals[Math.floor(intervals.length / 2)] ?? 16.67;
+  });
+  const inputMetrics = await readMetrics(page);
+  const targetFrameBudget = Math.max(frameInterval, 1000 / 240);
+  const inputP95 = percentile(
+    inputMetrics.timings.filter((sample) => sample.name === 'input-paint').map((sample) => sample.durationMs),
+    0.95,
+  );
+  expect(inputP95).toBeLessThan(targetFrameBudget);
+
+  await resetMetrics(page);
+  for (let index = 1; index <= 30; index += 1) {
+    await page.keyboard.press(index % 2 === 0 ? 'ArrowUp' : 'ArrowDown');
+    await waitForSamples(page, 'selection-paint', index);
+  }
+  const selectionMetrics = await readMetrics(page);
+  const selectionP95 = percentile(
+    selectionMetrics.timings.filter((sample) => sample.name === 'selection-paint').map((sample) => sample.durationMs),
+    0.95,
+  );
+  const ordinaryCommitP95 = percentile(selectionMetrics.reactCommits, 0.95);
+  expect(selectionP95).toBeLessThan(targetFrameBudget);
+  expect(ordinaryCommitP95).toBeLessThan(3);
+  expect(selectionMetrics.longTasks.filter((duration) => duration > 16)).toHaveLength(0);
+});
+
+test('hover, idle work, animation count, and browser heap remain bounded', async ({page, context}) => {
+  await page.setViewportSize({width: 800, height: 540});
+  await page.goto('/?gallery=1&scenario=expanded-results&capture=1&theme=reduced-motion');
+  const row = page.getByRole('row').first();
+  await expect(row).toBeVisible();
+
+  const hoverSamples: number[] = [];
+  for (let index = 0; index < 24; index += 1) {
+    hoverSamples.push(await row.evaluate((element) => new Promise<number>((resolve) => {
+      const startedAt = performance.now();
+      element.dispatchEvent(new PointerEvent('pointerover', {bubbles: true, pointerType: 'mouse'}));
+      requestAnimationFrame(() => resolve(performance.now() - startedAt));
+    })));
+  }
+  const frameInterval = await page.evaluate(async () => new Promise<number>((resolve) => {
+    requestAnimationFrame((first) => requestAnimationFrame((second) => resolve(second - first)));
+  }));
+  expect(percentile(hoverSamples, 0.95)).toBeLessThan(Math.max(frameInterval, 1000 / 240));
+
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === 'running').length)).toBe(0);
+
+  const session = await context.newCDPSession(page);
+  await session.send('Performance.enable');
+  const before = await session.send('Performance.getMetrics');
+  const startedAt = Date.now();
+  await page.waitForTimeout(1000);
+  const elapsedSeconds = (Date.now() - startedAt) / 1000;
+  const after = await session.send('Performance.getMetrics');
+  const metric = (items: typeof before.metrics, name: string) => items.find((item) => item.name === name)?.value ?? 0;
+  const idleCpuPercent = (metric(after.metrics, 'TaskDuration') - metric(before.metrics, 'TaskDuration')) / elapsedSeconds * 100;
+  const heapMegabytes = metric(after.metrics, 'JSHeapUsedSize') / (1024 * 1024);
+
+  expect(idleCpuPercent).toBeLessThan(2);
+  expect(heapMegabytes).toBeLessThan(100);
+});

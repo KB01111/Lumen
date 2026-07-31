@@ -1,7 +1,7 @@
-import {useLayoutEffect, useState, type RefObject} from 'react';
+import {useLayoutEffect, type RefObject} from 'react';
 
 import * as stylex from '@stylexjs/stylex';
-import {motion} from 'motion/react';
+import {motion, useMotionValue, useSpring} from 'motion/react';
 
 import {motionTokens} from '../../design-system/motion';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -35,48 +35,59 @@ export function SelectionCapsule({
   reducedMotion = false,
   selectedId,
 }: SelectionCapsuleProps) {
-  const [geometry, setGeometry] = useState({y: 0, height: comfortableResultHeight, visible: false});
+  const targetY = useMotionValue(0);
+  const springY = useSpring(targetY, motionTokens.selectionSpring);
+  const height = useMotionValue(comfortableResultHeight);
+  const opacity = useMotionValue(0);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
-    const selected = selectedId
-      ? [...(container?.querySelectorAll<HTMLElement>('[data-result-id]') ?? [])]
-          .find((element) => element.dataset.resultId === selectedId)
-      : null;
-    if (!container || !selected) {
-      setGeometry((current) => ({...current, visible: false}));
-      return;
-    }
+    let observer: ResizeObserver | undefined;
+    const updateSelection = (fileId: string | null) => {
+      observer?.disconnect();
+      observer = undefined;
+      const selected = fileId
+        ? [...(container?.querySelectorAll<HTMLElement>('[data-result-id]') ?? [])]
+            .find((element) => element.dataset.resultId === fileId)
+        : null;
+      if (!container || !selected) {
+        opacity.set(0);
+        return;
+      }
 
-    const measure = () => {
-      setGeometry({
-        y: selected.offsetTop,
-        height: selected.offsetHeight || comfortableResultHeight,
-        visible: true,
-      });
+      const measure = () => {
+        targetY.set(selected.offsetTop);
+        height.set(selected.offsetHeight || comfortableResultHeight);
+        opacity.set(1);
+      };
+      measure();
+      if (typeof ResizeObserver === 'function') {
+        observer = new ResizeObserver(measure);
+        observer.observe(selected);
+      }
     };
-    measure();
-
-    if (typeof ResizeObserver !== 'function') {
-      return;
-    }
-    const observer = new ResizeObserver(measure);
-    observer.observe(selected);
-    return () => observer.disconnect();
-  }, [containerRef, selectedId]);
+    const handlePreview = (event: Event) => {
+      updateSelection((event as CustomEvent<string | null>).detail);
+    };
+    updateSelection(selectedId);
+    window.addEventListener('lumen:selection-preview', handlePreview);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('lumen:selection-preview', handlePreview);
+    };
+  }, [containerRef, height, opacity, selectedId, targetY]);
 
   return (
     <motion.div
       aria-hidden="true"
       {...stylex.props(styles.capsule)}
-      animate={{
-        height: geometry.height,
-        opacity: geometry.visible ? 1 : 0,
-        y: geometry.y,
-      }}
       data-selection-capsule="true"
       layoutId="lumen-result-selection"
-      transition={reducedMotion ? {duration: 0} : motionTokens.selectionSpring}
+      style={{
+        height,
+        opacity,
+        y: reducedMotion ? targetY : springY,
+      }}
     />
   );
 }

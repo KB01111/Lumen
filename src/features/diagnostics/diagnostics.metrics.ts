@@ -69,6 +69,7 @@ export function readDiagnosticMetrics() {
     timings: timingSamples.slice(),
     longTasks: longTasks.slice(),
     logs: logs.slice(),
+    reactCommits: reactCommits.slice(),
     reactCommitMs: reactCommits[reactCommits.length - 1] ?? 0,
   };
 }

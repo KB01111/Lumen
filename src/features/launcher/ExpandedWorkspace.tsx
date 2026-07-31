@@ -1,4 +1,4 @@
-import {Suspense} from 'react';
+import {Suspense, useEffect, useState} from 'react';
 
 import * as stylex from '@stylexjs/stylex';
 import {motion} from 'motion/react';
@@ -14,6 +14,7 @@ import type {
 } from '../../services/search/search.types';
 import {LazyPreviewPane} from '../preview/LazyPreviewPane';
 import {ResultGrid} from '../results/ResultGrid';
+import {useSelectionStore} from './selection.store';
 import type {SearchLifecycle} from './useSearchController';
 import {ContextActions} from './ContextActions';
 import {FilterChips} from './FilterChips';
@@ -92,7 +93,7 @@ export interface ExpandedWorkspaceProps {
   lifecycle: SearchLifecycle;
   openingId: string | null;
   results: readonly SearchResult[];
-  selectedId: string | null;
+  selectedId?: string | null;
   service: SearchService;
   onClearFilters(): void;
   onDetails(): void;
@@ -100,6 +101,146 @@ export interface ExpandedWorkspaceProps {
   onOpenContainingFolder(): void;
   onRemoveFilter(filter: SearchFilter): void;
   onSelectionChange(fileId: string | null): void;
+}
+
+function SelectionBoundResults({
+  openingId,
+  reducedMotion,
+  results,
+  selectedId: selectedIdOverride,
+  emptyState,
+  onOpen,
+  onSelectionChange,
+}: {
+  openingId: string | null;
+  reducedMotion: boolean;
+  results: readonly SearchResult[];
+  selectedId?: string | null;
+  emptyState: string;
+  onOpen(fileId?: string): void;
+  onSelectionChange(fileId: string | null): void;
+}) {
+  const requestedSelectedId = selectedIdOverride === undefined
+    ? useSelectionStore.getState().selectedId
+    : selectedIdOverride;
+  const selectedId = results.some((item) => item.id === requestedSelectedId)
+    ? requestedSelectedId
+    : results.find((item) => (item.availability ?? 'available') === 'available')?.id ?? null;
+  return (
+    <ResultGrid
+      key={`${results[0]?.id ?? 'empty'}-${results.length}`}
+      emptyLabel={emptyState}
+      maxHeight={338}
+      openingId={openingId}
+      reducedMotion={reducedMotion}
+      results={results}
+      selectedId={selectedId}
+      onAction={onOpen}
+      onSelectionChange={onSelectionChange}
+    />
+  );
+}
+
+function useSettledSelection(delayMs = 48) {
+  const [selectedId, setSelectedId] = useState(
+    () => useSelectionStore.getState().selectedId,
+  );
+  useEffect(() => {
+    let pending = 0;
+    const unsubscribe = useSelectionStore.subscribe(
+      (state) => state.selectedId,
+      (nextId) => {
+        window.clearTimeout(pending);
+        pending = window.setTimeout(() => setSelectedId(nextId), delayMs);
+      },
+    );
+    return () => {
+      window.clearTimeout(pending);
+      unsubscribe();
+    };
+  }, [delayMs]);
+  return selectedId;
+}
+
+function SelectionBoundPreview({
+  reducedMotion,
+  selectedId: selectedIdOverride,
+  service,
+}: {
+  reducedMotion: boolean;
+  selectedId?: string | null;
+  service: SearchService;
+}) {
+  const settledSelectedId = useSettledSelection();
+  const fileId = selectedIdOverride === undefined
+    ? settledSelectedId
+    : selectedIdOverride;
+  return (
+    <LazyPreviewPane
+      fileId={fileId}
+      reducedMotion={reducedMotion}
+      service={service}
+    />
+  );
+}
+
+function SelectionBoundActions({
+  isOpening,
+  results,
+  selectedId: selectedIdOverride,
+  onDetails,
+  onOpen,
+  onOpenContainingFolder,
+}: {
+  isOpening: boolean;
+  results: readonly SearchResult[];
+  selectedId?: string | null;
+  onDetails(): void;
+  onOpen(fileId?: string): void;
+  onOpenContainingFolder(): void;
+}) {
+  const storedSelectedId = useSelectionStore((state) => state.selectedId);
+  const selectedId = selectedIdOverride === undefined
+    ? storedSelectedId
+    : selectedIdOverride;
+  const result = results.find((item) => item.id === selectedId) ?? null;
+  return (
+    <ContextActions
+      isOpening={isOpening}
+      result={result}
+      onDetails={onDetails}
+      onOpen={onOpen}
+      onOpenContainingFolder={onOpenContainingFolder}
+    />
+  );
+}
+
+function SelectionAnnouncement({
+  announcement,
+  results,
+  selectedId: selectedIdOverride,
+}: {
+  announcement: string;
+  results: readonly SearchResult[];
+  selectedId?: string | null;
+}) {
+  const storedSelectedId = useSelectionStore((state) => state.selectedId);
+  const selectedId = selectedIdOverride === undefined
+    ? storedSelectedId
+    : selectedIdOverride;
+  const selectedResult = results.find((result) => result.id === selectedId);
+  return (
+    <div
+      aria-atomic="true"
+      aria-live="polite"
+      data-testid="search-announcement"
+      {...stylex.props(styles.hiddenAnnouncement)}
+    >
+      {[announcement, selectedResult ? `${selectedResult.name} selected` : '']
+        .filter(Boolean)
+        .join('. ')}
+    </div>
+  );
 }
 
 function emptyLabel(lifecycle: SearchLifecycle, error: SearchError | null) {
@@ -129,7 +270,6 @@ export function ExpandedWorkspace({
   onSelectionChange,
 }: ExpandedWorkspaceProps) {
   const {opacityDuration, reducedMotion} = useLumenMotion();
-  const selectedResult = results.find((result) => result.id === selectedId) ?? null;
   const countLabel = lifecycle === 'searching'
     ? 'Searching'
     : `${results.length} ${results.length === 1 ? 'result' : 'results'}`;
@@ -149,14 +289,13 @@ export function ExpandedWorkspace({
             <LumenText tone="secondary" variant="meta" weight="medium">Local results</LumenText>
             <LumenText tone="tertiary" variant="caption">{countLabel}</LumenText>
           </header>
-          <ResultGrid
-            emptyLabel={emptyLabel(lifecycle, error)}
-            maxHeight={338}
+          <SelectionBoundResults
+            emptyState={emptyLabel(lifecycle, error)}
             openingId={openingId}
             reducedMotion={reducedMotion}
             results={results}
             selectedId={selectedId}
-            onAction={onOpen}
+            onOpen={onOpen}
             onSelectionChange={onSelectionChange}
           />
         </section>
@@ -168,29 +307,27 @@ export function ExpandedWorkspace({
               </div>
             )}
           >
-            <LazyPreviewPane
-              fileId={selectedId}
+            <SelectionBoundPreview
               reducedMotion={reducedMotion}
+              selectedId={selectedId}
               service={service}
             />
           </Suspense>
         </div>
       </div>
-      <ContextActions
+      <SelectionBoundActions
         isOpening={openingId !== null}
-        result={selectedResult}
+        results={results}
+        selectedId={selectedId}
         onDetails={onDetails}
         onOpen={onOpen}
         onOpenContainingFolder={onOpenContainingFolder}
       />
-      <div
-        aria-atomic="true"
-        aria-live="polite"
-        data-testid="search-announcement"
-        {...stylex.props(styles.hiddenAnnouncement)}
-      >
-        {announcement}
-      </div>
+      <SelectionAnnouncement
+        announcement={announcement}
+        results={results}
+        selectedId={selectedId}
+      />
     </motion.section>
   );
 }

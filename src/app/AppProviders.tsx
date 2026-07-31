@@ -12,7 +12,12 @@ import {
   type AppearancePreferences,
 } from '../design-system/themes.stylex';
 import {tokens} from '../design-system/tokens.stylex';
-import {captureReactCommit, startDiagnosticsObserver} from '../features/diagnostics/diagnostics.metrics';
+import {
+  captureReactCommit,
+  readDiagnosticMetrics,
+  resetDiagnosticMetrics,
+  startDiagnosticsObserver,
+} from '../features/diagnostics/diagnostics.metrics';
 import {useAppearanceStore} from '../state/appearance.store';
 
 const styles = stylex.create({
@@ -98,6 +103,25 @@ export function AppProviders({
   }, [appearance, hydrateAppearance]);
 
   useEffect(() => startDiagnosticsObserver(), []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return;
+    }
+    const diagnosticsWindow = window as typeof window & {
+      __LUMEN_DIAGNOSTICS__?: {
+        read: typeof readDiagnosticMetrics;
+        reset: typeof resetDiagnosticMetrics;
+      };
+    };
+    diagnosticsWindow.__LUMEN_DIAGNOSTICS__ = {
+      read: readDiagnosticMetrics,
+      reset: resetDiagnosticMetrics,
+    };
+    return () => {
+      delete diagnosticsWindow.__LUMEN_DIAGNOSTICS__;
+    };
+  }, []);
 
   return (
     <LumenMotionProvider reducedMotion={reducedMotion}>

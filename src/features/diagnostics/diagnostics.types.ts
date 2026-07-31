@@ -13,6 +13,7 @@ export interface DiagnosticsSnapshot {
   refreshRateHz: number;
   activeAnimations: number;
   reactCommitMs: number;
+  reactCommits: number[];
   longTasks: number[];
   timings: TimingSample[];
   activity: string;

@@ -27,6 +27,7 @@ export interface SearchController {
   setQuery(query: string): void;
   setScope(scope: SearchScope): void;
   select(fileId: string | null): void;
+  rememberSelection(fileId: string | null): void;
   refresh(): void;
 }
 
@@ -175,6 +176,17 @@ export function useSearchController(service: SearchService): SearchController {
     setSelectedId(fileId);
   }, []);
 
+  const rememberSelection = useCallback((fileId: string | null) => {
+    if (fileId === null) {
+      selectedIdRef.current = null;
+      return;
+    }
+    const result = resultsRef.current.find((item) => item.id === fileId);
+    if (result && isSelectableResult(result)) {
+      selectedIdRef.current = fileId;
+    }
+  }, []);
+
   const refresh = useCallback(() => {
     setRefreshRevision((revision) => revision + 1);
   }, []);
@@ -191,6 +203,7 @@ export function useSearchController(service: SearchService): SearchController {
     setQuery,
     setScope,
     select,
+    rememberSelection,
     refresh,
   };
 }

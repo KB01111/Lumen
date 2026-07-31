@@ -22,16 +22,34 @@ const initialSelectionData: SelectionData = {
   focusedRegion: 'search',
 };
 
+let intendedSelectedId: string | null = null;
+
 export const useSelectionStore = create<SelectionStore>()(
   subscribeWithSelector((set) => ({
     ...initialSelectionData,
-    select: (selectedId) => set({selectedId}),
+    select: (selectedId) => {
+      intendedSelectedId = selectedId;
+      set({selectedId});
+    },
     focusRegion: (focusedRegion) => set({focusedRegion}),
-    clear: () => set({selectedId: null}),
-    reset: () => set(initialSelectionData),
+    clear: () => {
+      intendedSelectedId = null;
+      set({selectedId: null});
+    },
+    reset: () => {
+      intendedSelectedId = null;
+      set(initialSelectionData);
+    },
   })),
 );
 
+export function rememberSelectionIntent(selectedId: string | null) {
+  intendedSelectedId = selectedId;
+}
+
+export function readSelectionIntent() {
+  return intendedSelectedId;
+}
+
 export const selectSelectedId = (state: SelectionStore) => state.selectedId;
 export const selectFocusedRegion = (state: SelectionStore) => state.focusedRegion;
-

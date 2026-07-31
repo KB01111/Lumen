@@ -3,7 +3,10 @@ import {useEffect, type RefObject} from 'react';
 import type {SearchResult} from '../../services/search/search.types';
 import {useLauncherStore, type LauncherFocusRegion} from '../launcher/launcher.store';
 import {useQueryStore} from '../launcher/query.store';
-import {useSelectionStore} from '../launcher/selection.store';
+import {
+  readSelectionIntent,
+  useSelectionStore,
+} from '../launcher/selection.store';
 
 type KeyboardAction = () => void | Promise<void>;
 
@@ -100,7 +103,9 @@ export function useLumenKeyboard({
         return;
       }
       if (region === 'results') {
-        selectedResultElement(selectedId)?.focus();
+        selectedResultElement(
+          readSelectionIntent() ?? selectedId,
+        )?.focus();
         return;
       }
       const preview = previewRegionElement();
@@ -153,7 +158,8 @@ export function useLumenKeyboard({
       if (selectable.length === 0) {
         return;
       }
-      const currentIndex = selectable.findIndex((result) => result.id === selectedId);
+      const liveSelectedId = readSelectionIntent() ?? selectedId;
+      const currentIndex = selectable.findIndex((result) => result.id === liveSelectedId);
       const nextIndex = currentIndex < 0
         ? direction > 0 ? 0 : selectable.length - 1
         : Math.min(selectable.length - 1, Math.max(0, currentIndex + direction));
@@ -220,7 +226,8 @@ export function useLumenKeyboard({
         focusRegion('preview');
         return;
       }
-      if (event.key !== 'Enter' || !selectedId) {
+      const liveSelectedId = readSelectionIntent() ?? selectedId;
+      if (event.key !== 'Enter' || !liveSelectedId) {
         return;
       }
       if (isElement(event.target) && event.target.closest('button, [role="tab"]')) {

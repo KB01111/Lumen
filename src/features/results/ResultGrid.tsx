@@ -99,6 +99,23 @@ export function ResultGrid({
     gridRef.current?.setAttribute('aria-rowcount', String(results.length));
   }, [results.length]);
 
+  useLayoutEffect(() => {
+    const applySelection = (fileId: string | null) => {
+      for (const row of gridRef.current?.querySelectorAll<HTMLElement>('[data-result-id]') ?? []) {
+        const isSelected = row.dataset.resultId === fileId;
+        row.setAttribute('aria-selected', String(isSelected));
+        if (isSelected) row.setAttribute('data-selected', 'true');
+        else row.removeAttribute('data-selected');
+      }
+    };
+    const handlePreview = (event: Event) => {
+      applySelection((event as CustomEvent<string | null>).detail);
+    };
+    applySelection(selectedId);
+    window.addEventListener('lumen:selection-preview', handlePreview);
+    return () => window.removeEventListener('lumen:selection-preview', handlePreview);
+  }, [selectedId]);
+
   const handleSelectionChange = (selection: Selection) => {
     if (selection === 'all') {
       return;
@@ -138,7 +155,7 @@ export function ResultGrid({
           disabledKeys={disabledKeys}
           items={visibleResults}
           renderEmptyState={renderEmptyState}
-          selectedKeys={selectedKeys}
+          defaultSelectedKeys={selectedKeys}
           selectionBehavior="replace"
           selectionMode="single"
           style={{height: totalSize}}
@@ -171,7 +188,7 @@ export function ResultGrid({
           disabledKeys={disabledKeys}
           items={results}
           renderEmptyState={renderEmptyState}
-          selectedKeys={selectedKeys}
+          defaultSelectedKeys={selectedKeys}
           selectionBehavior="replace"
           selectionMode="single"
           onAction={handleAction}
