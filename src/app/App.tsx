@@ -152,10 +152,38 @@ const DiagnosticsOverlay = lazy(async () => {
   const module = await import('../features/diagnostics/DiagnosticsOverlay');
   return {default: module.DiagnosticsOverlay};
 });
+const VisualStateGallery = import.meta.env.DEV ? lazy(async () => {
+  const module = await import('../features/gallery/VisualStateGallery');
+  return {default: module.VisualStateGallery};
+}) : null;
 
 function isFoundationPreview() {
   return import.meta.env.DEV &&
     new URLSearchParams(window.location.search).get('mode') === 'foundation';
+}
+
+function isGalleryPreview() {
+  return import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get('gallery') === '1';
+}
+
+function galleryAppearance() {
+  const parameters = new URLSearchParams(window.location.search);
+  const scenario = parameters.get('scenario');
+  const theme = parameters.get('theme') ?? (
+    scenario === 'theme-light' ? 'light'
+      : scenario === 'theme-opaque' ? 'opaque'
+        : scenario === 'theme-high-contrast' ? 'high-contrast'
+          : scenario === 'theme-reduced-motion' ? 'reduced-motion'
+            : 'dark'
+  );
+  const appearance: AppearancePreferences = {
+    mode: theme === 'light' ? 'light' : 'dark',
+    transparency: theme === 'opaque' ? 'disabled' : 'native',
+    effects: theme === 'opaque' ? 'reduced' : 'full',
+    motion: theme === 'reduced-motion' ? 'reduced' : 'full',
+  };
+  return {appearance, forceHighContrast: theme === 'high-contrast'};
 }
 
 function getOnboardingMode() {
@@ -174,6 +202,8 @@ function getOnboardingMode() {
 
 export function App() {
   const foundationPreview = isFoundationPreview();
+  const galleryPreview = isGalleryPreview();
+  const galleryPresentation = galleryPreview ? galleryAppearance() : null;
   const onboardingMode = getOnboardingMode();
   const onboardingCompleted = useOnboardingStore((state) => state.completed);
   const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
@@ -201,16 +231,16 @@ export function App() {
   }, [foundationPreview]);
 
   useEffect(() => {
-    if (!foundationPreview && onboardingMode === 'persisted') {
+    if (!foundationPreview && !galleryPreview && onboardingMode === 'persisted') {
       void hydrateOnboarding();
     }
-  }, [foundationPreview, hydrateOnboarding, onboardingMode]);
+  }, [foundationPreview, galleryPreview, hydrateOnboarding, onboardingMode]);
 
   useEffect(() => {
-    if (!foundationPreview) {
+    if (!foundationPreview && !galleryPreview) {
       void hydrateSettings();
     }
-  }, [foundationPreview, hydrateSettings]);
+  }, [foundationPreview, galleryPreview, hydrateSettings]);
 
   const completeOnboarding = useCallback(() => {
     const root = useOnboardingStore.getState().root;
@@ -223,11 +253,11 @@ export function App() {
     }
   }, []);
 
-  const showOnboarding = !foundationPreview && (
+  const showOnboarding = !foundationPreview && !galleryPreview && (
     (onboardingMode === 'forced' && !onboardingCompleted) ||
     (onboardingMode === 'persisted' && onboardingHydrated && !onboardingCompleted)
   );
-  const onboardingPending = !foundationPreview &&
+  const onboardingPending = !foundationPreview && !galleryPreview &&
     onboardingMode === 'persisted' &&
     !onboardingHydrated;
 
@@ -240,12 +270,15 @@ export function App() {
 
   return (
     <AppProviders
-      appearance={foundationPreview
-        ? foundationAppearances[foundationAppearance]
-        : undefined}
+      appearance={galleryPresentation?.appearance ?? (
+        foundationPreview ? foundationAppearances[foundationAppearance] : undefined
+      )}
+      forceHighContrast={galleryPresentation?.forceHighContrast}
     >
       <main {...stylex.props(styles.stage)}>
-        {foundationPreview ? (
+        {galleryPreview && VisualStateGallery ? (
+          <Suspense fallback={null}><VisualStateGallery /></Suspense>
+        ) : foundationPreview ? (
           <LumenSurface
             aria-label="Lumen launcher"
             className={stylex.props(styles.shell).className}

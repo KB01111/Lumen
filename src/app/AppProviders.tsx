@@ -49,6 +49,7 @@ function useMediaPreference(query: string) {
 
 interface AppProvidersProps extends PropsWithChildren {
   appearance?: AppearancePreferences;
+  forceHighContrast?: boolean;
 }
 
 const recordCommit: ProfilerOnRenderCallback = (_id, _phase, actualDuration) => {
@@ -58,6 +59,7 @@ const recordCommit: ProfilerOnRenderCallback = (_id, _phase, actualDuration) => 
 export function AppProviders({
   children,
   appearance,
+  forceHighContrast = false,
 }: AppProvidersProps) {
   const storedMode = useAppearanceStore((state) => state.mode);
   const storedTransparency = useAppearanceStore((state) => state.transparency);
@@ -78,7 +80,7 @@ export function AppProviders({
   const systemReducedMotion = useMediaPreference('(prefers-reduced-motion: reduce)');
   const forcedColors = useMediaPreference('(forced-colors: active)');
   const prefersMoreContrast = useMediaPreference('(prefers-contrast: more)');
-  const highContrast = forcedColors || prefersMoreContrast;
+  const highContrast = forceHighContrast || forcedColors || prefersMoreContrast;
   const resolvedMode = resolvedAppearance.mode === 'system'
     ? systemDark
       ? 'dark'
