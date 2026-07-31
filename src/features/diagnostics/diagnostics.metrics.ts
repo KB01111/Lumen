@@ -5,7 +5,7 @@ const reactCommits: number[] = [];
 const longTasks: number[] = [];
 const logs: string[] = [];
 
-function trim<T>(items: T[], maximum = 40) {
+function trim<T>(items: T[], maximum = 160) {
   if (items.length > maximum) {
     items.splice(0, items.length - maximum);
   }

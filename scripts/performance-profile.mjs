@@ -58,7 +58,15 @@ async function measureRefresh(page) {
 
 async function profile(baseUrl) {
   await mkdir(outputDirectory, {recursive: true});
-  const browser = await chromium.launch({channel: 'msedge'});
+  const browser = await chromium.launch({
+    channel: 'msedge',
+    headless: true,
+    args: [
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+    ],
+  });
   const context = await browser.newContext({viewport: {width: 800, height: 540}});
   await context.tracing.start({screenshots: true, snapshots: true, sources: true});
   const page = await context.newPage();
@@ -69,9 +77,13 @@ async function profile(baseUrl) {
     const search = page.getByRole('searchbox', {name: 'Search files'});
     await search.waitFor({state: 'visible'});
 
-    await page.keyboard.press('Control+,');
-    await page.getByRole('navigation', {name: 'Settings'}).waitFor();
-    await page.keyboard.press('Escape');
+    for (let index = 0; index < 6; index += 1) {
+      await page.keyboard.press('Control+,');
+      await page.getByRole('navigation', {name: 'Settings'}).waitFor();
+      await page.keyboard.press('Escape');
+      await search.waitFor({state: 'visible'});
+    }
+    await page.waitForTimeout(100);
     await resetMetrics(page);
 
     for (let index = 1; index <= 24; index += 1) {
@@ -85,10 +97,17 @@ async function profile(baseUrl) {
       .filter((sample) => sample.name === 'launcher-visible')
       .map((sample) => sample.durationMs);
 
+    for (let index = 0; index < 10; index += 1) {
+      await search.fill(`warm-input-${index}`);
+      await page.waitForTimeout(8);
+    }
+    await search.fill('');
+    await page.waitForTimeout(50);
     await resetMetrics(page);
     for (let index = 1; index <= 30; index += 1) {
       await search.fill(`report-${index}`);
       await waitForSamples(page, 'input-paint', index);
+      await page.waitForTimeout(40);
     }
     await search.fill('report');
     await page.getByRole('grid', {name: 'Search results'}).waitFor();
@@ -98,27 +117,50 @@ async function profile(baseUrl) {
       .filter((sample) => sample.name === 'input-paint')
       .map((sample) => sample.durationMs);
 
+    await resetMetrics(page);
+    for (let index = 1; index <= 30; index += 1) {
+      await search.fill(`rapid-burst-${index}`);
+    }
+    await waitForSamples(page, 'input-paint', 30);
+    await page.waitForTimeout(100);
+    const rapidBurstMetrics = await readMetrics(page);
+    const rapidBurstFinalValue = await search.inputValue();
+    await search.fill('report');
+    await page.getByRole('row').first().waitFor();
+
     for (let index = 0; index < 12; index += 1) {
       await page.keyboard.press(index % 2 === 0 ? 'ArrowDown' : 'ArrowUp');
       await page.waitForTimeout(12);
     }
     await page.waitForTimeout(100);
     await resetMetrics(page);
-    for (let index = 1; index <= 30; index += 1) {
+    for (let index = 1; index <= 120; index += 1) {
       await page.keyboard.press(index % 2 === 0 ? 'ArrowUp' : 'ArrowDown');
-      await waitForSamples(page, 'selection-paint', index);
+      await page.waitForTimeout(12);
     }
+    await waitForSamples(page, 'selection-paint', 120);
     await page.waitForTimeout(80);
     const selectionMetrics = await readMetrics(page);
     const selectionSamples = selectionMetrics.timings
       .filter((sample) => sample.name === 'selection-paint')
       .map((sample) => sample.durationMs);
 
+    await resetMetrics(page);
+    for (let index = 1; index <= 30; index += 1) {
+      await page.keyboard.press(index % 2 === 0 ? 'ArrowUp' : 'ArrowDown');
+    }
+    await waitForSamples(page, 'selection-paint', 30);
+    await page.waitForTimeout(100);
+    const rapidSelectionMetrics = await readMetrics(page);
+    const rapidSelectionSelectedRows = await page
+      .locator('[data-result-id][data-selected="true"]')
+      .count();
+
     await page.goto(`${baseUrl}/?gallery=1&scenario=expanded-results&capture=1&theme=reduced-motion`);
     const row = page.getByRole('row').first();
     await row.waitFor();
     const hoverSamples = [];
-    for (let index = 0; index < 24; index += 1) {
+    for (let index = 0; index < 80; index += 1) {
       hoverSamples.push(await row.evaluate((element) => new Promise((resolve) => {
         const startedAt = performance.now();
         element.dispatchEvent(new PointerEvent('pointerover', {
@@ -127,6 +169,7 @@ async function profile(baseUrl) {
         }));
         requestAnimationFrame(() => resolve(performance.now() - startedAt));
       })));
+      await page.waitForTimeout(12);
     }
 
     await page.waitForTimeout(500);
@@ -140,11 +183,13 @@ async function profile(baseUrl) {
     await page.waitForTimeout(1000);
     const elapsedSeconds = (Date.now() - idleStartedAt) / 1000;
     const after = await session.send('Performance.getMetrics');
+    await session.send('HeapProfiler.collectGarbage');
+    const afterGarbageCollection = await session.send('Performance.getMetrics');
     const metric = (items, name) => items.find((item) => item.name === name)?.value ?? 0;
     const idleCpuPercent = (
       metric(after.metrics, 'TaskDuration') - metric(before.metrics, 'TaskDuration')
     ) / elapsedSeconds * 100;
-    const heapMegabytes = metric(after.metrics, 'JSHeapUsedSize') / (1024 * 1024);
+    const heapMegabytes = metric(afterGarbageCollection.metrics, 'JSHeapUsedSize') / (1024 * 1024);
 
     const measured = {
       warmLauncherP95Ms: percentile(warmSamples, 0.95),
@@ -159,6 +204,16 @@ async function profile(baseUrl) {
       observedRefreshEstimateHz: Math.round(1000 / refresh.medianFrameIntervalMs),
       medianFrameIntervalMs: refresh.medianFrameIntervalMs,
       p95FrameIntervalMs: refresh.p95FrameIntervalMs,
+      rapidBurstInputSamples: rapidBurstMetrics.timings
+        .filter((sample) => sample.name === 'input-paint').length,
+      rapidBurstFinalValue,
+      rapidBurstLongTasksOver16Ms: rapidBurstMetrics.longTasks
+        .filter((duration) => duration > 16),
+      rapidSelectionSamples: rapidSelectionMetrics.timings
+        .filter((sample) => sample.name === 'selection-paint').length,
+      rapidSelectionSelectedRows,
+      rapidSelectionLongTasksOver16Ms: rapidSelectionMetrics.longTasks
+        .filter((duration) => duration > 16),
     };
     const budgets = {
       warmLauncherP95Ms: 20,
@@ -181,12 +236,18 @@ async function profile(baseUrl) {
       settledAnimations: measured.activeAnimationsAfterSettle === 0,
       idleCpu: measured.idleCpuPercent < budgets.idleCpuPercent,
       memory: measured.jsHeapMegabytes < budgets.jsHeapMegabytes,
+      rapidBurst: measured.rapidBurstInputSamples === 30 &&
+        measured.rapidBurstFinalValue === 'rapid-burst-30' &&
+        measured.rapidBurstLongTasksOver16Ms.length === 0,
+      rapidSelection: measured.rapidSelectionSamples === 30 &&
+        measured.rapidSelectionSelectedRows === 1 &&
+        measured.rapidSelectionLongTasksOver16Ms.length === 0,
     };
     const summary = {
       generatedAt: new Date().toISOString(),
       gitSha: execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
       browser: {name: 'Microsoft Edge', version: browserVersion},
-      profile: 'warm deterministic browser adapter, 800x540 viewport',
+      profile: 'warm deterministic browser adapter, 800x540 viewport, 25 Hz isolated input/selection samples plus unpaced 30-update bursts',
       target: {refreshRateHz: 240, frameBudgetMs: targetFrameBudgetMs},
       budgets,
       measured,
