@@ -61,3 +61,13 @@
     scroll-behavior: auto;
   }
 }
+
+[data-transparency='disabled'] [data-material],
+[data-contrast='high'] [data-material] {
+  backdrop-filter: none !important;
+}
+
+[data-transparency='disabled'] [data-material] > [aria-hidden='true'],
+[data-contrast='high'] [data-material] > [aria-hidden='true'] {
+  display: none;
+}
