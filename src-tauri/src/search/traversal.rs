@@ -9,6 +9,17 @@ use super::types::{FileListResponse, FileRecord, SearchFailure, SearchWarning};
 const MAX_TRAVERSED_ITEMS: usize = 250_000;
 pub const MAX_RESPONSE_ITEMS: usize = 10_000;
 const MAX_WARNINGS: usize = 32;
+const GENERATED_DIRECTORIES: [&str; 9] = [
+    ".git",
+    ".next",
+    ".turbo",
+    "coverage",
+    "dist",
+    "node_modules",
+    "out",
+    "target",
+    "vendor",
+];
 
 pub struct TraversalOutcome {
     pub records: Vec<FileRecord>,
@@ -27,6 +38,16 @@ fn push_warning(warnings: &mut Vec<SearchWarning>, value: SearchWarning) {
     if warnings.len() < MAX_WARNINGS {
         warnings.push(value);
     }
+}
+
+fn is_generated_directory(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .is_some_and(|name| {
+            GENERATED_DIRECTORIES
+                .iter()
+                .any(|ignored| name.eq_ignore_ascii_case(ignored))
+        })
 }
 
 pub fn traverse(root: &Path) -> Result<TraversalOutcome, SearchFailure> {
@@ -102,6 +123,9 @@ pub fn traverse(root: &Path) -> Result<TraversalOutcome, SearchFailure> {
                 continue;
             }
             if file_type.is_dir() {
+                if is_generated_directory(&path) {
+                    continue;
+                }
                 match fs::canonicalize(&path) {
                     Ok(value) if value.starts_with(&root) => directories.push(value),
                     Ok(_) => continue,
@@ -173,5 +197,28 @@ mod tests {
         assert_eq!(first.items, second.items);
         assert!(names.contains(&"Årsrapport 東京.md"));
         assert_eq!(first.total, 4);
+    }
+
+    #[test]
+    fn traversal_skips_common_generated_directories() {
+        let fixture = SearchFixture::new("generated-directories");
+        fixture.file("package.json", b"{}");
+        fixture.file("node_modules/dependency/package.json", b"{}");
+        fixture.file("target/debug/generated.rs", b"");
+
+        let response = list_files_impl(fixture.root()).unwrap();
+        let relative_paths = response
+            .items
+            .iter()
+            .map(|item| item.relative_path.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(relative_paths.contains(&"package.json"));
+        assert!(
+            !relative_paths
+                .iter()
+                .any(|path| path.contains("node_modules"))
+        );
+        assert!(!relative_paths.iter().any(|path| path.contains("target")));
     }
 }

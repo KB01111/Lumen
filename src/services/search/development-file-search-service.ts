@@ -71,6 +71,34 @@ function normalizedPath(value: string) {
   return value.replace(/\\/g, '/').replace(/\/+$/, '').toLocaleLowerCase();
 }
 
+function displayPath(value: string) {
+  return value.replace(/^\\\\\?\\/, '');
+}
+
+function formatBytes(value: string) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes)) return value;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function presentPreview(preview: z.infer<typeof rustPreviewSchema>) {
+  const metadata = {...preview.metadata};
+  const modifiedMs = Number(metadata.Modified);
+  if (Number.isFinite(modifiedMs) && modifiedMs > 0) {
+    metadata.Modified = new Date(modifiedMs).toLocaleString();
+  }
+  if (metadata.Size) {
+    metadata.Size = formatBytes(metadata.Size);
+  }
+  return {
+    ...preview,
+    subtitle: displayPath(preview.subtitle),
+    metadata,
+  };
+}
+
 function stableFileId(root: string, relativePath: string) {
   return `local:${encodeURIComponent(`${normalizedPath(root)}\0${normalizedPath(relativePath)}`)}`;
 }
@@ -182,7 +210,7 @@ export class DevelopmentFileSearchService implements SearchService {
         return {
           id,
           name: item.name,
-          path: item.path,
+          path: displayPath(item.path),
           kind: item.kind,
           match: {
             source: 'filename' as const,
@@ -243,7 +271,7 @@ export class DevelopmentFileSearchService implements SearchService {
       }
       return filePreviewSchema.parse({
         fileId,
-        ...parsed.data,
+        ...presentPreview(parsed.data),
         text: parsed.data.text ?? undefined,
         sourceUrl: parsed.data.sourceUrl ?? undefined,
         mimeType: parsed.data.mimeType ?? undefined,

@@ -76,6 +76,41 @@ describe('DevelopmentFileSearchService', () => {
     expect(invoke).toHaveBeenCalledWith('open_containing_folder', {root: 'C:\\Projects', path: 'C:\\Projects\\Readme.md'});
   });
 
+  it('keeps canonical paths for native commands while presenting friendly Windows values', async () => {
+    const canonicalPath = '\\\\?\\C:\\Projects\\Readme.md';
+    const response = rustResponse();
+    response.items[0]!.path = canonicalPath;
+    const invoke = vi.fn(async (command: string) => {
+      if (command === 'search_filenames') return response;
+      if (command === 'get_basic_preview') return {
+        kind: 'markdown',
+        title: 'Readme.md',
+        subtitle: canonicalPath,
+        text: '# Readme',
+        sourceUrl: null,
+        mimeType: null,
+        children: [],
+        metadata: {Modified: '1786000000000', Size: '128', Type: 'MD'},
+      };
+      return undefined;
+    });
+    const service = new DevelopmentFileSearchService({getRoots: () => ['C:\\Projects'], invoke});
+    const search = await service.search(request);
+    const result = search.groups[0]?.items[0];
+
+    expect(result?.path).toBe('C:\\Projects\\Readme.md');
+    const preview = await service.getPreview(result?.id ?? '');
+    expect(preview.subtitle).toBe('C:\\Projects\\Readme.md');
+    expect(preview.metadata).toMatchObject({Size: '128 B', Type: 'MD'});
+    expect(preview.metadata?.Modified).not.toBe('1786000000000');
+
+    await service.openFile(result?.id ?? '');
+    expect(invoke).toHaveBeenCalledWith('open_file', {
+      root: 'C:\\Projects',
+      path: canonicalPath,
+    });
+  });
+
   it('returns the no-root state without invoking native traversal', async () => {
     const invoke = vi.fn();
     const service = new DevelopmentFileSearchService({getRoots: () => [], invoke});
