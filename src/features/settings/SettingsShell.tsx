@@ -50,7 +50,7 @@ const styles = stylex.create({
     minWidth: 0,
     minHeight: 0,
     display: 'grid',
-    gridTemplateColumns: 'minmax(176px, 224px) minmax(0, 1fr)',
+    gridTemplateColumns: 'minmax(176px, 260px) minmax(0, 1fr)',
   },
   rail: {
     minWidth: 0,

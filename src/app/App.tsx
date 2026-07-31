@@ -190,7 +190,7 @@ export function App() {
   }, [foundationPreview, hydrateOnboarding, onboardingMode]);
 
   const showOnboarding = !foundationPreview && (
-    onboardingMode === 'forced' ||
+    (onboardingMode === 'forced' && !onboardingCompleted) ||
     (onboardingMode === 'persisted' && onboardingHydrated && !onboardingCompleted)
   );
   const onboardingPending = !foundationPreview &&

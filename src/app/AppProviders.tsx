@@ -1,14 +1,14 @@
 import * as stylex from '@stylexjs/stylex';
 import type {PropsWithChildren, ProfilerOnRenderCallback} from 'react';
-import {Profiler, useEffect, useMemo, useSyncExternalStore} from 'react';
+import {Profiler, useEffect, useMemo, useRef, useSyncExternalStore} from 'react';
+import {UNSAFE_PortalProvider} from 'react-aria';
 import {LumenMotionProvider} from '../design-system/MotionProvider';
 import {
   darkTheme,
+  darkOpaqueMaterialTheme,
   highContrastTheme,
   lightTheme,
-  opaqueTheme,
-  reducedEffectsTheme,
-  reducedMotionTheme,
+  lightOpaqueMaterialTheme,
   type AppearancePreferences,
 } from '../design-system/themes.stylex';
 import {tokens} from '../design-system/tokens.stylex';
@@ -86,8 +86,8 @@ export function AppProviders({
     : resolvedAppearance.mode;
   const reducedMotion = resolvedAppearance.motion === 'reduced' ||
     (resolvedAppearance.motion === 'system' && systemReducedMotion);
-  const reducedEffects = resolvedAppearance.effects === 'reduced';
   const opaque = resolvedAppearance.transparency === 'disabled';
+  const portalContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (appearance === undefined) {
@@ -100,13 +100,18 @@ export function AppProviders({
   return (
     <LumenMotionProvider reducedMotion={reducedMotion}>
       <div
+        ref={portalContainerRef}
         {...stylex.props(
           styles.root,
-          resolvedMode === 'dark' ? darkTheme : lightTheme,
-          opaque && opaqueTheme,
-          highContrast && highContrastTheme,
-          reducedEffects && reducedEffectsTheme,
-          reducedMotion && reducedMotionTheme,
+          highContrast
+            ? highContrastTheme
+            : opaque
+              ? resolvedMode === 'dark'
+                ? darkOpaqueMaterialTheme
+                : lightOpaqueMaterialTheme
+              : resolvedMode === 'dark'
+                ? darkTheme
+                : lightTheme,
         )}
         role="application"
         aria-label="Lumen"
@@ -118,7 +123,9 @@ export function AppProviders({
         data-motion={resolvedAppearance.motion}
         data-reduced-motion={reducedMotion}
       >
-        <Profiler id="Lumen" onRender={recordCommit}>{children}</Profiler>
+        <UNSAFE_PortalProvider getContainer={() => portalContainerRef.current ?? document.body}>
+          <Profiler id="Lumen" onRender={recordCommit}>{children}</Profiler>
+        </UNSAFE_PortalProvider>
       </div>
     </LumenMotionProvider>
   );
