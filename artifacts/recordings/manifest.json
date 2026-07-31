@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-07-31T16:34:57.067Z",
+  "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823",
+  "browser": {
+    "name": "Microsoft Edge"
+  },
+  "viewport": {
+    "width": 1120,
+    "height": 760
+  },
+  "count": 4,
+  "recordings": [
+    {
+      "id": "launcher-search",
+      "file": "artifacts/recordings/launcher-search.webm",
+      "title": "Launcher search, selection, preview, scope, and open",
+      "flows": [
+        "launcher open",
+        "typing expansion",
+        "rapid keyboard selection",
+        "preview details",
+        "scope change",
+        "folder open confirmation",
+        "file open confirmation"
+      ],
+      "deterministicAdapter": true,
+      "audio": false,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "id": "settings-routing",
+      "file": "artifacts/recordings/settings-routing.webm",
+      "title": "Settings navigation and provider routes",
+      "flows": [
+        "settings navigation",
+        "appearance",
+        "local AI route",
+        "AgentGateway route",
+        "activity policy"
+      ],
+      "deterministicAdapter": true,
+      "audio": false,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "id": "onboarding",
+      "file": "artifacts/recordings/onboarding.webm",
+      "title": "Onboarding scene progression",
+      "flows": [
+        "welcome",
+        "privacy",
+        "root selection",
+        "shortcut",
+        "indexing",
+        "local AI",
+        "exact search",
+        "activity",
+        "completion"
+      ],
+      "deterministicAdapter": true,
+      "audio": false,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "id": "activity-provider-states",
+      "file": "artifacts/recordings/activity-provider-states.webm",
+      "title": "Gaming contraction and provider state routes",
+      "flows": [
+        "gaming pause contraction",
+        "fullscreen pause",
+        "Cinema mode",
+        "GPU provider",
+        "model ready",
+        "gateway ready"
+      ],
+      "deterministicAdapter": true,
+      "audio": false,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    }
+  ]
+}

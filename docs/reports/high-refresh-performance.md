@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-31  
 **Host:** Windows 11 build 26200, NVIDIA GeForce RTX 5070 Ti, 2560 × 1440 at 150 percent scale  
-**Display report:** Windows video controller reports 500 Hz; browser `requestAnimationFrame` measurements observed 250–256 Hz in repeatable isolated runs  
+**Display report:** Windows video controller reports 500 Hz; browser `requestAnimationFrame` measurements observed 250–476 Hz across isolated runs  
 **Browser:** Microsoft Edge 150 / Chromium WebView2 150  
 **Result:** Strict 240 Hz interaction budgets passed. Lumen does not claim a fixed 240 FPS output.
 
@@ -19,13 +19,13 @@ The normal E2E suite compares response p95 with the browser's observed p95 frame
 | Metric | Budget | Repeated isolated result |
 | --- | ---: | ---: |
 | Warm launcher visible p95 | < 20 ms | 5.8–6.3 ms |
-| Input to paint p95 | < 4.17 ms | 2.0–2.8 ms |
+| Input to paint p95 | < 4.17 ms | 2.0–3.8 ms |
 | Arrow selection to paint p95 | < 4.17 ms | 1.5–2.2 ms |
-| Hover to paint p95 | < 4.17 ms | 0.6–1.6 ms |
+| Hover to paint p95 | < 4.17 ms | 0.6–2.0 ms |
 | Ordinary React commit p95 | < 3 ms | 1.4–1.6 ms |
 | Repeated main-thread tasks | none > 16 ms | none |
 | Active animations after settle | 0 | 0 |
-| Idle UI CPU | < 2 percent | 0.15–0.57 percent |
+| Idle UI CPU | < 2 percent | 0.15–0.80 percent |
 | JavaScript heap after GC | < 100 MB | 46.9–47.1 MB |
 | Unpaced input/selection bursts | correct final state, no long task | passed |
 

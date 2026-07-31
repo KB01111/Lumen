@@ -1,0 +1,614 @@
+{
+  "generatedAt": "2026-07-31T16:34:17.594Z",
+  "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823",
+  "browser": {
+    "name": "Microsoft Edge",
+    "version": "150.0.4078.105"
+  },
+  "viewport": {
+    "width": 1120,
+    "height": 760
+  },
+  "count": 46,
+  "contactSheet": "artifacts/screenshots/contact-sheet.png",
+  "captures": [
+    {
+      "scenario": "collapsed-idle",
+      "label": "Collapsed · idle",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/collapsed-idle.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "collapsed-focused",
+      "label": "Collapsed · focused",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/collapsed-focused.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "collapsed-typing",
+      "label": "Collapsed · composing",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/collapsed-typing.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "expanded-results",
+      "label": "Expanded results",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/expanded-results.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "grouped-results",
+      "label": "Grouped results",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/grouped-results.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "selected-result",
+      "label": "Selected result",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/selected-result.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "preview-loading",
+      "label": "Preview · loading",
+      "category": "Preview",
+      "file": "artifacts/screenshots/preview-loading.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "preview-complete",
+      "label": "Preview · complete",
+      "category": "Preview",
+      "file": "artifacts/screenshots/preview-complete.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "preview-failed",
+      "label": "Preview · failed",
+      "category": "Preview",
+      "file": "artifacts/screenshots/preview-failed.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "empty-results",
+      "label": "Empty results",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/empty-results.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "no-indexed-root",
+      "label": "No indexed root",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/no-indexed-root.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "activity-indexing",
+      "label": "Activity · indexing",
+      "category": "Activity",
+      "file": "artifacts/screenshots/activity-indexing.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "activity-slow",
+      "label": "Activity · slow",
+      "category": "Activity",
+      "file": "artifacts/screenshots/activity-slow.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "activity-gaming",
+      "label": "Activity · gaming",
+      "category": "Activity",
+      "file": "artifacts/screenshots/activity-gaming.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "activity-fullscreen",
+      "label": "Activity · fullscreen",
+      "category": "Activity",
+      "file": "artifacts/screenshots/activity-fullscreen.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "activity-cinema",
+      "label": "Activity · cinema",
+      "category": "Activity",
+      "file": "artifacts/screenshots/activity-cinema.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "activity-idle",
+      "label": "Activity · idle",
+      "category": "Activity",
+      "file": "artifacts/screenshots/activity-idle.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "activity-battery",
+      "label": "Activity · battery",
+      "category": "Activity",
+      "file": "artifacts/screenshots/activity-battery.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "activity-user",
+      "label": "Activity · user",
+      "category": "Activity",
+      "file": "artifacts/screenshots/activity-user.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "provider-npu",
+      "label": "Provider · NPU",
+      "category": "Local AI",
+      "file": "artifacts/screenshots/provider-npu.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "provider-gpu",
+      "label": "Provider · GPU",
+      "category": "Local AI",
+      "file": "artifacts/screenshots/provider-gpu.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "provider-cpu",
+      "label": "Provider · CPU",
+      "category": "Local AI",
+      "file": "artifacts/screenshots/provider-cpu.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "provider-unavailable",
+      "label": "Provider · UNAVAILABLE",
+      "category": "Local AI",
+      "file": "artifacts/screenshots/provider-unavailable.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "model-missing",
+      "label": "Model · missing",
+      "category": "Local AI",
+      "file": "artifacts/screenshots/model-missing.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "model-downloading",
+      "label": "Model · downloading",
+      "category": "Local AI",
+      "file": "artifacts/screenshots/model-downloading.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "model-loading",
+      "label": "Model · loading",
+      "category": "Local AI",
+      "file": "artifacts/screenshots/model-loading.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "model-ready",
+      "label": "Model · ready",
+      "category": "Local AI",
+      "file": "artifacts/screenshots/model-ready.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "model-failed",
+      "label": "Model · failed",
+      "category": "Local AI",
+      "file": "artifacts/screenshots/model-failed.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "model-fallback-active",
+      "label": "Model · fallback-active",
+      "category": "Local AI",
+      "file": "artifacts/screenshots/model-fallback-active.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "gateway-starting",
+      "label": "Gateway · starting",
+      "category": "Gateway",
+      "file": "artifacts/screenshots/gateway-starting.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "gateway-ready",
+      "label": "Gateway · ready",
+      "category": "Gateway",
+      "file": "artifacts/screenshots/gateway-ready.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "gateway-unavailable",
+      "label": "Gateway · unavailable",
+      "category": "Gateway",
+      "file": "artifacts/screenshots/gateway-unavailable.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "gateway-restarting",
+      "label": "Gateway · restarting",
+      "category": "Gateway",
+      "file": "artifacts/screenshots/gateway-restarting.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "reranking-unavailable",
+      "label": "Reranking unavailable",
+      "category": "Resilience",
+      "file": "artifacts/screenshots/reranking-unavailable.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "permission-required",
+      "label": "Permission required",
+      "category": "Resilience",
+      "file": "artifacts/screenshots/permission-required.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "long-filename",
+      "label": "Long filename",
+      "category": "Resilience",
+      "file": "artifacts/screenshots/long-filename.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "unicode-filename",
+      "label": "Unicode filename",
+      "category": "Resilience",
+      "file": "artifacts/screenshots/unicode-filename.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "large-results",
+      "label": "10,000 results",
+      "category": "Resilience",
+      "file": "artifacts/screenshots/large-results.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "theme-light",
+      "label": "Theme · light",
+      "category": "Theme",
+      "file": "artifacts/screenshots/theme-light.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "light",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "theme-dark",
+      "label": "Theme · dark",
+      "category": "Theme",
+      "file": "artifacts/screenshots/theme-dark.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "theme-opaque",
+      "label": "Theme · opaque",
+      "category": "Theme",
+      "file": "artifacts/screenshots/theme-opaque.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "theme-high-contrast",
+      "label": "Theme · high contrast",
+      "category": "Theme",
+      "file": "artifacts/screenshots/theme-high-contrast.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "theme-reduced-motion",
+      "label": "Theme · reduced motion",
+      "category": "Theme",
+      "file": "artifacts/screenshots/theme-reduced-motion.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "settings-general",
+      "label": "Settings · General",
+      "category": "Management",
+      "file": "artifacts/screenshots/settings-general.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "settings-agent-gateway",
+      "label": "Settings · AgentGateway",
+      "category": "Management",
+      "file": "artifacts/screenshots/settings-agent-gateway.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    },
+    {
+      "scenario": "onboarding-welcome",
+      "label": "Onboarding · welcome",
+      "category": "Management",
+      "file": "artifacts/screenshots/onboarding-welcome.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+    }
+  ]
+}
