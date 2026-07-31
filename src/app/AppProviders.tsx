@@ -1,10 +1,9 @@
 import * as stylex from '@stylexjs/stylex';
 import {MotionConfig} from 'motion/react';
 import type {PropsWithChildren} from 'react';
-import {useSyncExternalStore} from 'react';
+import {useEffect, useMemo, useSyncExternalStore} from 'react';
 import {
   darkTheme,
-  defaultAppearance,
   highContrastTheme,
   lightTheme,
   opaqueTheme,
@@ -13,6 +12,7 @@ import {
   type AppearancePreferences,
 } from '../design-system/themes.stylex';
 import {tokens} from '../design-system/tokens.stylex';
+import {useAppearanceStore} from '../state/appearance.store';
 
 const styles = stylex.create({
   root: {
@@ -52,22 +52,43 @@ interface AppProvidersProps extends PropsWithChildren {
 
 export function AppProviders({
   children,
-  appearance = defaultAppearance,
+  appearance,
 }: AppProvidersProps) {
+  const storedMode = useAppearanceStore((state) => state.mode);
+  const storedTransparency = useAppearanceStore((state) => state.transparency);
+  const storedEffects = useAppearanceStore((state) => state.effects);
+  const storedMotion = useAppearanceStore((state) => state.motion);
+  const hydrateAppearance = useAppearanceStore((state) => state.hydrate);
+  const storedAppearance = useMemo<AppearancePreferences>(
+    () => ({
+      mode: storedMode,
+      transparency: storedTransparency,
+      effects: storedEffects,
+      motion: storedMotion,
+    }),
+    [storedEffects, storedMode, storedMotion, storedTransparency],
+  );
+  const resolvedAppearance = appearance ?? storedAppearance;
   const systemDark = useMediaPreference('(prefers-color-scheme: dark)');
   const systemReducedMotion = useMediaPreference('(prefers-reduced-motion: reduce)');
   const forcedColors = useMediaPreference('(forced-colors: active)');
   const prefersMoreContrast = useMediaPreference('(prefers-contrast: more)');
   const highContrast = forcedColors || prefersMoreContrast;
-  const resolvedMode = appearance.mode === 'system'
+  const resolvedMode = resolvedAppearance.mode === 'system'
     ? systemDark
       ? 'dark'
       : 'light'
-    : appearance.mode;
-  const reducedMotion = appearance.motion === 'reduced' ||
-    (appearance.motion === 'system' && systemReducedMotion);
-  const reducedEffects = appearance.effects === 'reduced';
-  const opaque = appearance.transparency === 'disabled';
+    : resolvedAppearance.mode;
+  const reducedMotion = resolvedAppearance.motion === 'reduced' ||
+    (resolvedAppearance.motion === 'system' && systemReducedMotion);
+  const reducedEffects = resolvedAppearance.effects === 'reduced';
+  const opaque = resolvedAppearance.transparency === 'disabled';
+
+  useEffect(() => {
+    if (appearance === undefined) {
+      void hydrateAppearance();
+    }
+  }, [appearance, hydrateAppearance]);
 
   return (
     <MotionConfig reducedMotion={reducedMotion ? 'always' : 'never'}>
@@ -82,12 +103,12 @@ export function AppProviders({
         )}
         role="application"
         aria-label="Lumen"
-        data-theme={appearance.mode}
+        data-theme={resolvedAppearance.mode}
         data-resolved-theme={resolvedMode}
-        data-transparency={appearance.transparency}
+        data-transparency={resolvedAppearance.transparency}
         data-contrast={highContrast ? 'high' : 'standard'}
-        data-effects={appearance.effects}
-        data-motion={appearance.motion}
+        data-effects={resolvedAppearance.effects}
+        data-motion={resolvedAppearance.motion}
       >
         {children}
       </div>
