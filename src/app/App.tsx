@@ -7,6 +7,7 @@ import {LumenSurface} from '../design-system/primitives/LumenSurface';
 import {LumenText} from '../design-system/primitives/LumenText';
 import type {AppearancePreferences} from '../design-system/themes.stylex';
 import {tokens} from '../design-system/tokens.stylex';
+import {CollapsedLauncher} from '../features/launcher/CollapsedLauncher';
 import {AppProviders} from './AppProviders';
 
 const styles = stylex.create({
@@ -141,42 +142,46 @@ export function App() {
         : undefined}
     >
       <main {...stylex.props(styles.stage)}>
-        <LumenSurface
-          aria-label="Lumen launcher"
-          className={stylex.props(styles.shell).className}
-          material="mica"
-        >
-          <div data-tauri-drag-region {...stylex.props(styles.launcher)}>
-            <span aria-hidden="true" {...stylex.props(styles.markWell)}>
-              <LumenMark
-                className={stylex.props(styles.mark).className}
-                size="large"
-              />
-            </span>
-            <span aria-hidden="true" {...stylex.props(styles.divider)} />
-            <div {...stylex.props(styles.prompt)}>
-              <LumenText
-                className={stylex.props(styles.promptText).className}
-                tone="secondary"
-                variant="bodyLarge"
-              >
-                Search apps, files, and settings
-              </LumenText>
-              <LumenText tone="tertiary" variant="caption">
-                Local
-              </LumenText>
+        {foundationPreview ? (
+          <LumenSurface
+            aria-label="Lumen launcher"
+            className={stylex.props(styles.shell).className}
+            material="mica"
+          >
+            <div data-tauri-drag-region {...stylex.props(styles.launcher)}>
+              <span aria-hidden="true" {...stylex.props(styles.markWell)}>
+                <LumenMark
+                  className={stylex.props(styles.mark).className}
+                  size="large"
+                />
+              </span>
+              <span aria-hidden="true" {...stylex.props(styles.divider)} />
+              <div {...stylex.props(styles.prompt)}>
+                <LumenText
+                  className={stylex.props(styles.promptText).className}
+                  tone="secondary"
+                  variant="bodyLarge"
+                >
+                  Search apps, files, and settings
+                </LumenText>
+                <LumenText tone="tertiary" variant="caption">
+                  Local
+                </LumenText>
+              </div>
+              <span aria-label="Local search ready" {...stylex.props(styles.status)}>
+                <span aria-hidden="true" {...stylex.props(styles.statusDot)} />
+                <LumenText tone="tertiary" variant="caption">
+                  Ready
+                </LumenText>
+              </span>
+              <kbd aria-label="Alt plus Space" {...stylex.props(styles.shortcut)}>
+                Alt&nbsp;&nbsp;Space
+              </kbd>
             </div>
-            <span aria-label="Local search ready" {...stylex.props(styles.status)}>
-              <span aria-hidden="true" {...stylex.props(styles.statusDot)} />
-              <LumenText tone="tertiary" variant="caption">
-                Ready
-              </LumenText>
-            </span>
-            <kbd aria-label="Alt plus Space" {...stylex.props(styles.shortcut)}>
-              Alt&nbsp;&nbsp;Space
-            </kbd>
-          </div>
-        </LumenSurface>
+          </LumenSurface>
+        ) : (
+          <CollapsedLauncher />
+        )}
       </main>
     </AppProviders>
   );

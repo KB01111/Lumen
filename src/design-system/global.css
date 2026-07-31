@@ -15,13 +15,19 @@
     margin: 0;
   }
 
-  button,
-  input,
-  select,
-  textarea {
-    color: inherit;
-    font: inherit;
-  }
+button,
+input,
+select,
+textarea {
+  color: inherit;
+  font: inherit;
+}
+
+input[type='search']::-webkit-search-cancel-button {
+  display: none;
+  appearance: none;
+}
+
 }
 
 @layer base {
@@ -47,6 +53,10 @@
   :focus-visible {
     outline: 2px solid Highlight;
     outline-offset: 2px;
+  }
+
+  input[type='search']:focus-visible {
+    outline: none;
   }
 }
 
