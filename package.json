@@ -11,6 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "profile": "node scripts/performance-profile.mjs",
+    "capture:gallery": "node scripts/capture-gallery.mjs",
+    "record:interactions": "node scripts/record-interactions.mjs",
     "preview": "vite preview",
     "tauri": "tauri"
   },
