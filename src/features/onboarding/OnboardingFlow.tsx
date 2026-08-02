@@ -162,7 +162,7 @@ export function OnboardingFlow({
   windowService = defaultWindowService,
   onComplete,
 }: OnboardingFlowProps) {
-  const {opacityDuration, reducedMotion} = useLumenMotion();
+  const {pageDuration, reducedMotion} = useLumenMotion();
   const currentIndex = useOnboardingStore((state) => state.currentIndex);
   const root = useOnboardingStore((state) => state.root);
   const shortcut = useOnboardingStore((state) => state.shortcut);
@@ -172,6 +172,7 @@ export function OnboardingFlow({
   const next = useOnboardingStore((state) => state.next);
   const setRoot = useOnboardingStore((state) => state.setRoot);
   const shellRef = useRef<HTMLDivElement>(null);
+  const directionRef = useRef<'forward' | 'backward'>('forward');
   const step = onboardingSteps[currentIndex] ?? 'welcome';
 
   useEffect(() => {
@@ -185,6 +186,7 @@ export function OnboardingFlow({
   }, [currentIndex]);
 
   const advance = () => {
+    directionRef.current = 'forward';
     if (currentIndex === 0) {
       begin();
       return;
@@ -199,10 +201,15 @@ export function OnboardingFlow({
     next();
   };
 
+  const goBack = () => {
+    directionRef.current = 'backward';
+    back();
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape' && currentIndex > 0) {
       event.preventDefault();
-      back();
+      goBack();
     }
   };
 
@@ -233,16 +240,30 @@ export function OnboardingFlow({
         </div>
       </header>
       <div {...stylex.props(styles.sceneViewport)}>
-        <AnimatePresence initial={false} mode="wait">
+        <AnimatePresence custom={directionRef.current} initial={false} mode="wait">
           <motion.div
             key={step}
             data-motion-direction={reducedMotion ? 'fade' : 'spatial'}
             data-testid="onboarding-scene"
             {...stylex.props(styles.sceneMotion)}
-            initial={reducedMotion ? {opacity: 0} : {opacity: 0, x: 18}}
-            animate={{opacity: 1, x: 0}}
-            exit={reducedMotion ? {opacity: 0} : {opacity: 0, x: -14}}
-            transition={{duration: opacityDuration}}
+            animate="center"
+            custom={directionRef.current}
+            exit="exit"
+            initial="enter"
+            transition={{duration: pageDuration}}
+            variants={{
+              enter: (direction: 'forward' | 'backward') => (
+                reducedMotion
+                  ? {opacity: 0}
+                  : {opacity: 0, x: direction === 'forward' ? 18 : -18}
+              ),
+              center: {opacity: 1, x: 0},
+              exit: (direction: 'forward' | 'backward') => (
+                reducedMotion
+                  ? {opacity: 0}
+                  : {opacity: 0, x: direction === 'forward' ? -14 : 14}
+              ),
+            }}
           >
             {step === 'root' ? (
               <RootSelectionScene root={root} service={rootService} onRoot={setRoot} />
@@ -256,7 +277,7 @@ export function OnboardingFlow({
       </div>
       <footer {...stylex.props(styles.footer)}>
         {currentIndex > 0 ? (
-          <LumenButton size="medium" variant="quiet" onPress={back}>Back</LumenButton>
+          <LumenButton size="medium" variant="quiet" onPress={goBack}>Back</LumenButton>
         ) : <span aria-hidden="true" {...stylex.props(styles.footerSpacer)} />}
         <LumenButton
           data-onboarding-primary="true"

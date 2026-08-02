@@ -7,12 +7,14 @@ import {motionTokens} from './motion';
 export interface LumenMotionContextValue {
   reducedMotion: boolean;
   opacityDuration: number;
+  pageDuration: number;
   layoutTransition: typeof motionTokens.selectionSpring | {duration: number};
 }
 
 const defaultMotion: LumenMotionContextValue = {
   reducedMotion: false,
   opacityDuration: motionTokens.duration.preview,
+  pageDuration: motionTokens.duration.page,
   layoutTransition: motionTokens.selectionSpring,
 };
 
@@ -28,6 +30,9 @@ export function LumenMotionProvider({
       opacityDuration: reducedMotion
         ? motionTokens.reduced.opacityDuration
         : motionTokens.duration.preview,
+      pageDuration: reducedMotion
+        ? motionTokens.reduced.opacityDuration
+        : motionTokens.duration.page,
       layoutTransition: reducedMotion
         ? {duration: motionTokens.reduced.layoutDuration}
         : motionTokens.selectionSpring,

@@ -2,7 +2,9 @@ import {useLayoutEffect, useMemo, useRef} from 'react';
 import {GridList, type Key, type Selection} from 'react-aria-components';
 
 import * as stylex from '@stylexjs/stylex';
+import {motion} from 'motion/react';
 
+import {motionTokens} from '../../design-system/motion';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
 import type {SearchResult} from '../../services/search/search.types';
@@ -45,6 +47,7 @@ interface VirtualResult {
 }
 
 export interface ResultGridProps {
+  animateRows?: boolean;
   emptyLabel?: string;
   openingId?: string | null;
   results: readonly SearchResult[];
@@ -56,6 +59,7 @@ export interface ResultGridProps {
 }
 
 export function ResultGrid({
+  animateRows = false,
   emptyLabel = 'No files found',
   openingId = null,
   results,
@@ -94,6 +98,11 @@ export function ResultGrid({
     }),
     [results, virtualItems],
   );
+  // Non-virtualized entries carry their index so the entrance cascade can stagger.
+  const plainEntries = useMemo(
+    () => results.map((result, index) => ({id: result.id, index, result})),
+    [results],
+  );
 
   useLayoutEffect(() => {
     gridRef.current?.setAttribute('aria-rowcount', String(results.length));
@@ -128,11 +137,16 @@ export function ResultGrid({
     : undefined;
 
   const renderEmptyState = () => (
-    <div {...stylex.props(styles.empty)}>
+    <motion.div
+      {...stylex.props(styles.empty)}
+      animate={{opacity: 1}}
+      initial={reducedMotion ? false : {opacity: 0}}
+      transition={{duration: motionTokens.duration.selection}}
+    >
       <LumenText tone="secondary" variant="bodyLarge">
         {emptyLabel}
       </LumenText>
-    </div>
+    </motion.div>
   );
 
   return (
@@ -186,7 +200,7 @@ export function ResultGrid({
           aria-rowcount={results.length}
           className={stylex.props(styles.grid).className}
           disabledKeys={disabledKeys}
-          items={results}
+          items={plainEntries}
           renderEmptyState={renderEmptyState}
           defaultSelectedKeys={selectedKeys}
           selectionBehavior="replace"
@@ -194,10 +208,13 @@ export function ResultGrid({
           onAction={handleAction}
           onSelectionChange={handleSelectionChange}
         >
-          {(result) => (
+          {(entry) => (
             <ResultRow
-              isOpening={result.id === openingId}
-              result={result}
+              animateEntrance={animateRows}
+              entranceIndex={entry.index}
+              isOpening={entry.result.id === openingId}
+              reducedMotion={reducedMotion}
+              result={entry.result}
               totalCount={results.length}
             />
           )}
