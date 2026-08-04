@@ -255,6 +255,7 @@ export function SearchExperience({
           />
         )}
         inputRef={inputRef}
+        searching={controller.lifecycle === 'searching'}
         statusLabel={statusLabel(controller.lifecycle, controller.results.length)}
         windowService={windowService}
       />

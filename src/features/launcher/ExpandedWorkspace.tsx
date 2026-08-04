@@ -1,4 +1,4 @@
-import {Suspense, useEffect, useState} from 'react';
+import {Suspense, useEffect, useRef, useState} from 'react';
 
 import * as stylex from '@stylexjs/stylex';
 import {motion} from 'motion/react';
@@ -126,9 +126,18 @@ function SelectionBoundResults({
   const selectedId = results.some((item) => item.id === requestedSelectedId)
     ? requestedSelectedId
     : results.find((item) => (item.availability ?? 'available') === 'available')?.id ?? null;
+  // Count result-set generations: the first set arrives together with the
+  // workspace reveal, so the row cascade only plays on refinements.
+  const generation = useRef(0);
+  const previousResults = useRef(results);
+  if (previousResults.current !== results) {
+    previousResults.current = results;
+    generation.current += 1;
+  }
   return (
     <ResultGrid
       key={`${results[0]?.id ?? 'empty'}-${results.length}`}
+      animateRows={generation.current > 1}
       emptyLabel={emptyState}
       maxHeight={338}
       openingId={openingId}

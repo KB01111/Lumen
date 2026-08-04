@@ -108,7 +108,7 @@ function defaultPageContent(page: SettingsPageId) {
 }
 
 export function SettingsShell({onClose, pages}: SettingsShellProps) {
-  const {opacityDuration, reducedMotion} = useLumenMotion();
+  const {pageDuration, reducedMotion} = useLumenMotion();
   const activePage = useSettingsStore((state) => state.activePage);
   const hydrate = useSettingsStore((state) => state.hydrate);
   const setActivePage = useSettingsStore((state) => state.setActivePage);
@@ -178,7 +178,7 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
               initial={{opacity: 0, x: reducedMotion ? 0 : 10}}
               animate={{opacity: 1, x: 0}}
               exit={{opacity: 0, x: reducedMotion ? 0 : -8}}
-              transition={{duration: opacityDuration}}
+              transition={{duration: pageDuration}}
             >
               <div {...stylex.props(styles.heading)}>
                 <LumenText as="h1" variant="title">{page.label}</LumenText>

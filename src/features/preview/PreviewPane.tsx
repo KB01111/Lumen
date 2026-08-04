@@ -8,6 +8,7 @@ import {AnimatePresence, motion} from 'motion/react';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
+import {motionTokens} from '../../design-system/motion';
 import {tokens} from '../../design-system/tokens.stylex';
 import type {SearchService} from '../../services/search/search-service';
 import type {SearchError} from '../../services/search/search.types';
@@ -231,7 +232,7 @@ function PreviewFrame({
             initial={reducedMotion ? false : {opacity: 0, x: 8}}
             animate={{opacity: 1, x: 0}}
             exit={reducedMotion ? undefined : {opacity: 0, x: -6}}
-            transition={{duration: reducedMotion ? 0 : 0.16}}
+            transition={{duration: reducedMotion ? 0 : motionTokens.duration.preview}}
           >
             <PreviewState controller={controller} reducedMotion={reducedMotion} />
           </motion.div>
@@ -279,10 +280,10 @@ export function PreviewPane({
     <ModalOverlay
       isDismissable
       isOpen={isOpen}
-      className={stylex.props(styles.overlay).className}
+      className={`${stylex.props(styles.overlay).className ?? ''} lumen-preview-overlay`}
       onOpenChange={onOpenChange}
     >
-      <Modal className={stylex.props(styles.modal).className}>
+      <Modal className={`${stylex.props(styles.modal).className ?? ''} lumen-preview-modal`}>
         <Dialog aria-label="File details" className={stylex.props(styles.dialog).className}>
           <LumenSurface className={stylex.props(styles.dialogSurface).className} material="raised">
             <PreviewFrame

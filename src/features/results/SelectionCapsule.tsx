@@ -1,4 +1,4 @@
-import {useLayoutEffect, type RefObject} from 'react';
+import {useLayoutEffect, useRef, type RefObject} from 'react';
 
 import * as stylex from '@stylexjs/stylex';
 import {motion, useMotionValue, useSpring} from 'motion/react';
@@ -39,6 +39,9 @@ export function SelectionCapsule({
   const springY = useSpring(targetY, motionTokens.selectionSpring);
   const height = useMotionValue(comfortableResultHeight);
   const opacity = useMotionValue(0);
+  // The capsule snaps to its first measured position so it appears directly
+  // on the selected row; the spring only drives subsequent selection moves.
+  const hasPositioned = useRef(false);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -52,10 +55,15 @@ export function SelectionCapsule({
         : null;
       if (!container || !selected) {
         opacity.set(0);
+        hasPositioned.current = false;
         return;
       }
 
       const measure = () => {
+        if (!hasPositioned.current) {
+          hasPositioned.current = true;
+          springY.jump(selected.offsetTop);
+        }
         targetY.set(selected.offsetTop);
         height.set(selected.offsetHeight || comfortableResultHeight);
         opacity.set(1);
@@ -75,7 +83,7 @@ export function SelectionCapsule({
       observer?.disconnect();
       window.removeEventListener('lumen:selection-preview', handlePreview);
     };
-  }, [containerRef, height, opacity, selectedId, targetY]);
+  }, [containerRef, height, opacity, selectedId, springY, targetY]);
 
   return (
     <motion.div

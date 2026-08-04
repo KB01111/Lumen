@@ -13,11 +13,21 @@ export const motionTokens = {
     standard: [0.2, 0.8, 0.2, 1] as const,
     exit: [0.4, 0, 1, 1] as const,
   },
+  // Shared by the result capsule and scope indicator. Slightly underdamped
+  // (damping ratio ≈ 0.96) so selection lands with a quiet, tactile snap.
   selectionSpring: {
     type: 'spring' as const,
-    stiffness: 520,
-    damping: 44,
-    mass: 0.72,
+    stiffness: 560,
+    damping: 38,
+    mass: 0.7,
+  },
+  // Result-set entrance cascade. WAAPI opacity fades staggered per row;
+  // capped so long lists finish quickly and never stagger during scroll.
+  rowEntrance: {
+    duration: 0.14,
+    stagger: 0.014,
+    maxStaggered: 8,
+    reducedDuration: 0.08,
   },
   reduced: {
     layoutDuration: 0,

@@ -8,28 +8,33 @@ Lumen uses motion to preserve spatial continuity and confirm actions. It does no
 | --- | ---: | --- |
 | Hover | 90 ms | Color, border, and quiet luminosity response |
 | Press | 72 ms | Tactile control and result-open confirmation |
-| Selection | 120 ms | Non-spring selection color changes |
-| Launcher open | 160 ms | Internal opacity and slight upward settle |
-| Launcher close | 120 ms | Internal exit opacity |
-| Launcher expansion | 190 ms | Internal region reveal after the native resize request |
+| Selection | 120 ms | Non-spring selection color changes, filter-chip and empty-state fades |
+| Launcher open | 160 ms | Internal opacity and slight upward settle; details-overlay fade-in |
+| Launcher close | 120 ms | Internal exit opacity; details-overlay and dialog exit |
+| Launcher expansion | 190 ms | Internal region reveal after the native resize request; details-dialog content entry |
 | Preview | 160 ms | Preview content replacement and details entry |
 | Page | 210 ms | Onboarding and management-page movement |
 
-The standard easing curve is `cubic-bezier(0.2, 0.8, 0.2, 1)`. Exits use `cubic-bezier(0.4, 0, 1, 1)`. Moving selection and scope geometry uses one shared spring:
+The standard easing curve is `cubic-bezier(0.2, 0.8, 0.2, 1)`. Exits use `cubic-bezier(0.4, 0, 1, 1)`. Moving selection and scope geometry uses one shared spring (damping ratio ≈ 0.96: a quiet, tactile snap without visible overshoot):
 
 ```text
 type: spring
-stiffness: 520
-damping: 44
-mass: 0.72
+stiffness: 560
+damping: 38
+mass: 0.7
 ```
 
 ## Spatial rules
 
 - The search input remains anchored while the workspace appears beneath it.
 - The active scope indicator uses the shared `lumen-scope-indicator` layout identity.
-- The result capsule uses the shared `lumen-result-selection` layout identity and measures only the selected mounted row.
+- The result capsule uses the shared `lumen-result-selection` layout identity and measures only the selected mounted row. The capsule snaps to its first measured position so it appears directly on the selected row; the spring drives only subsequent selection moves.
+- When a refined result set replaces the current one, rows fade in through a short WAAPI cascade (140 ms, 14 ms stagger, capped at eight rows, opacity only). The first result set never cascades—it arrives together with the workspace reveal—nor do virtualized grids, so scrolling can never replay the effect.
 - Preview changes use short opacity and horizontal transforms; stale preview requests are aborted and cannot animate back into view.
+- Preview loading shows a static skeleton crossed by one transform-based shimmer sweep; the sweep never renders under reduced motion.
+- The details dialog (React Aria `ModalOverlay`/`Modal`) animates through CSS keyframes in `global.css` driven by the `data-entering`/`data-exiting` attributes, because keyframes cannot be expressed in StyleX: the overlay fades (160/120 ms) while the dialog rises and settles from a slight scale (190 ms in, 120 ms out). React Aria waits for these animations before unmounting.
+- Onboarding scenes slide in the direction of travel: forward moves enter from the right and exit left, backward moves the reverse, resolved through `AnimatePresence custom` so exits use the latest direction.
+- The launcher status dot pulses only while a search is actively running; it is static in every idle, ready, or paused state.
 - Opening a file briefly confirms the selected row before the window is hidden.
 - Large lists use compositor transforms from TanStack Virtual. React state is never updated per animation frame.
 
@@ -37,6 +42,8 @@ mass: 0.72
 
 Windows and application preferences resolve into one motion setting. Reduced motion makes layout movement immediate and retains at most an 80 ms opacity transition so state changes remain legible. Persistent loading shimmer is disabled. The same geometry, focus order, announcements, and action timing remain available.
 
+Reduced motion is enforced on three levels: `MotionConfig reducedMotion="always"` plus explicit flags for Motion components, a global CSS rule (`[data-reduced-motion='true']`) that collapses every CSS animation and transition to 1 ms—including the dialog keyframes—and token-driven durations that components read through `useLumenMotion()`.
+
 ## Performance constraints
 
-Only `opacity` and `transform` are used for continuous visual movement. Blur and noise are static material properties, pointer movement is not bound to React renders, and no idle animation loop is allowed. Performance reports must name the tested hardware, display refresh rate, and measurement method; Lumen does not claim a fixed 240 FPS result without measurement.
+Only `opacity` and `transform` are used for continuous visual movement. Blur and noise are static material properties, pointer movement is not bound to React renders, and no idle animation loop is allowed (the searching pulse and loading shimmer run only while work is actually in flight). Performance reports must name the tested hardware, display refresh rate, and measurement method; Lumen does not claim a fixed 240 FPS result without measurement.

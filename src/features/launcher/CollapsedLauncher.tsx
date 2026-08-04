@@ -95,6 +95,7 @@ const styles = stylex.create({
 export interface CollapsedLauncherProps {
   expandedContent?: ReactNode;
   inputRef?: RefObject<HTMLInputElement | null>;
+  searching?: boolean;
   statusLabel?: string;
   windowService?: WindowService;
   onVoiceRequest?: () => void;
@@ -103,6 +104,7 @@ export interface CollapsedLauncherProps {
 export function CollapsedLauncher({
   expandedContent,
   inputRef: providedInputRef,
+  searching = false,
   statusLabel,
   windowService = defaultWindowService,
   onVoiceRequest,
@@ -164,7 +166,7 @@ export function CollapsedLauncher({
               <MicrophoneIcon aria-hidden="true" size={15} />
             </LumenIconButton>
           ) : null}
-          <LauncherStatus label={statusLabel} />
+          <LauncherStatus label={statusLabel} searching={searching} />
           <kbd aria-label="Alt plus Space" {...stylex.props(styles.shortcut)}>
             Alt&nbsp;&nbsp;Space
           </kbd>

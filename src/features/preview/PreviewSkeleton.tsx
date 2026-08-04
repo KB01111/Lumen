@@ -5,11 +5,13 @@ import {tokens} from '../../design-system/tokens.stylex';
 
 const styles = stylex.create({
   root: {
+    position: 'relative',
     minHeight: '280px',
     display: 'grid',
     alignContent: 'start',
     gap: tokens.space8,
     padding: tokens.space12,
+    overflow: 'hidden',
   },
   block: {
     height: '12px',
@@ -29,22 +31,33 @@ const styles = stylex.create({
     borderWidth: '1px',
     borderRadius: tokens.radiusMedium,
   },
+  sweep: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: '35%',
+    pointerEvents: 'none',
+    backgroundImage: `linear-gradient(100deg, transparent 0%, ${tokens.colorLuminosity} 50%, transparent 100%)`,
+  },
 });
 
 export function PreviewSkeleton({reducedMotion = false}: {reducedMotion?: boolean}) {
   return (
-    <motion.div
-      aria-label="Loading preview"
-      role="status"
-      {...stylex.props(styles.root)}
-      animate={reducedMotion ? undefined : {opacity: [0.55, 1, 0.55]}}
-      transition={reducedMotion ? undefined : {duration: 1.4, repeat: Infinity}}
-    >
+    <div aria-label="Loading preview" role="status" {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.preview)} />
       <div {...stylex.props(styles.block, styles.title)} />
       <div {...stylex.props(styles.block, styles.medium)} />
       <div {...stylex.props(styles.block)} />
       <div {...stylex.props(styles.block, styles.short)} />
-    </motion.div>
+      {reducedMotion ? null : (
+        <motion.span
+          aria-hidden="true"
+          {...stylex.props(styles.sweep)}
+          animate={{x: ['-110%', '310%']}}
+          transition={{duration: 1.4, ease: 'easeInOut', repeat: Infinity}}
+        />
+      )}
+    </div>
   );
 }

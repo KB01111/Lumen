@@ -1,6 +1,9 @@
 import {XIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
+import {AnimatePresence, motion} from 'motion/react';
 
+import {motionTokens} from '../../design-system/motion';
+import {useLumenMotion} from '../../design-system/MotionProvider';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -23,6 +26,9 @@ const styles = stylex.create({
   label: {flexShrink: 0, paddingInline: tokens.space2},
   chip: {
     flexShrink: 0,
+    display: 'inline-flex',
+  },
+  chipButton: {
     borderRadius: tokens.radiusRound,
   },
   clear: {
@@ -38,38 +44,60 @@ export interface FilterChipsProps {
 }
 
 export function FilterChips({filters, onClear, onRemove}: FilterChipsProps) {
-  if (filters.length === 0) {
-    return null;
-  }
+  const {reducedMotion} = useLumenMotion();
+  const duration = motionTokens.duration.selection;
 
   return (
-    <div aria-label="Active filters" {...stylex.props(styles.root)}>
-      <LumenText className={stylex.props(styles.label).className} tone="tertiary" variant="caption">
-        Filtered by
-      </LumenText>
-      {filters.map((filter) => (
-        <LumenButton
-          key={filter.id}
-          aria-label={`Remove ${filter.label} filter`}
-          className={stylex.props(styles.chip).className}
-          size="small"
-          variant="subtle"
-          onPress={() => onRemove(filter)}
+    <AnimatePresence initial={false}>
+      {filters.length > 0 ? (
+        <motion.div
+          key="active-filters"
+          aria-label="Active filters"
+          {...stylex.props(styles.root)}
+          animate={{opacity: 1, y: 0}}
+          exit={reducedMotion ? {opacity: 0} : {opacity: 0, y: -4}}
+          initial={reducedMotion ? {opacity: 0} : {opacity: 0, y: -6}}
+          transition={{duration}}
         >
-          {filter.label}
-          <XIcon aria-hidden="true" size={12} weight="bold" />
-        </LumenButton>
-      ))}
-      {filters.length > 1 ? (
-        <LumenButton
-          className={stylex.props(styles.clear).className}
-          size="small"
-          variant="quiet"
-          onPress={onClear}
-        >
-          Clear all
-        </LumenButton>
+          <LumenText className={stylex.props(styles.label).className} tone="tertiary" variant="caption">
+            Filtered by
+          </LumenText>
+          <AnimatePresence initial={false} mode="popLayout">
+            {filters.map((filter) => (
+              <motion.span
+                key={filter.id}
+                layout
+                {...stylex.props(styles.chip)}
+                animate={{opacity: 1, scale: 1}}
+                exit={reducedMotion ? {opacity: 0} : {opacity: 0, scale: 0.94}}
+                initial={reducedMotion ? {opacity: 0} : {opacity: 0, scale: 0.94}}
+                transition={{duration}}
+              >
+                <LumenButton
+                  aria-label={`Remove ${filter.label} filter`}
+                  className={stylex.props(styles.chipButton).className}
+                  size="small"
+                  variant="subtle"
+                  onPress={() => onRemove(filter)}
+                >
+                  {filter.label}
+                  <XIcon aria-hidden="true" size={12} weight="bold" />
+                </LumenButton>
+              </motion.span>
+            ))}
+          </AnimatePresence>
+          {filters.length > 1 ? (
+            <LumenButton
+              className={stylex.props(styles.clear).className}
+              size="small"
+              variant="quiet"
+              onPress={onClear}
+            >
+              Clear all
+            </LumenButton>
+          ) : null}
+        </motion.div>
       ) : null}
-    </div>
+    </AnimatePresence>
   );
 }
