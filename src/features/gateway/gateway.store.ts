@@ -22,7 +22,6 @@ interface GatewayData {
   routes: ProviderRoute[];
   mcpServices: McpService[];
   permissions: ToolPermission[];
-  cloudConsent: boolean;
   actionMessage: string;
 }
 
@@ -31,7 +30,6 @@ interface GatewayActions {
   setLocalAi(model: Partial<LocalAiViewModel>): void;
   setRouteProvider(routeId: string, providerId: string): void;
   setPermission(id: string, access: ToolAccess): void;
-  grantCloudConsent(): void;
   restart(): Promise<void>;
   testProvider(routeId: string): Promise<void>;
   testMcp(id: string): Promise<void>;
@@ -59,7 +57,6 @@ const initialGatewayData: GatewayData = {
     {id: 'open-files', label: 'Open files', description: 'Ask before a provider opens a selected file.', access: 'ask'},
     {id: 'network', label: 'Network access', description: 'Block tools from reaching network resources.', access: 'deny'},
   ],
-  cloudConsent: false,
   actionMessage: '',
 };
 
@@ -93,7 +90,6 @@ export const useGatewayStore = create<GatewayStore>()(
     setPermission: (id, access) => set((state) => ({
       permissions: state.permissions.map((permission) => permission.id === id ? {...permission, access} : permission),
     })),
-    grantCloudConsent: () => set({cloudConsent: true, actionMessage: 'Cloud provider consent recorded.'}),
     restart: async () => {
       set({gatewayState: 'restarting', actionMessage: 'Restarting AgentGateway preview…'});
       await Promise.resolve();

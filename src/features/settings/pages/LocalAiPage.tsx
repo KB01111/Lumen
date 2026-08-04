@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 
 import {ArrowClockwiseIcon, CpuIcon, DownloadSimpleIcon, GraphicsCardIcon, WarningCircleIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
@@ -92,7 +92,7 @@ export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' 
   const updateAi = useSettingsStore((state) => state.updateAi);
   const [nativeHealth, setNativeHealth] = useState<LocalRuntimeHealth>();
   const [nativeError, setNativeError] = useState('');
-  const refreshNative = async () => {
+  const refreshNative = useCallback(async () => {
     if (!isNativeRuntime() || model) return;
     try {
       setNativeHealth(await nativeAiService.localRuntimeHealth());
@@ -100,10 +100,10 @@ export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' 
     } catch (error) {
       setNativeError(error instanceof Error ? error.message : String(error));
     }
-  };
+  }, [model]);
   useEffect(() => {
     void refreshNative();
-  }, []);
+  }, [refreshNative]);
   const nativeHardware: HardwareState | undefined = nativeHealth?.profile === 'laptop-amd-npu'
     ? 'npu'
     : nativeHealth?.profile === 'desktop-nvidia-cuda' ? 'gpu' : nativeHealth ? 'cpu' : undefined;

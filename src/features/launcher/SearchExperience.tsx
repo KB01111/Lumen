@@ -92,6 +92,7 @@ export function SearchExperience({
 }: SearchExperienceProps) {
   const controller = useSearchController(service);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
+  const cloudAnswerConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
   const updateAi = useSettingsStore((state) => state.updateAi);
   const answerStopRef = useRef<() => void>(() => undefined);
   const supersedeAnswer = useCallback(() => answerStopRef.current(), []);
@@ -99,6 +100,7 @@ export function SearchExperience({
   const answer = useAnswerController(answerService, {
     delayMs: 0,
     mode: runtimeMode,
+    cloudConsent: cloudAnswerConsent,
     query: answerRequest.query,
     restartKey: answerRequest.revision,
   });

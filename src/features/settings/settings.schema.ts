@@ -38,6 +38,7 @@ export type ApplicationOverride = z.infer<typeof applicationOverrideSchema>;
 const defaultAiSettings = {
   runtimeMode: 'auto' as const,
   keepLocalWarm: false,
+  cloudAnswerConsent: false,
   cloudEnrichedRootIds: [] as string[],
 };
 
@@ -75,6 +76,7 @@ export const settingsSchema = z.object({
   ai: z.object({
     runtimeMode: z.enum(['auto', 'local', 'cloud']),
     keepLocalWarm: z.boolean(),
+    cloudAnswerConsent: z.boolean().default(false),
     cloudEnrichedRootIds: z.array(z.string().min(1)),
   }).default(defaultAiSettings),
   activity: z.object({

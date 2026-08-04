@@ -4,6 +4,7 @@ export interface AnswerRequest {
   requestId: number;
   query: string;
   mode: RuntimeMode;
+  cloudConsent: boolean;
 }
 
 export interface AnswerCitation {

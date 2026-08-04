@@ -29,6 +29,7 @@ export interface AnswerController extends AnswerState {
 interface AnswerControllerOptions {
   query: string;
   mode: RuntimeMode;
+  cloudConsent?: boolean;
   delayMs?: number;
   restartKey?: number;
 }
@@ -70,7 +71,7 @@ function applyEvent(state: AnswerState, event: AnswerEvent): AnswerState {
 
 export function useAnswerController(
   service: AnswerService,
-  {query, mode, delayMs = 350, restartKey = 0}: AnswerControllerOptions,
+  {query, mode, cloudConsent = false, delayMs = 350, restartKey = 0}: AnswerControllerOptions,
 ): AnswerController {
   const [state, setState] = useState<AnswerState>(idleState);
   const [retryRevision, setRetryRevision] = useState(0);
@@ -115,6 +116,7 @@ export function useAnswerController(
             requestId: currentSequence,
             query: normalizedQuery,
             mode,
+            cloudConsent,
           }, abortController.signal);
           for await (const event of events) {
             if (abortController.signal.aborted || sequence.current !== currentSequence) {
@@ -141,7 +143,7 @@ export function useAnswerController(
         activeAbort.current = null;
       }
     };
-  }, [delayMs, mode, query, restartKey, retryRevision, service]);
+  }, [cloudConsent, delayMs, mode, query, restartKey, retryRevision, service]);
 
   return {...state, retry, stop};
 }

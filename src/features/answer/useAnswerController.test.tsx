@@ -23,9 +23,28 @@ describe('useAnswerController', () => {
     expect(service.requests).toHaveLength(1);
     expect(service.requests[0]?.request).toMatchObject({
       mode: 'auto',
+      cloudConsent: false,
       query: 'quarterly report',
     });
     expect(result.current.phase).toBe('streaming');
+  });
+
+  it('restarts and forwards consent changes to the answer service', async () => {
+    const service = new MemoryAnswerService();
+    const {rerender} = renderHook(
+      ({cloudConsent}) => useAnswerController(service, {
+        cloudConsent,
+        mode: 'cloud',
+        query: 'private report',
+      }),
+      {initialProps: {cloudConsent: false}},
+    );
+
+    await act(() => vi.advanceTimersByTimeAsync(350));
+    rerender({cloudConsent: true});
+    await act(() => vi.advanceTimersByTimeAsync(350));
+
+    expect(service.requests.map((item) => item.request.cloudConsent)).toEqual([false, true]);
   });
 
   it('cancels the old stream and restarts the same query when mode changes', async () => {

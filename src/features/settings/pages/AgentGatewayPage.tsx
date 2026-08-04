@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 
 import {BugIcon, CloudCheckIcon, PlugsConnectedIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
@@ -16,6 +16,7 @@ import {SettingSection} from '../components/SettingSection';
 import {SettingsCallout, SettingsPage} from '../components/SettingsPage';
 import {StatusBadge} from '../components/StatusBadge';
 import {LumenTextField} from '../components/SettingsControls';
+import {useSettingsStore} from '../settings.store';
 import {isNativeRuntime, nativeAiService, type EnrichmentHealth, type GatewayHealth} from '../../../services/ai/native-ai-service';
 
 const styles = stylex.create({
@@ -41,20 +42,21 @@ export function AgentGatewayPage() {
   const routes = useGatewayStore((state) => state.routes);
   const services = useGatewayStore((state) => state.mcpServices);
   const permissions = useGatewayStore((state) => state.permissions);
-  const cloudConsent = useGatewayStore((state) => state.cloudConsent);
   const actionMessage = useGatewayStore((state) => state.actionMessage);
   const restart = useGatewayStore((state) => state.restart);
   const setRouteProvider = useGatewayStore((state) => state.setRouteProvider);
   const setPermission = useGatewayStore((state) => state.setPermission);
-  const grantCloudConsent = useGatewayStore((state) => state.grantCloudConsent);
   const testProvider = useGatewayStore((state) => state.testProvider);
   const testMcp = useGatewayStore((state) => state.testMcp);
+  const cloudConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
+  const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
+  const updateAi = useSettingsStore((state) => state.updateAi);
   const native = isNativeRuntime();
   const [health, setHealth] = useState<GatewayHealth>();
   const [enrichment, setEnrichment] = useState<EnrichmentHealth>();
   const [credential, setCredential] = useState('');
   const [nativeMessage, setNativeMessage] = useState('');
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!native) return;
     const [gateway, worker] = await Promise.all([
       nativeAiService.gatewayHealth(),
@@ -62,10 +64,19 @@ export function AgentGatewayPage() {
     ]);
     setHealth(gateway);
     setEnrichment(worker);
-  };
+  }, [native]);
   useEffect(() => {
     void refresh().catch((error: unknown) => setNativeMessage(String(error)));
-  }, [native]);
+  }, [refresh]);
+  const grantCloudConsent = useCallback(() => {
+    void updateAi({cloudAnswerConsent: true});
+  }, [updateAi]);
+  const revokeCloudConsent = useCallback(() => {
+    void updateAi({
+      cloudAnswerConsent: false,
+      runtimeMode: runtimeMode === 'cloud' ? 'local' : runtimeMode,
+    });
+  }, [runtimeMode, updateAi]);
   const restartGateway = async () => {
     if (!native) return restart();
     setNativeMessage('Restarting AgentGateway…');
@@ -103,8 +114,8 @@ export function AgentGatewayPage() {
           <div key={alias} {...stylex.props(styles.mcpRow)}>
             <LumenText weight="medium">{alias}</LumenText>
             <LumenText tone="tertiary" variant="meta">Generated, secret-free route</LumenText>
-            <StatusBadge tone={alias.endsWith('.local') ? 'info' : health?.cloudCredentialConfigured ? 'success' : 'warning'}>
-              {alias.endsWith('.local') ? 'Local' : health?.cloudCredentialConfigured ? 'Ready' : 'Needs key'}
+            <StatusBadge tone={alias.endsWith('.local') ? 'info' : health?.cloudCredentialConfigured && cloudConsent ? 'success' : 'warning'}>
+              {alias.endsWith('.local') ? 'Local' : !cloudConsent ? 'Needs consent' : health?.cloudCredentialConfigured ? 'Ready' : 'Needs key'}
             </StatusBadge>
           </div>
         )) : <ProviderRouteList routes={routes} onChange={setRouteProvider} onTest={(id) => void testProvider(id)} />}
@@ -126,15 +137,18 @@ export function AgentGatewayPage() {
           <CloudCheckIcon aria-hidden="true" size={20} {...stylex.props(styles.mcpIcon)} />
           <div {...stylex.props(styles.mcpText)}>
             <LumenText weight="medium">Provider requests</LumenText>
-            <LumenText tone="tertiary" variant="meta">Only sanitized prompts would leave this device after consent.</LumenText>
+            <LumenText tone="tertiary" variant="meta">Search queries, filenames, and relevant indexed excerpts may leave this device after consent.</LumenText>
           </div>
           {cloudConsent ? (
-            <StatusBadge tone="success">Cloud consent granted</StatusBadge>
+            <div {...stylex.props(styles.actions)}>
+              <StatusBadge tone="success">Cloud consent granted</StatusBadge>
+              <LumenButton size="small" variant="quiet" onPress={revokeCloudConsent}>Revoke</LumenButton>
+            </div>
           ) : (
             <ConfirmationDialog
               confirmLabel="Allow cloud requests"
               confirmVariant="primary"
-              description="Future cloud providers may receive the text you explicitly send. Filenames, roots, and diagnostics remain excluded by default. No request is made in phase one."
+              description="Cloud answers may send the current search query and relevant local index excerpts, including filenames, to the configured provider. Local mode remains on this PC."
               title="Allow cloud provider requests?"
               onConfirm={grantCloudConsent}
             >

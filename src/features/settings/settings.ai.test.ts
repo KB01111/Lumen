@@ -15,6 +15,7 @@ describe('AI runtime settings', () => {
     expect(parsed.ai).toEqual({
       runtimeMode: 'auto',
       keepLocalWarm: false,
+      cloudAnswerConsent: false,
       cloudEnrichedRootIds: [],
     });
     expect(parsed.general.shortcut).toBe(defaultSettings.general.shortcut);
@@ -26,6 +27,26 @@ describe('AI runtime settings', () => {
     const saved = JSON.parse(window.localStorage.getItem('lumen-management-settings') ?? '{}');
     expect(saved.ai.runtimeMode).toBe('local');
     expect(useSettingsStore.getState().ai.runtimeMode).toBe('local');
+  });
+
+  it('fails closed when an existing AI settings payload predates cloud answer consent', () => {
+    const parsed = parseSettings({
+      ...defaultSettings,
+      ai: {
+        runtimeMode: 'cloud',
+        keepLocalWarm: false,
+        cloudEnrichedRootIds: [],
+      },
+    });
+
+    expect(parsed.ai.cloudAnswerConsent).toBe(false);
+  });
+
+  it('persists explicit cloud answer consent per device', async () => {
+    await useSettingsStore.getState().updateAi({cloudAnswerConsent: true});
+
+    const saved = JSON.parse(window.localStorage.getItem('lumen-management-settings') ?? '{}');
+    expect(saved.ai.cloudAnswerConsent).toBe(true);
   });
 });
 

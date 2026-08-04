@@ -15,6 +15,8 @@ pub struct AnswerRequest {
     request_id: u64,
     query: String,
     mode: RuntimeMode,
+    #[serde(default)]
+    cloud_consent: bool,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -115,7 +117,17 @@ struct RouteAttempt {
     model: &'static str,
 }
 
-fn routes(mode: RuntimeMode) -> Vec<RouteAttempt> {
+#[derive(Debug, PartialEq, Eq)]
+struct RouteFailure {
+    code: &'static str,
+    message: &'static str,
+}
+
+fn routes(
+    mode: RuntimeMode,
+    cloud_consent: bool,
+    cloud_credential_configured: bool,
+) -> Result<Vec<RouteAttempt>, RouteFailure> {
     let local = || RouteAttempt {
         alias: "lumen.answer.local",
         provider: "local-openai-compatible",
@@ -126,12 +138,27 @@ fn routes(mode: RuntimeMode) -> Vec<RouteAttempt> {
         provider: "openai",
         model: "gpt-5-mini",
     };
-    match mode {
+    let selected = match mode {
         RuntimeMode::Local => vec![local()],
+        RuntimeMode::Cloud if !cloud_consent => {
+            return Err(RouteFailure {
+                code: "cloud_consent_required",
+                message: "Cloud answers require explicit consent in AgentGateway settings.",
+            });
+        }
+        RuntimeMode::Cloud if !cloud_credential_configured => {
+            return Err(RouteFailure {
+                code: "cloud_credential_required",
+                message: "Cloud answers require a configured provider credential.",
+            });
+        }
         RuntimeMode::Cloud => vec![cloud()],
-        RuntimeMode::Auto if credentials::get("openai").is_some() => vec![cloud(), local()],
+        RuntimeMode::Auto if cloud_consent && cloud_credential_configured => {
+            vec![cloud(), local()]
+        }
         RuntimeMode::Auto => vec![local()],
-    }
+    };
+    Ok(selected)
 }
 
 fn send(channel: &Channel<AnswerEvent>, event: AnswerEvent) {
@@ -293,8 +320,38 @@ pub async fn start_answer(
     local_runtime: State<'_, LocalRuntimeSupervisor>,
     index: State<'_, IndexRuntime>,
 ) -> Result<(), String> {
+    let mode = request.mode;
+    let cloud_consent = request.cloud_consent;
+    let route_selection = tauri::async_runtime::spawn_blocking(move || {
+        routes(
+            mode,
+            cloud_consent,
+            credentials::get("openai").is_some(),
+        )
+    })
+    .await
+    .map_err(|error| format!("Could not join the answer-route selection: {error}"))?;
+    let attempts = match route_selection {
+        Ok(attempts) => attempts,
+        Err(error) => {
+            send(
+                &on_event,
+                AnswerEvent::Failed {
+                    message: error.message.to_owned(),
+                    code: Some(error.code.to_owned()),
+                },
+            );
+            return Ok(());
+        }
+    };
     let cancellation = runtime.begin(request.request_id);
-    let hits = index.answer_context(&request.query, 6).unwrap_or_default();
+    let index_runtime = index.inner().clone();
+    let query = request.query.clone();
+    let hits = tauri::async_runtime::spawn_blocking(move || {
+        index_runtime.answer_context(&query, 6).unwrap_or_default()
+    })
+    .await
+    .map_err(|error| format!("Could not join the answer-context search: {error}"))?;
     for hit in &hits {
         send(
             &on_event,
@@ -309,7 +366,6 @@ pub async fn start_answer(
         );
     }
     let prompt = context_prompt(&request.query, &hits);
-    let attempts = routes(request.mode);
     let mut last_error = "No answer route is configured".to_owned();
     for (position, route) in attempts.iter().enumerate() {
         if route.alias == "lumen.answer.local"
@@ -366,15 +422,36 @@ mod tests {
 
     #[test]
     fn local_mode_never_has_cloud_fallback() {
-        let selected = routes(RuntimeMode::Local);
+        let selected = routes(RuntimeMode::Local, true, true).unwrap();
         assert_eq!(selected.len(), 1);
         assert_eq!(selected[0].alias, "lumen.answer.local");
     }
 
     #[test]
-    fn cloud_mode_never_has_local_fallback() {
-        let selected = routes(RuntimeMode::Cloud);
+    fn cloud_mode_requires_consent_and_a_credential() {
+        assert_eq!(
+            routes(RuntimeMode::Cloud, false, true).unwrap_err().code,
+            "cloud_consent_required"
+        );
+        assert_eq!(
+            routes(RuntimeMode::Cloud, true, false).unwrap_err().code,
+            "cloud_credential_required"
+        );
+
+        let selected = routes(RuntimeMode::Cloud, true, true).unwrap();
         assert_eq!(selected.len(), 1);
         assert_eq!(selected[0].alias, "lumen.answer.cloud");
+    }
+
+    #[test]
+    fn auto_mode_uses_cloud_only_after_explicit_consent() {
+        let without_consent = routes(RuntimeMode::Auto, false, true).unwrap();
+        assert_eq!(without_consent.len(), 1);
+        assert_eq!(without_consent[0].alias, "lumen.answer.local");
+
+        let with_consent = routes(RuntimeMode::Auto, true, true).unwrap();
+        assert_eq!(with_consent.len(), 2);
+        assert_eq!(with_consent[0].alias, "lumen.answer.cloud");
+        assert_eq!(with_consent[1].alias, "lumen.answer.local");
     }
 }
