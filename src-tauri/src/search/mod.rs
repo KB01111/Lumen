@@ -1,3 +1,6 @@
+mod extraction;
+mod index;
+pub mod indexing;
 mod matching;
 mod metadata;
 mod opening;
@@ -10,6 +13,8 @@ use std::path::Path;
 
 use tauri::{AppHandle, Runtime};
 
+pub(crate) use index::{EnrichmentJobRecord, IndexedHit};
+pub use indexing::IndexRuntime;
 pub use types::{
     BasicPreview, FileListResponse, FileRecord, FilenameSearchResponse, SearchFailure,
 };

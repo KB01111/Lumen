@@ -14,6 +14,7 @@
     "profile": "node scripts/performance-profile.mjs",
     "capture:gallery": "node scripts/capture-gallery.mjs",
     "record:interactions": "node scripts/record-interactions.mjs",
+    "stage:sidecars": "bun scripts/stage-sidecars.ts",
     "preview": "vite preview",
     "tauri": "tauri"
   },
@@ -35,6 +36,7 @@
     "react": "^19.1.0",
     "react-aria-components": "^1.19.0",
     "react-dom": "^19.1.0",
+    "rivetkit": "^2.3.10",
     "sonner": "^2.0.7",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"

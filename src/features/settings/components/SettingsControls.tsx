@@ -284,6 +284,7 @@ export interface LumenTextFieldProps {
   value: string;
   onChange(value: string): void;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
+  type?: 'text' | 'password';
 }
 
 export function LumenTextField(props: LumenTextFieldProps) {
@@ -292,6 +293,7 @@ export function LumenTextField(props: LumenTextFieldProps) {
       <Input
         className={({isFocusVisible}) => stylex.props(styles.input, isFocusVisible && styles.focused).className ?? ''}
         placeholder={props.placeholder}
+        type={props.type}
         onKeyDown={props.onKeyDown}
       />
     </TextField>

@@ -4,6 +4,8 @@
 node_modules/
 dist/
 dist-ssr/
+src-tauri/binaries/*
+.tmp-agentgateway-schema.json
 *.local
 
 # Logs

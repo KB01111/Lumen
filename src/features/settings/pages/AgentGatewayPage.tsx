@@ -1,3 +1,5 @@
+import {useEffect, useState} from 'react';
+
 import {BugIcon, CloudCheckIcon, PlugsConnectedIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
@@ -13,6 +15,8 @@ import {ConfirmationDialog} from '../components/ConfirmationDialog';
 import {SettingSection} from '../components/SettingSection';
 import {SettingsCallout, SettingsPage} from '../components/SettingsPage';
 import {StatusBadge} from '../components/StatusBadge';
+import {LumenTextField} from '../components/SettingsControls';
+import {isNativeRuntime, nativeAiService, type EnrichmentHealth, type GatewayHealth} from '../../../services/ai/native-ai-service';
 
 const styles = stylex.create({
   mcpRow: {
@@ -45,17 +49,78 @@ export function AgentGatewayPage() {
   const grantCloudConsent = useGatewayStore((state) => state.grantCloudConsent);
   const testProvider = useGatewayStore((state) => state.testProvider);
   const testMcp = useGatewayStore((state) => state.testMcp);
+  const native = isNativeRuntime();
+  const [health, setHealth] = useState<GatewayHealth>();
+  const [enrichment, setEnrichment] = useState<EnrichmentHealth>();
+  const [credential, setCredential] = useState('');
+  const [nativeMessage, setNativeMessage] = useState('');
+  const refresh = async () => {
+    if (!native) return;
+    const [gateway, worker] = await Promise.all([
+      nativeAiService.gatewayHealth(),
+      nativeAiService.enrichmentHealth(),
+    ]);
+    setHealth(gateway);
+    setEnrichment(worker);
+  };
+  useEffect(() => {
+    void refresh().catch((error: unknown) => setNativeMessage(String(error)));
+  }, [native]);
+  const restartGateway = async () => {
+    if (!native) return restart();
+    setNativeMessage('Restarting AgentGateway…');
+    try {
+      await nativeAiService.restartGateway();
+      await refresh();
+      setNativeMessage('AgentGateway restarted.');
+    } catch (error) {
+      setNativeMessage(error instanceof Error ? error.message : String(error));
+    }
+  };
+  const saveCredential = async () => {
+    if (!credential.trim()) return;
+    await nativeAiService.saveCredential('openai', credential);
+    setCredential('');
+    await nativeAiService.restartGateway();
+    await refresh();
+    setNativeMessage('OpenAI credential saved in Windows Credential Manager.');
+  };
 
   return (
     <SettingsPage>
-      <GatewayStatusPanel state={gatewayState} onRestart={() => void restart()} />
+      <GatewayStatusPanel state={health?.state ?? gatewayState} onRestart={() => void restartGateway()} />
       <SettingsCallout>
-        AgentGateway actions below are deterministic previews. No sidecar, MCP server, or cloud request is started in phase one.
+        {health
+          ? `AgentGateway ${health.version} · interactive 60 req/min and 100k tokens/hour · enrichment 10 req/min and 500k tokens/day.`
+          : 'AgentGateway stays behind Rust IPC; the webview has no direct network route.'}
       </SettingsCallout>
-      {actionMessage ? <SettingsCallout>{actionMessage}</SettingsCallout> : null}
+      {nativeMessage || actionMessage ? <SettingsCallout>{nativeMessage || actionMessage}</SettingsCallout> : null}
       <SettingSection title="Virtual model routes" description="Aliases let future callers use a stable name while providers change underneath.">
-        <ProviderRouteList routes={routes} onChange={setRouteProvider} onTest={(id) => void testProvider(id)} />
+        {native ? [
+          'lumen.answer.local', 'lumen.answer.cloud', 'lumen.embed.local', 'lumen.embed.cloud',
+          'lumen.vision.cloud', 'lumen.audio.cloud', 'lumen.rerank.cloud',
+        ].map((alias) => (
+          <div key={alias} {...stylex.props(styles.mcpRow)}>
+            <LumenText weight="medium">{alias}</LumenText>
+            <LumenText tone="tertiary" variant="meta">Generated, secret-free route</LumenText>
+            <StatusBadge tone={alias.endsWith('.local') ? 'info' : health?.cloudCredentialConfigured ? 'success' : 'warning'}>
+              {alias.endsWith('.local') ? 'Local' : health?.cloudCredentialConfigured ? 'Ready' : 'Needs key'}
+            </StatusBadge>
+          </div>
+        )) : <ProviderRouteList routes={routes} onChange={setRouteProvider} onTest={(id) => void testProvider(id)} />}
       </SettingSection>
+      {native ? (
+        <SettingSection title="Provider credential" description="The value is written directly to Windows Credential Manager and never returned to React.">
+          <div {...stylex.props(styles.mcpRow)}>
+            <CloudCheckIcon aria-hidden="true" size={20} {...stylex.props(styles.mcpIcon)} />
+            <LumenTextField aria-label="OpenAI API key" type="password" placeholder="sk-…" value={credential} onChange={setCredential} />
+            <div {...stylex.props(styles.actions)}>
+              <LumenButton size="small" variant="primary" onPress={() => void saveCredential()}>Save</LumenButton>
+              <LumenButton size="small" variant="quiet" onPress={() => void nativeAiService.deleteCredential('openai').then(refresh)}>Delete</LumenButton>
+            </div>
+          </div>
+        </SettingSection>
+      ) : null}
       <SettingSection title="Cloud consent" description="Cloud routes stay unavailable until this device records explicit consent.">
         <div {...stylex.props(styles.mcpRow)}>
           <CloudCheckIcon aria-hidden="true" size={20} {...stylex.props(styles.mcpIcon)} />
@@ -78,6 +143,21 @@ export function AgentGatewayPage() {
           )}
         </div>
       </SettingSection>
+      {native ? (
+        <SettingSection title="Durable enrichment queue" description="Rivet Actors owns idempotent OCR and transcription job leases when its Windows engine is healthy.">
+          <div {...stylex.props(styles.mcpRow)}>
+            <PlugsConnectedIcon aria-hidden="true" size={20} {...stylex.props(styles.mcpIcon)} />
+            <div {...stylex.props(styles.mcpText)}>
+              <LumenText weight="medium">Rivet worker</LumenText>
+              <LumenText tone="tertiary" variant="meta">{enrichment?.detail ?? (enrichment?.paused ? 'Queue paused' : 'Loopback-only worker')}</LumenText>
+            </div>
+            <div {...stylex.props(styles.actions)}>
+              <StatusBadge tone={enrichment?.state === 'ready' ? 'success' : 'warning'}>{enrichment?.state ?? 'Checking'}</StatusBadge>
+              <LumenButton size="small" variant="quiet" onPress={() => void (enrichment?.paused ? nativeAiService.resumeEnrichment() : nativeAiService.pauseEnrichment()).then(refresh)}>{enrichment?.paused ? 'Resume' : 'Pause'}</LumenButton>
+            </div>
+          </div>
+        </SettingSection>
+      ) : null}
       <SettingSection title="MCP services" description="Visible service and tool counts make unavailable states explicit.">
         {services.map((service) => (
           <div key={service.id} {...stylex.props(styles.mcpRow)}>

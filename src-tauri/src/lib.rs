@@ -1,3 +1,4 @@
+mod gateway;
 mod search;
 mod window;
 
@@ -34,6 +35,48 @@ pub fn run() {
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            let data_directory = app.path().app_data_dir()?;
+            std::fs::create_dir_all(&data_directory)?;
+            let development_sidecar = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("binaries/agentgateway-x86_64-pc-windows-msvc.exe");
+            let packaged_sidecar = app.path().resource_dir()?.join("agentgateway.exe");
+            let sidecar = if packaged_sidecar.is_file() {
+                packaged_sidecar
+            } else {
+                development_sidecar
+            };
+            let gateway =
+                gateway::GatewaySupervisor::new(sidecar, &data_directory.join("runtime"))?;
+            let _ = gateway.start();
+            app.manage(gateway);
+            app.manage(gateway::answer::AnswerRuntime::default());
+            app.manage(gateway::LocalRuntimeSupervisor::detect());
+            let development_worker = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("binaries/lumen-enrichment-x86_64-pc-windows-msvc.exe");
+            let packaged_worker = app.path().resource_dir()?.join("lumen-enrichment.exe");
+            let worker_binary = if packaged_worker.is_file() {
+                packaged_worker
+            } else {
+                development_worker
+            };
+            let development_engine = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("binaries/lumen-rivet-engine-x86_64-pc-windows-msvc.exe");
+            let packaged_engine = app.path().resource_dir()?.join("lumen-rivet-engine.exe");
+            let engine_binary = if packaged_engine.is_file() {
+                packaged_engine
+            } else {
+                development_engine
+            };
+            let enrichment = gateway::EnrichmentSupervisor::new(
+                worker_binary,
+                engine_binary,
+                data_directory.join("enrichment"),
+            )?;
+            let _ = enrichment.start();
+            app.manage(enrichment);
+            app.manage(search::IndexRuntime::open(
+                &data_directory.join("lumen-index.sqlite3"),
+            )?);
             app.manage(window::ShortcutRegistration(Mutex::new(
                 "Alt+Space".to_owned(),
             )));
@@ -51,6 +94,24 @@ pub fn run() {
             search::get_basic_preview,
             search::open_file,
             search::open_containing_folder,
+            search::indexing::get_index_status,
+            search::indexing::synchronize_index_roots,
+            search::indexing::search_indexed,
+            search::indexing::delete_index_data,
+            gateway::answer::start_answer,
+            gateway::answer::cancel_answer,
+            gateway::supervisor::gateway_health,
+            gateway::supervisor::restart_gateway,
+            gateway::credentials::set_provider_credential,
+            gateway::credentials::delete_provider_credential,
+            gateway::credentials::provider_credential_status,
+            gateway::enrichment::enrichment_health,
+            gateway::enrichment::enrichment_queue_status,
+            gateway::enrichment::pause_enrichment,
+            gateway::enrichment::resume_enrichment,
+            gateway::enrichment::restart_enrichment,
+            gateway::local_runtime::local_runtime_health,
+            gateway::local_runtime::set_local_runtime_mode,
             window::show_lumen_window,
             window::hide_lumen_window,
             window::focus_lumen_input,

@@ -35,10 +35,10 @@ const styles = stylex.create({
 });
 
 const stateCopy: Record<GatewayState, {label: string; description: string; tone: 'success' | 'warning' | 'info'}> = {
-  starting: {label: 'Starting', description: 'The preview gateway is establishing local routes.', tone: 'info'},
-  restarting: {label: 'Restarting', description: 'Routes remain visible while the preview restarts.', tone: 'info'},
-  ready: {label: 'Ready', description: 'Deterministic phase-one routes are available for interface testing.', tone: 'success'},
-  unavailable: {label: 'Unavailable', description: 'No production AgentGateway sidecar is connected in phase one.', tone: 'warning'},
+  starting: {label: 'Starting', description: 'The local gateway is establishing provider routes.', tone: 'info'},
+  restarting: {label: 'Restarting', description: 'Local search remains available while routes restart.', tone: 'info'},
+  ready: {label: 'Ready', description: 'The checksum-pinned AgentGateway sidecar is running.', tone: 'success'},
+  unavailable: {label: 'Unavailable', description: 'AI routes are unavailable; local search is unaffected.', tone: 'warning'},
 };
 
 export function GatewayStatusPanel({state, onRestart}: {state: GatewayState; onRestart(): void}) {

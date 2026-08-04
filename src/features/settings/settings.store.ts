@@ -6,6 +6,7 @@ import {
   defaultSettings,
   parseSettings,
   settingsSchema,
+  type AiSettings,
   type ActivitySettings,
   type GeneralSettings,
   type IndexedRoot,
@@ -32,6 +33,7 @@ interface SettingsActions {
   updatePresentation(patch: Partial<PresentationSettings>): Promise<boolean>;
   setRoots(roots: IndexedRoot[]): Promise<boolean>;
   updateSearch(patch: Partial<SearchSettings>): Promise<boolean>;
+  updateAi(patch: Partial<AiSettings>): Promise<boolean>;
   updateActivity(patch: Partial<ActivitySettings>): Promise<boolean>;
   updatePrivacy(patch: Partial<PrivacySettings>): Promise<boolean>;
 }
@@ -73,6 +75,7 @@ function stateSettings(state: SettingsState): LumenSettings {
     presentation: state.presentation,
     roots: state.roots,
     search: state.search,
+    ai: state.ai,
     activity: state.activity,
     privacy: state.privacy,
   });
@@ -141,6 +144,10 @@ export const useSettingsStore = create<SettingsState>()(
       },
       updateSearch: (patch) => {
         set((state) => ({search: {...state.search, ...patch}}));
+        return persist();
+      },
+      updateAi: (patch) => {
+        set((state) => ({ai: {...state.ai, ...patch}}));
         return persist();
       },
       updateActivity: (patch) => {
