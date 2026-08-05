@@ -4,7 +4,7 @@ Keyboard-first Windows 11 file-search launcher. Tauri 2 + React 19 + TypeScript 
 
 ## Environment
 
-- Windows 11 only: requires WebView2 Runtime, Bun 1.3+, Rust stable (MSVC), and VS 2022 / Build Tools with C++ + Windows SDK.
+- Windows 11 only: requires WebView2 Runtime, Bun 1.3+, Rust stable (MSVC), and VS 2022 / Build Tools with C++ + Windows SDK. Staging Computer Use also needs a healthy Python 3.11 runtime (the script prefers `uv`; `LUMEN_PYTHON` can select another interpreter).
 - Use `bun` for everything (bun.lock is the lockfile); do not use npm/yarn.
 - No CI exists in this repo — verification is local, using the commands below.
 
@@ -12,6 +12,7 @@ Keyboard-first Windows 11 file-search launcher. Tauri 2 + React 19 + TypeScript 
 
 ```powershell
 bun install
+bun run stage:sidecars # checksum-pinned native workers, including Computer Use
 bun run tauri dev        # native app (beforeDevCommand runs vite on port 1420)
 bun run dev              # browser-only vite, strict port 1420 (no Tauri commands available)
 ```
@@ -53,6 +54,7 @@ The plain browser has no Tauri IPC, so deterministic states are reached via quer
 - `src/design-system` — StyleX tokens (`tokens.stylex.ts`), themes, materials, motion, primitives. All styling goes through `stylex.create` + these tokens; do not add raw CSS (only `global.css` exists).
 - `src/features` — launcher, results, preview, onboarding, settings, activity, gateway, local-AI, diagnostics, gallery.
 - `src/services/search` — the key boundary: UI only knows the `SearchService` interface and never imports Tauri commands directly. Adapters: `DevelopmentFileSearchService` (default, real Tauri commands), `DevelopmentSearchService` (`?service=memory`), `MemorySearchService` (unit tests), `FutureProductionSearchService` (throws — the phase-two seam). Every native payload is Zod-parsed before entering UI state.
+- `src/services/computer-use` — typed Computer Use health, stream, approval, and cancellation boundary. Rust owns the fixed worker process and Job Object; React receives only Zod-parsed progress events. The Gemini key is never returned to React.
 - `src/state` + feature `*.store.ts` — zustand stores. Persistence uses the Tauri Store plugin when `window.__TAURI_INTERNALS__` exists, else `localStorage`. Persisted stores must be `hydrate()`d before their state is read (see `App.tsx`).
 - `src/platform` — Tauri/window abstractions.
 - `src-tauri/src` — `lib.rs` (plugins, Alt+Space global shortcut, single-instance, close-to-hide), `window.rs` (owns the window-mode geometry table and native material), `search/` (confined local-file commands).
@@ -60,6 +62,7 @@ The plain browser has no Tauri IPC, so deterministic states are reached via quer
 ## Hard constraints (do not break)
 
 - Security: Rust search commands canonicalize all paths, reject paths outside selected roots, never follow symlinks, skip `.git`/`node_modules`/`dist`/`target`/etc., and cap previews (64 KiB text, 4 MiB images). `src-tauri/capabilities/main.json` is least-privilege — the shell plugin is deliberately absent; do not add execute/spawn permissions.
+- Computer Use remains browser-only. It requires recorded cloud consent, launches only the staged/source worker selected by Rust, uses a fresh Microsoft Edge context, rejects non-HTTP(S) start pages, caps tasks at 4,000 characters/60 steps, and pauses Gemini safety decisions for one-time approval. Never replace this with webview-side provider calls or generic process arguments.
 - The window is borderless/transparent with Acrylic→Mica→Blur fallback; close hides rather than destroys. Window sizes/constraints per mode are owned by Rust (`window.rs`), not the frontend.
 - Vite port 1420 is `strictPort` — it must be free for dev/e2e.
 - tsconfig has `noUnusedLocals`/`noUnusedParameters` — dead variables fail typecheck.

@@ -4,11 +4,13 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import type {WindowMode} from '../../platform/window/window-service';
 
 export type LauncherFocusRegion = 'search' | 'scope' | 'results' | 'preview';
+export type LauncherIntent = 'search' | 'computer';
 
 interface LauncherData {
   mode: WindowMode;
   visible: boolean;
   focusRegion: LauncherFocusRegion;
+  intent: LauncherIntent;
 }
 
 interface LauncherActions {
@@ -16,6 +18,7 @@ interface LauncherActions {
   hide(): void;
   setMode(mode: WindowMode): void;
   setFocusRegion(region: LauncherFocusRegion): void;
+  setIntent(intent: LauncherIntent): void;
   reset(): void;
 }
 
@@ -25,6 +28,7 @@ const initialLauncherData: LauncherData = {
   mode: 'collapsed',
   visible: true,
   focusRegion: 'search',
+  intent: 'search',
 };
 
 export const useLauncherStore = create<LauncherStore>()(
@@ -34,6 +38,7 @@ export const useLauncherStore = create<LauncherStore>()(
     hide: () => set({visible: false}),
     setMode: (mode) => set({mode}),
     setFocusRegion: (focusRegion) => set({focusRegion}),
+    setIntent: (intent) => set({intent, focusRegion: 'search'}),
     reset: () => set(initialLauncherData),
   })),
 );

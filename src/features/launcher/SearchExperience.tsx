@@ -5,9 +5,13 @@ import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
 import type {AnswerService} from '../../services/answer/answer-service';
 import {UnavailableAnswerService} from '../../services/answer/unavailable-answer-service';
+import type {ComputerUseService} from '../../services/computer-use/computer-use-service';
+import {UnavailableComputerUseService} from '../../services/computer-use/unavailable-computer-use-service';
 import type {SearchService} from '../../services/search/search-service';
 import type {SearchFilter} from '../../services/search/search.types';
 import {useLumenKeyboard} from '../keyboard/useLumenKeyboard';
+import {ComputerUsePanel} from '../computer-use/ComputerUsePanel';
+import {useComputerUseController} from '../computer-use/useComputerUseController';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
 import {AnswerPanel} from '../answer/AnswerPanel';
 import {useAnswerController} from '../answer/useAnswerController';
@@ -27,6 +31,7 @@ import {useSearchController} from './useSearchController';
 
 const defaultWindowService = createWindowService();
 const unavailableAnswerService = new UnavailableAnswerService();
+const unavailableComputerUseService = new UnavailableComputerUseService();
 
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
@@ -51,6 +56,7 @@ function statusLabel(
 export interface SearchExperienceProps {
   service: SearchService;
   answerService?: AnswerService;
+  computerUseService?: ComputerUseService;
   windowService?: WindowService;
   onOpenSettings?: () => void;
 }
@@ -87,13 +93,18 @@ function useSettledAnswerQuery(onSupersede: () => void) {
 export function SearchExperience({
   service,
   answerService = unavailableAnswerService,
+  computerUseService = unavailableComputerUseService,
   windowService = defaultWindowService,
   onOpenSettings,
 }: SearchExperienceProps) {
   const controller = useSearchController(service);
+  const intent = useLauncherStore((state) => state.intent);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
   const cloudAnswerConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
   const updateAi = useSettingsStore((state) => state.updateAi);
+  const computerUseSettings = useSettingsStore((state) => state.computerUse);
+  const setActiveSettingsPage = useSettingsStore((state) => state.setActivePage);
+  const committedQuery = useQueryStore((state) => state.committed);
   const answerStopRef = useRef<() => void>(() => undefined);
   const supersedeAnswer = useCallback(() => answerStopRef.current(), []);
   const answerRequest = useSettledAnswerQuery(supersedeAnswer);
@@ -101,9 +112,10 @@ export function SearchExperience({
     delayMs: 0,
     mode: runtimeMode,
     cloudConsent: cloudAnswerConsent,
-    query: answerRequest.query,
+    query: intent === 'search' ? answerRequest.query : '',
     restartKey: answerRequest.revision,
   });
+  const computerUse = useComputerUseController(computerUseService, computerUseSettings);
   answerStopRef.current = answer.stop;
   const activeScope = useScopeStore((state) => state.activeScope);
   const activeFilters = useScopeStore((state) => state.activeFilters);
@@ -132,7 +144,9 @@ export function SearchExperience({
     let pendingFrame = 0;
     const scheduleQuery = (query: string) => {
       window.cancelAnimationFrame(pendingFrame);
-      pendingFrame = window.requestAnimationFrame(() => controller.setQuery(query));
+      pendingFrame = window.requestAnimationFrame(() => controller.setQuery(
+        intent === 'search' ? query : '',
+      ));
     };
     scheduleQuery(useQueryStore.getState().committed);
     const unsubscribe = useQueryStore.subscribe(
@@ -143,7 +157,7 @@ export function SearchExperience({
       window.cancelAnimationFrame(pendingFrame);
       unsubscribe();
     };
-  }, [controller.setQuery]);
+  }, [controller.setQuery, intent]);
   useEffect(
     () => controller.setScope(activeScope),
     [activeScope, controller.setScope],
@@ -236,11 +250,20 @@ export function SearchExperience({
     await windowService.hide();
   }, [hideLauncher, windowService]);
 
-  const handleOpenSettings = useCallback(async () => {
+  const handleOpenSettings = useCallback(async (page?: 'computer-use') => {
+    if (page) setActiveSettingsPage(page);
     showLauncher('settings');
     onOpenSettings?.();
     await windowService.show('settings');
-  }, [onOpenSettings, showLauncher, windowService]);
+  }, [onOpenSettings, setActiveSettingsPage, showLauncher, windowService]);
+
+  const handleStartComputerUse = useCallback(() => {
+    void computerUse.start(inputRef.current?.value ?? useQueryStore.getState().committed);
+  }, [computerUse.start]);
+
+  const handleSubmitComputerUse = useCallback((task: string) => {
+    void computerUse.start(task);
+  }, [computerUse.start]);
 
   const handleRemoveFilter = useCallback((filter: SearchFilter) => {
     toggleFilter(filter);
@@ -250,12 +273,12 @@ export function SearchExperience({
     detailsOpen,
     inputRef,
     isExpanded: mode === 'expanded',
-    results: controller.results,
+    results: intent === 'search' ? controller.results : [],
     selectedId: controller.selectedId,
     onCloseDetails: () => setDetailsOpen(false),
     onOpen: handleOpen,
     onOpenContainingFolder: handleOpenContainingFolder,
-    onOpenSettings: handleOpenSettings,
+    onOpenSettings: () => handleOpenSettings(),
     onRequestHide: handleRequestHide,
     onSelect: handleSelect,
     onShowDetails: handleShowDetails,
@@ -288,7 +311,15 @@ export function SearchExperience({
   return (
     <div data-launcher-visible={visible} style={{display: 'contents'}}>
       <CollapsedLauncher
-        expandedContent={(
+        expandedContent={intent === 'computer' ? (
+          <ComputerUsePanel
+            cloudConsent={computerUseSettings.cloudConsent}
+            controller={computerUse}
+            draftTask={committedQuery}
+            onOpenSettings={() => void handleOpenSettings('computer-use')}
+            onStart={handleStartComputerUse}
+          />
+        ) : (
           <ExpandedWorkspace
             activeFilters={activeFilters}
             announcement={announcement}
@@ -316,9 +347,19 @@ export function SearchExperience({
           />
         )}
         inputRef={inputRef}
-        searching={controller.lifecycle === 'searching'}
-        statusLabel={statusLabel(controller.lifecycle, controller.results.length)}
+        intentLocked={computerUse.phase === 'starting' || computerUse.phase === 'running' || computerUse.phase === 'approval'}
+        searching={intent === 'computer'
+          ? computerUse.phase === 'starting' || computerUse.phase === 'running'
+          : controller.lifecycle === 'searching'}
+        statusLabel={intent === 'computer'
+          ? computerUse.phase === 'approval' ? 'Approval'
+            : computerUse.phase === 'completed' ? 'Done'
+              : computerUse.phase === 'error' ? 'Unavailable'
+                : computerUse.phase === 'running' || computerUse.phase === 'starting' ? 'Working'
+                  : 'Browser agent'
+          : statusLabel(controller.lifecycle, controller.results.length)}
         windowService={windowService}
+        onComputerSubmit={handleSubmitComputerUse}
       />
       {detailsMounted ? (
         <Suspense fallback={null}>

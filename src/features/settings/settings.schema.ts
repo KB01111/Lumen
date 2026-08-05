@@ -1,5 +1,7 @@
 import {z} from 'zod';
 
+import {computerUseModelSchema} from '../../services/computer-use/computer-use.types';
+
 export const settingsPageIds = [
   'general',
   'appearance',
@@ -7,6 +9,7 @@ export const settingsPageIds = [
   'search',
   'local-ai',
   'agent-gateway',
+  'computer-use',
   'activity',
   'privacy',
   'diagnostics',
@@ -40,6 +43,12 @@ const defaultAiSettings = {
   keepLocalWarm: false,
   cloudAnswerConsent: false,
   cloudEnrichedRootIds: [] as string[],
+};
+
+const defaultComputerUseSettings = {
+  model: 'gemini-3.6-flash' as const,
+  initialUrl: 'https://www.google.com',
+  cloudConsent: false,
 };
 
 export const settingsSchema = z.object({
@@ -79,6 +88,11 @@ export const settingsSchema = z.object({
     cloudAnswerConsent: z.boolean().default(false),
     cloudEnrichedRootIds: z.array(z.string().min(1)),
   }).default(defaultAiSettings),
+  computerUse: z.object({
+    model: computerUseModelSchema,
+    initialUrl: z.url().refine((value) => value.startsWith('https://') || value.startsWith('http://')),
+    cloudConsent: z.boolean(),
+  }).default(defaultComputerUseSettings),
   activity: z.object({
     detectGames: z.boolean(),
     detectFullscreen: z.boolean(),
@@ -102,6 +116,7 @@ export type GeneralSettings = LumenSettings['general'];
 export type PresentationSettings = LumenSettings['presentation'];
 export type SearchSettings = LumenSettings['search'];
 export type AiSettings = LumenSettings['ai'];
+export type ComputerUseSettings = LumenSettings['computerUse'];
 export type ActivitySettings = LumenSettings['activity'];
 export type PrivacySettings = LumenSettings['privacy'];
 
@@ -128,6 +143,7 @@ export const defaultSettings: LumenSettings = settingsSchema.parse({
     rerankingEnabled: false,
   },
   ai: defaultAiSettings,
+  computerUse: defaultComputerUseSettings,
   activity: {
     detectGames: true,
     detectFullscreen: true,

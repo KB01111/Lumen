@@ -2,6 +2,8 @@ import {createHash} from 'node:crypto';
 import {copyFile, mkdir, readFile, rename, rm, stat, writeFile} from 'node:fs/promises';
 import {dirname, join} from 'node:path';
 
+import {stageComputerUse} from './stage-computer-use';
+
 const version = 'v1.4.1';
 const asset = 'agentgateway-windows-amd64.exe';
 const expectedSha256 = '7fcdc2a51cb7ab7f5c4b5a21f9066b3704f30ec6895c386332871381fab84ab6';
@@ -111,6 +113,7 @@ async function main() {
   }
   await rm(runtimeStage, {recursive: true, force: true});
   console.log('Staged the Rivet 2.3.10 Windows engine.');
+  await stageComputerUse();
 }
 
 await main();

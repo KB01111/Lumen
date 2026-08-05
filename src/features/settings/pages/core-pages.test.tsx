@@ -9,6 +9,7 @@ import {nativeAiService} from '../../../services/ai/native-ai-service';
 import type {RootSelectionService} from '../../onboarding/root-selection-service';
 import {useSettingsStore} from '../settings.store';
 import {AppearancePage} from './AppearancePage';
+import {ComputerUsePage} from './ComputerUsePage';
 import {GeneralPage} from './GeneralPage';
 import {IndexedRootsPage} from './IndexedRootsPage';
 import {SearchPage} from './SearchPage';
@@ -151,5 +152,42 @@ describe('core settings pages', () => {
     expect(screen.getByText('Reranking is not connected in phase one.')).toBeVisible();
     expect(screen.getByRole('switch', {name: 'Semantic search'})).toBeDisabled();
     expect(screen.getByRole('switch', {name: 'Reranking'})).toBeDisabled();
+  });
+
+  it('records Computer Use cloud consent separately from answer consent', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ComputerUsePage />);
+
+    await user.click(screen.getByRole('button', {name: 'Review Computer Use consent'}));
+    await user.click(screen.getByRole('button', {name: 'Allow Computer Use'}));
+
+    expect(useSettingsStore.getState().computerUse.cloudConsent).toBe(true);
+    expect(useSettingsStore.getState().ai.cloudAnswerConsent).toBe(false);
+    expect(screen.getByText('Consent granted')).toBeVisible();
+  });
+
+  it('rejects embedded credentials in a Computer Use start page', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ComputerUsePage />);
+
+    const startPage = screen.getByRole('textbox', {name: 'Computer Use start page'});
+    await user.clear(startPage);
+    await user.type(startPage, 'https://user:secret@example.com');
+    await user.click(screen.getByRole('button', {name: 'Save'}));
+
+    expect(screen.getByText('The start page must be an absolute HTTP or HTTPS URL.')).toBeVisible();
+    expect(useSettingsStore.getState().computerUse.initialUrl).toBe('https://www.google.com');
+  });
+
+  it('reflects a Computer Use start page loaded after the page mounts', () => {
+    renderWithProviders(<ComputerUsePage />);
+
+    act(() => useSettingsStore.setState((state) => ({
+      computerUse: {...state.computerUse, initialUrl: 'https://intranet.example.com/start'},
+    })));
+
+    expect(screen.getByRole('textbox', {name: 'Computer Use start page'})).toHaveValue(
+      'https://intranet.example.com/start',
+    );
   });
 });
