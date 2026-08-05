@@ -15,6 +15,8 @@ import {createIndexedRoot} from '../features/settings/indexed-root';
 import {useSettingsStore} from '../features/settings/settings.store';
 import {createWindowService} from '../platform/window/tauri-window-service';
 import {TauriAnswerService} from '../services/answer/tauri-answer-service';
+import {TauriComputerUseService} from '../services/computer-use/tauri-computer-use-service';
+import {UnavailableComputerUseService} from '../services/computer-use/unavailable-computer-use-service';
 import {isNativeRuntime, nativeAiService} from '../services/ai/native-ai-service';
 import {DevelopmentFileSearchService} from '../services/search/development-file-search-service';
 import {DevelopmentSearchService} from '../services/search/development-search-service';
@@ -152,6 +154,9 @@ function createDefaultSearchService() {
 
 const defaultSearchService = createDefaultSearchService();
 const defaultAnswerService = new TauriAnswerService();
+const defaultComputerUseService = isNativeRuntime()
+  ? new TauriComputerUseService()
+  : new UnavailableComputerUseService();
 const appWindowService = createWindowService();
 const OnboardingFlow = lazy(async () => {
   const module = await import('../features/onboarding/OnboardingFlow');
@@ -347,6 +352,7 @@ export function App() {
         ) : onboardingPending ? null : (
           <SearchExperience
             answerService={defaultAnswerService}
+            computerUseService={defaultComputerUseService}
             service={defaultSearchService}
             onOpenSettings={() => setSettingsOpen(true)}
           />

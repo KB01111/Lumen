@@ -22,11 +22,11 @@ afterEach(() => {
 });
 
 describe('SettingsShell', () => {
-  it('exposes all nine pages in one persistent navigation rail', () => {
+  it('exposes all ten pages in one persistent navigation rail', () => {
     renderShell();
 
     expect(screen.getByRole('navigation', {name: 'Settings'})).toBeVisible();
-    expect(screen.getAllByRole('tab')).toHaveLength(9);
+    expect(screen.getAllByRole('tab')).toHaveLength(10);
     expect(screen.getByRole('heading', {name: 'General'})).toBeVisible();
     expect(screen.getByTestId('settings-content')).toHaveStyle({overflowY: 'auto'});
   });

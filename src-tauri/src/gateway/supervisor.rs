@@ -243,7 +243,7 @@ impl GatewaySupervisor {
 }
 
 #[cfg(windows)]
-pub(super) fn assign_kill_on_close_job(
+pub(crate) fn assign_kill_on_close_job(
     child: &Child,
 ) -> Result<windows::Win32::Foundation::HANDLE, String> {
     use std::{mem::size_of, os::windows::io::AsRawHandle};

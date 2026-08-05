@@ -1,7 +1,10 @@
 const SERVICE: &str = "com.bridgehammer.lumen.providers";
 
 fn allowed_provider(provider: &str) -> bool {
-    matches!(provider, "openai" | "openrouter" | "anthropic" | "mistral")
+    matches!(
+        provider,
+        "openai" | "openrouter" | "anthropic" | "mistral" | "gemini"
+    )
 }
 
 #[cfg(windows)]

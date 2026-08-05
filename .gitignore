@@ -5,6 +5,11 @@ node_modules/
 dist/
 dist-ssr/
 src-tauri/binaries/*
+workers/computer-use-preview/.venv/
+workers/computer-use-preview/.build/
+workers/computer-use-preview/.build-id
+workers/**/__pycache__/
+workers/**/*.py[cod]
 .tmp-agentgateway-schema.json
 *.local
 

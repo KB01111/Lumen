@@ -15,6 +15,7 @@
     "capture:gallery": "node scripts/capture-gallery.mjs",
     "record:interactions": "node scripts/record-interactions.mjs",
     "stage:sidecars": "bun scripts/stage-sidecars.ts",
+    "stage:computer-use": "bun scripts/stage-computer-use.ts",
     "preview": "vite preview",
     "tauri": "tauri"
   },

@@ -1,10 +1,11 @@
 import {useEffect, useRef, type ReactNode, type RefObject} from 'react';
 
-import {MicrophoneIcon} from '@phosphor-icons/react';
+import {BrowserIcon, MagnifyingGlassIcon, MicrophoneIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
 import {LumenMark} from '../../design-system/icons/LumenMark';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
+import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {tokens} from '../../design-system/tokens.stylex';
 import {createWindowService} from '../../platform/window/tauri-window-service';
@@ -90,6 +91,7 @@ const styles = stylex.create({
     fontSize: tokens.fontSizeCaption,
     lineHeight: tokens.lineHeightTight,
   },
+  intent: {flexShrink: 0},
 });
 
 export interface CollapsedLauncherProps {
@@ -99,6 +101,8 @@ export interface CollapsedLauncherProps {
   statusLabel?: string;
   windowService?: WindowService;
   onVoiceRequest?: () => void;
+  intentLocked?: boolean;
+  onComputerSubmit?: (task: string) => void;
 }
 
 export function CollapsedLauncher({
@@ -108,11 +112,16 @@ export function CollapsedLauncher({
   statusLabel,
   windowService = defaultWindowService,
   onVoiceRequest,
+  intentLocked = false,
+  onComputerSubmit,
 }: CollapsedLauncherProps) {
   const committedQuery = useQueryStore((state) => state.committed);
+  const clearQuery = useQueryStore((state) => state.clear);
   const mode = useLauncherStore((state) => state.mode);
   const show = useLauncherStore((state) => state.show);
   const hide = useLauncherStore((state) => state.hide);
+  const intent = useLauncherStore((state) => state.intent);
+  const setIntent = useLauncherStore((state) => state.setIntent);
   const fallbackInputRef = useRef<HTMLInputElement>(null);
   const renderStartedAt = useRef(performance.now());
   const inputRef = providedInputRef ?? fallbackInputRef;
@@ -142,6 +151,11 @@ export function CollapsedLauncher({
     void windowService.hide();
   };
 
+  const handleIntentChange = () => {
+    clearQuery();
+    setIntent(intent === 'computer' ? 'search' : 'computer');
+  };
+
   return (
     <LumenSurface
       aria-label="Lumen launcher"
@@ -154,7 +168,25 @@ export function CollapsedLauncher({
             <LumenMark className={stylex.props(styles.mark).className} size="large" />
           </span>
           <span aria-hidden="true" {...stylex.props(styles.divider)} />
-          <SearchInput ref={inputRef} onEscapeEmpty={handleEscapeEmpty} />
+          <LumenButton
+            aria-label={intent === 'computer' ? 'Switch to file search' : 'Switch to Computer Use'}
+            className={stylex.props(styles.intent).className}
+            isDisabled={intentLocked}
+            size="small"
+            variant={intent === 'computer' ? 'primary' : 'quiet'}
+            onPress={handleIntentChange}
+          >
+            {intent === 'computer'
+              ? <BrowserIcon aria-hidden="true" size={15} />
+              : <MagnifyingGlassIcon aria-hidden="true" size={15} />}
+            {intent === 'computer' ? 'Agent' : 'Search'}
+          </LumenButton>
+          <SearchInput
+            ref={inputRef}
+            intent={intent}
+            onEscapeEmpty={handleEscapeEmpty}
+            onSubmit={intentLocked ? undefined : onComputerSubmit}
+          />
           {onVoiceRequest ? (
             <LumenIconButton
               aria-label="Start voice input"
@@ -171,7 +203,7 @@ export function CollapsedLauncher({
             Alt&nbsp;&nbsp;Space
           </kbd>
         </div>
-        {expanded ? <ScopeRail /> : null}
+        {expanded && intent === 'search' ? <ScopeRail /> : null}
         {expanded ? expandedContent : null}
       </div>
     </LumenSurface>
