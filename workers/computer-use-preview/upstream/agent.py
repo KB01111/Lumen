@@ -410,12 +410,12 @@ class BrowserAgent:
             ):
                 try:
                     response = self.get_model_response()
-                except Exception as e:
+                except Exception:
                     return "COMPLETE"
         else:
             try:
                 response = self.get_model_response()
-            except Exception as e:
+            except Exception:
                 return "COMPLETE"
 
         if not response.candidates:
@@ -457,7 +457,7 @@ class BrowserAgent:
             # Print the function call and any reasoning.
             function_call_str = f"Name: {function_call.name}"
             if function_call.args:
-                function_call_str += f"\nArgs:"
+                function_call_str += "\nArgs:"
                 for key, value in function_call.args.items():
                     function_call_str += f"\n  {key}: {value}"
             function_call_strs.append(function_call_str)
@@ -559,7 +559,7 @@ class BrowserAgent:
         self, safety: dict[str, Any]
     ) -> Literal["CONTINUE", "TERMINATE"]:
         if safety["decision"] != "require_confirmation":
-            raise ValueError(f"Unknown safety decision: safety['decision']")
+            raise ValueError(f"Unknown safety decision: {safety['decision']}")
         termcolor.cprint(
             "Safety service requires explicit confirmation!",
             color="yellow",

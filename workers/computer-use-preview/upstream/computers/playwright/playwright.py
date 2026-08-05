@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 import termcolor
 import time
 import os
@@ -126,7 +125,7 @@ class PlaywrightComputer(Computer):
         self._context.on("page", self._handle_new_page)
 
         termcolor.cprint(
-            f"Started local playwright.",
+            "Started local playwright.",
             color="green",
             attrs=["bold"],
         )

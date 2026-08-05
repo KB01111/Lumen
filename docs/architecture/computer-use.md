@@ -31,7 +31,7 @@ The task, visited page URLs, and screenshots are cloud data. Computer Use settin
 
 ## Packaging and provenance
 
-`workers/computer-use-preview/upstream` contains the Apache-2.0 agent and computer abstractions copied from `google-gemini/computer-use-preview` commit `77c9797e943aad63bbc963b7fd092a9e51c07863`. The adjacent README and license preserve provenance. Lumen-specific JSON-lines, cancellation, Edge-channel, and approval behavior lives in `worker.py`.
+`workers/computer-use-preview/upstream` contains the Apache-2.0 agent and computer abstractions copied from `google-gemini/computer-use-preview` commit `77c9797e943aad63bbc963b7fd092a9e51c07863`. The adjacent README and license preserve provenance and enumerate the minimal Edge-channel and lint-only deviations. Lumen-specific JSON-lines, cancellation, credential isolation, and approval behavior lives in `worker.py`.
 
 `bun run stage:computer-use` creates a cached Python 3.11 environment, installs the fully pinned `requirements.lock`, builds a one-file PyInstaller executable, and records a SHA-256 build ID over every worker input. `bun run stage:sidecars` includes that step, and Tauri packages the result as an external binary. Both source-mode and packaged-mode `--health` checks must pass.
 
