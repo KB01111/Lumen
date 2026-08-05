@@ -109,7 +109,7 @@ export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' 
     : nativeHealth?.profile === 'desktop-nvidia-cuda' ? 'gpu' : nativeHealth ? 'cpu' : undefined;
   const view = {
     hardware: model?.hardware ?? nativeHardware ?? storedHardware,
-    state: model?.state ?? (nativeHealth?.state === 'ready' ? 'ready' : undefined) ?? storedModel,
+    state: model?.state ?? (nativeHealth ? (nativeHealth.state === 'ready' ? 'ready' : 'failed') : storedModel),
     progress: model?.progress ?? storedProgress,
     modelName: model?.modelName ?? nativeHealth?.answerModel ?? modelName,
     provider: model?.provider ?? (nativeHealth ? `Lemonade ${nativeHealth.lemonade.version ?? 'missing'} / FLM ${nativeHealth.flm.version ?? 'missing'}` : providerName),

@@ -55,6 +55,7 @@ function validWebUrl(value: string) {
 export function ComputerUsePage() {
   const settings = useSettingsStore((state) => state.computerUse);
   const updateComputerUse = useSettingsStore((state) => state.updateComputerUse);
+  const setComputerUseConsent = useSettingsStore((state) => state.setComputerUseConsent);
   const native = isNativeRuntime();
   const [health, setHealth] = useState<ComputerUseHealth>();
   const [credential, setCredential] = useState('');
@@ -75,15 +76,25 @@ export function ComputerUsePage() {
 
   const saveCredential = async () => {
     if (!credential.trim()) return;
-    await nativeAiService.saveCredential('gemini', credential);
-    setCredential('');
-    await refresh();
-    setMessage('Gemini API key saved in Windows Credential Manager.');
+    try {
+      await nativeAiService.saveCredential('gemini', credential);
+      await refresh();
+      setMessage('Gemini API key saved in Windows Credential Manager.');
+    } catch (error) {
+      setMessage(`The Gemini credential could not be saved: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setCredential('');
+    }
   };
   const deleteCredential = async () => {
-    await nativeAiService.deleteCredential('gemini');
-    await refresh();
-    setMessage('Gemini API key removed.');
+    try {
+      await nativeAiService.deleteCredential('gemini');
+      await refresh();
+      setMessage('Gemini API key removed.');
+    } catch (error) {
+      setMessage(`The Gemini credential may still be configured: ${error instanceof Error ? error.message : String(error)}`);
+      await refresh().catch(() => undefined);
+    }
   };
   const saveInitialUrl = async () => {
     if (!validWebUrl(initialUrl)) {
@@ -93,8 +104,8 @@ export function ComputerUsePage() {
     await updateComputerUse({initialUrl});
     setMessage('Computer Use start page saved.');
   };
-  const grantConsent = () => void updateComputerUse({cloudConsent: true});
-  const revokeConsent = () => void updateComputerUse({cloudConsent: false});
+  const grantConsent = () => void setComputerUseConsent(true);
+  const revokeConsent = () => void setComputerUseConsent(false);
 
   return (
     <SettingsPage>

@@ -260,7 +260,8 @@ impl EnrichmentSupervisor {
                 .bearer_auth(&self.bearer)
                 .json(job)
                 .send()
-                .await;
+                .await
+                .and_then(reqwest::Response::error_for_status);
             if let Err(error) = response {
                 *self
                     .detail
@@ -290,7 +291,6 @@ impl EnrichmentSupervisor {
     }
 
     pub async fn resume(&self) -> Result<(), String> {
-        self.paused.store(false, Ordering::Relaxed);
         reqwest::Client::builder()
             .timeout(Duration::from_secs(5))
             .build()
@@ -302,6 +302,7 @@ impl EnrichmentSupervisor {
             .map_err(|error| error.to_string())?
             .error_for_status()
             .map_err(|error| error.to_string())?;
+        self.paused.store(false, Ordering::Relaxed);
         Ok(())
     }
 

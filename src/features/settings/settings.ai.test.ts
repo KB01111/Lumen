@@ -1,10 +1,11 @@
-import {beforeEach, describe, expect, it} from 'vitest';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {defaultSettings, parseSettings} from './settings.schema';
-import {useSettingsStore} from './settings.store';
+import {settingsPersistence, useSettingsStore} from './settings.store';
 
 describe('AI runtime settings', () => {
   beforeEach(() => {
+    Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
     window.localStorage.clear();
     useSettingsStore.getState().reset();
   });
@@ -43,10 +44,44 @@ describe('AI runtime settings', () => {
   });
 
   it('persists explicit cloud answer consent per device', async () => {
-    await useSettingsStore.getState().updateAi({cloudAnswerConsent: true});
+    await useSettingsStore.getState().setCloudAnswerConsent(true);
 
     const saved = JSON.parse(window.localStorage.getItem('lumen-management-settings') ?? '{}');
     expect(saved.ai.cloudAnswerConsent).toBe(true);
+  });
+
+  it('does not expose cloud consent before the device write succeeds', async () => {
+    let finishSave: (() => void) | undefined;
+    vi.spyOn(settingsPersistence, 'write').mockImplementation(() => new Promise<void>((resolve) => {
+      finishSave = resolve;
+    }));
+
+    const saving = useSettingsStore.getState().setCloudAnswerConsent(true);
+    await Promise.resolve();
+    expect(useSettingsStore.getState().ai.cloudAnswerConsent).toBe(false);
+
+    finishSave?.();
+    await expect(saving).resolves.toBe(true);
+    expect(useSettingsStore.getState().ai.cloudAnswerConsent).toBe(true);
+  });
+
+  it('serializes full-settings writes so older snapshots cannot finish last', async () => {
+    let finishFirstSave: (() => void) | undefined;
+    const write = vi.spyOn(settingsPersistence, 'write')
+      .mockImplementationOnce(() => new Promise<void>((resolve) => {
+        finishFirstSave = resolve;
+      }))
+      .mockResolvedValue(undefined);
+
+    const first = useSettingsStore.getState().updateAi({runtimeMode: 'local'});
+    await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    const second = useSettingsStore.getState().updateComputerUse({model: 'gemini-3.5-flash'});
+    await Promise.resolve();
+    expect(write).toHaveBeenCalledTimes(1);
+
+    finishFirstSave?.();
+    await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+    expect(write).toHaveBeenCalledTimes(2);
   });
 });
 

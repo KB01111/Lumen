@@ -179,7 +179,18 @@ pub fn extract_document(path: &Path) -> Result<ExtractedDocument, ExtractionErro
             "File exceeds the 64 MiB local extraction limit",
         ));
     }
-    let bytes = fs::read(path).map_err(|error| failure(path, error))?;
+    let mut bytes = Vec::new();
+    File::open(path)
+        .map_err(|error| failure(path, error))?
+        .take(MAX_SOURCE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| failure(path, error))?;
+    if bytes.len() as u64 > MAX_SOURCE_BYTES {
+        return Err(failure(
+            path,
+            "File exceeds the 64 MiB local extraction limit",
+        ));
+    }
     let digest = Sha256::digest(&bytes);
     let content_hash = digest
         .iter()

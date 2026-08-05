@@ -9,7 +9,10 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tauri::{State, ipc::Channel};
 
-use crate::gateway::{credentials, supervisor::assign_kill_on_close_job};
+use crate::{
+    consent::PersistedConsent,
+    gateway::{credentials, supervisor::assign_kill_on_close_job},
+};
 
 const MAX_TASK_LENGTH: usize = 4_000;
 const SUPPORTED_MODELS: [&str; 5] = [
@@ -419,7 +422,14 @@ pub fn start_computer_use(
     request: ComputerUseRequest,
     on_event: Channel<ComputerUseEvent>,
     supervisor: State<'_, ComputerUseSupervisor>,
+    consent: State<'_, PersistedConsent>,
 ) -> Result<(), String> {
+    if request.cloud_consent && !consent.computer_use_granted() {
+        return Err(
+            "Computer Use consent is not recorded in the device settings; review consent again"
+                .to_owned(),
+        );
+    }
     supervisor.inner().start(request, on_event)
 }
 

@@ -21,7 +21,7 @@ export interface RuntimeComponent {
 
 export interface LocalRuntimeHealth {
   profile: 'laptop-amd-npu' | 'desktop-nvidia-cuda' | 'generic-local';
-  state: 'ready' | 'stopped';
+  state: 'ready' | 'stopped' | 'update-required';
   accelerator: string;
   answerModel: string;
   embeddingModel: string;

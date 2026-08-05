@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{State, ipc::Channel};
 use tokio_util::sync::CancellationToken;
 
-use crate::search::IndexRuntime;
+use crate::{consent::PersistedConsent, search::IndexRuntime};
 
 use super::{GatewaySupervisor, LocalRuntimeSupervisor, credentials};
 
@@ -319,14 +319,29 @@ pub async fn start_answer(
     supervisor: State<'_, GatewaySupervisor>,
     local_runtime: State<'_, LocalRuntimeSupervisor>,
     index: State<'_, IndexRuntime>,
+    consent: State<'_, PersistedConsent>,
 ) -> Result<(), String> {
+    let cancellation = runtime.begin(request.request_id);
     let mode = request.mode;
-    let cloud_consent = request.cloud_consent;
-    let route_selection = tauri::async_runtime::spawn_blocking(move || {
+    let cloud_consent = request.cloud_consent && consent.answer_granted();
+    let route_selection = match tauri::async_runtime::spawn_blocking(move || {
         routes(mode, cloud_consent, credentials::get("openai").is_some())
     })
     .await
-    .map_err(|error| format!("Could not join the answer-route selection: {error}"))?;
+    {
+        Ok(selection) => selection,
+        Err(error) => {
+            runtime.cancel(request.request_id);
+            return Err(format!(
+                "Could not join the answer-route selection: {error}"
+            ));
+        }
+    };
+    if cancellation.is_cancelled() {
+        send(&on_event, AnswerEvent::Cancelled);
+        runtime.cancel(request.request_id);
+        return Ok(());
+    }
     let attempts = match route_selection {
         Ok(attempts) => attempts,
         Err(error) => {
@@ -337,17 +352,28 @@ pub async fn start_answer(
                     code: Some(error.code.to_owned()),
                 },
             );
+            runtime.cancel(request.request_id);
             return Ok(());
         }
     };
-    let cancellation = runtime.begin(request.request_id);
     let index_runtime = index.inner().clone();
     let query = request.query.clone();
-    let hits = tauri::async_runtime::spawn_blocking(move || {
+    let hits = match tauri::async_runtime::spawn_blocking(move || {
         index_runtime.answer_context(&query, 6).unwrap_or_default()
     })
     .await
-    .map_err(|error| format!("Could not join the answer-context search: {error}"))?;
+    {
+        Ok(hits) => hits,
+        Err(error) => {
+            runtime.cancel(request.request_id);
+            return Err(format!("Could not join the answer-context search: {error}"));
+        }
+    };
+    if cancellation.is_cancelled() {
+        send(&on_event, AnswerEvent::Cancelled);
+        runtime.cancel(request.request_id);
+        return Ok(());
+    }
     for hit in &hits {
         send(
             &on_event,

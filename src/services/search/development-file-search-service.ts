@@ -200,6 +200,8 @@ export class DevelopmentFileSearchService implements SearchService {
   private readonly knownFiles = new Map<string, KnownFile>();
   private readonly listeners = new Set<(status: SearchStatus) => void>();
   private synchronizedRootSignature = '';
+  private pendingRootSignature = '';
+  private rootSynchronization: Promise<void> = Promise.resolve();
 
   constructor({getRoots, getRootConfigurations, invoke = defaultInvoke}: DevelopmentFileSearchServiceOptions) {
     this.getRoots = getRoots;
@@ -216,7 +218,8 @@ export class DevelopmentFileSearchService implements SearchService {
     }
 
     const startedAt = performance.now();
-    this.synchronizeRoots(roots);
+    await abortable(this.synchronizeRoots(roots), signal);
+    throwIfAborted(signal);
     const indexedRequest = this.invoke('search_indexed', {query: request.query, limit: request.limit});
     const [settled, indexedSettled] = await abortable(Promise.all([
       Promise.allSettled(
@@ -415,7 +418,7 @@ export class DevelopmentFileSearchService implements SearchService {
     this.listeners.forEach((listener) => listener(status));
   }
 
-  private synchronizeRoots(roots: readonly string[]) {
+  private synchronizeRoots(roots: readonly string[]): Promise<void> {
     const configuredRoots = this.getRootConfigurations?.() ?? roots.map((path) => ({
       id: normalizedPath(path),
       path,
@@ -425,17 +428,29 @@ export class DevelopmentFileSearchService implements SearchService {
       normalizedPath(root.path),
       root.cloudEnrichment,
     ]));
-    if (signature === this.synchronizedRootSignature) {
-      return;
+    if (signature === this.synchronizedRootSignature && !this.pendingRootSignature) {
+      return Promise.resolve();
     }
-    this.synchronizedRootSignature = signature;
-    void this.invoke('synchronize_index_roots', {
-      roots: configuredRoots.map((root) => ({
-        path: root.path,
-        cloudEnrichment: root.cloudEnrichment,
-      })),
-    }).catch(() => {
-      this.synchronizedRootSignature = '';
+    if (signature === this.pendingRootSignature) {
+      return this.rootSynchronization;
+    }
+    this.pendingRootSignature = signature;
+    const previous = this.rootSynchronization.catch(() => undefined);
+    const synchronization = previous.then(async () => {
+      if (signature === this.synchronizedRootSignature) return;
+      await this.invoke('synchronize_index_roots', {
+        roots: configuredRoots.map((root) => ({
+          path: root.path,
+          cloudEnrichment: root.cloudEnrichment,
+        })),
+      });
+      this.synchronizedRootSignature = signature;
+    });
+    this.rootSynchronization = synchronization;
+    return synchronization.finally(() => {
+      if (this.pendingRootSignature === signature) {
+        this.pendingRootSignature = '';
+      }
     });
   }
 

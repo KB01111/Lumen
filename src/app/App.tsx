@@ -141,13 +141,22 @@ function createDefaultSearchService() {
     },
     getRootConfigurations: () => {
       const settings = useSettingsStore.getState();
-      return settings.roots
+      const configuredRoots = settings.roots
         .filter((root) => !root.paused)
         .map((root) => ({
           id: root.id,
           path: root.path,
           cloudEnrichment: settings.ai.cloudEnrichedRootIds.includes(root.id),
         }));
+      if (configuredRoots.length > 0) {
+        return configuredRoots;
+      }
+      const onboardingRoot = useOnboardingStore.getState().root;
+      return onboardingRoot ? [{
+        id: `onboarding:${onboardingRoot}`,
+        path: onboardingRoot,
+        cloudEnrichment: false,
+      }] : [];
     },
   });
 }

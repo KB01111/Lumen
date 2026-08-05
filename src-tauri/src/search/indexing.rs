@@ -36,6 +36,7 @@ pub struct IndexRuntime {
     database: Arc<IndexDatabase>,
     status: Arc<Mutex<IndexStatus>>,
     generation: Arc<AtomicU64>,
+    synchronization: Arc<Mutex<()>>,
 }
 
 fn search_failure(operation: &str, error: impl std::fmt::Display) -> SearchFailure {
@@ -78,6 +79,7 @@ impl IndexRuntime {
                 message: "Local index ready".to_owned(),
             })),
             generation: Arc::new(AtomicU64::new(0)),
+            synchronization: Arc::new(Mutex::new(())),
         })
     }
 
@@ -100,6 +102,10 @@ impl IndexRuntime {
         query: &str,
         limit: usize,
     ) -> Result<Vec<IndexedHit>, SearchFailure> {
+        let _synchronization = self
+            .synchronization
+            .lock()
+            .map_err(|error| search_failure("lock the indexing worker", error))?;
         self.database
             .search(query, limit)
             .map_err(|error| search_failure("build answer context", error))
@@ -114,6 +120,10 @@ impl IndexRuntime {
     }
 
     fn synchronize(&self, roots: Vec<IndexRootRequest>) -> Result<IndexStatus, SearchFailure> {
+        let _synchronization = self
+            .synchronization
+            .lock()
+            .map_err(|error| search_failure("lock the indexing worker", error))?;
         let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
         self.set_status(IndexStatus {
             phase: "indexing".to_owned(),
@@ -180,6 +190,9 @@ impl IndexRuntime {
                 }
             }
         }
+        if self.generation.load(Ordering::SeqCst) != generation {
+            return Ok(self.snapshot());
+        }
         self.database
             .retain_inventory(&inventory)
             .map_err(|error| search_failure("remove stale index inventory", error))?;
@@ -229,6 +242,10 @@ pub async fn search_indexed(
 ) -> Result<Vec<IndexedHit>, SearchFailure> {
     let runtime = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _synchronization = runtime
+            .synchronization
+            .lock()
+            .map_err(|error| search_failure("lock the indexing worker", error))?;
         runtime
             .database
             .search(&query, limit.min(10_000))
@@ -244,6 +261,10 @@ pub async fn delete_index_data(
 ) -> Result<IndexStatus, SearchFailure> {
     let runtime = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _synchronization = runtime
+            .synchronization
+            .lock()
+            .map_err(|error| search_failure("lock the indexing worker", error))?;
         runtime.generation.fetch_add(1, Ordering::SeqCst);
         runtime
             .database

@@ -50,7 +50,7 @@ export function AgentGatewayPage() {
   const testMcp = useGatewayStore((state) => state.testMcp);
   const cloudConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
-  const updateAi = useSettingsStore((state) => state.updateAi);
+  const setCloudAnswerConsent = useSettingsStore((state) => state.setCloudAnswerConsent);
   const native = isNativeRuntime();
   const [health, setHealth] = useState<GatewayHealth>();
   const [enrichment, setEnrichment] = useState<EnrichmentHealth>();
@@ -68,15 +68,25 @@ export function AgentGatewayPage() {
   useEffect(() => {
     void refresh().catch((error: unknown) => setNativeMessage(String(error)));
   }, [refresh]);
+  const changeCloudConsent = useCallback(async (granted: boolean) => {
+    const saved = await setCloudAnswerConsent(granted);
+    if (!saved) {
+      setNativeMessage('Cloud consent was not changed because the device setting could not be saved.');
+    }
+  }, [setCloudAnswerConsent]);
   const grantCloudConsent = useCallback(() => {
-    void updateAi({cloudAnswerConsent: true});
-  }, [updateAi]);
-  const revokeCloudConsent = useCallback(() => {
-    void updateAi({
-      cloudAnswerConsent: false,
-      runtimeMode: runtimeMode === 'cloud' ? 'local' : runtimeMode,
-    });
-  }, [runtimeMode, updateAi]);
+    void changeCloudConsent(true);
+  }, [changeCloudConsent]);
+  const revokeCloudConsent = useCallback(async () => {
+    if (runtimeMode === 'cloud') {
+      const runtimeSaved = await useSettingsStore.getState().updateAi({runtimeMode: 'local'});
+      if (!runtimeSaved) {
+        setNativeMessage('Cloud consent was not changed because local mode could not be saved.');
+        return;
+      }
+    }
+    await changeCloudConsent(false);
+  }, [changeCloudConsent, runtimeMode]);
   const restartGateway = async () => {
     if (!native) return restart();
     setNativeMessage('Restarting AgentGateway…');
@@ -90,11 +100,26 @@ export function AgentGatewayPage() {
   };
   const saveCredential = async () => {
     if (!credential.trim()) return;
-    await nativeAiService.saveCredential('openai', credential);
-    setCredential('');
-    await nativeAiService.restartGateway();
-    await refresh();
-    setNativeMessage('OpenAI credential saved in Windows Credential Manager.');
+    try {
+      await nativeAiService.saveCredential('openai', credential);
+      await nativeAiService.restartGateway();
+      await refresh();
+      setNativeMessage('OpenAI credential saved in Windows Credential Manager.');
+    } catch (error) {
+      setNativeMessage(`The OpenAI credential could not be saved or activated: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setCredential('');
+    }
+  };
+  const deleteCredential = async () => {
+    try {
+      await nativeAiService.deleteCredential('openai');
+      await refresh();
+      setNativeMessage('OpenAI credential removed.');
+    } catch (error) {
+      setNativeMessage(`The OpenAI credential may still be configured: ${error instanceof Error ? error.message : String(error)}`);
+      await refresh().catch(() => undefined);
+    }
   };
 
   return (
@@ -127,7 +152,7 @@ export function AgentGatewayPage() {
             <LumenTextField aria-label="OpenAI API key" type="password" placeholder="sk-…" value={credential} onChange={setCredential} />
             <div {...stylex.props(styles.actions)}>
               <LumenButton size="small" variant="primary" onPress={() => void saveCredential()}>Save</LumenButton>
-              <LumenButton size="small" variant="quiet" onPress={() => void nativeAiService.deleteCredential('openai').then(refresh)}>Delete</LumenButton>
+              <LumenButton size="small" variant="quiet" onPress={() => void deleteCredential()}>Delete</LumenButton>
             </div>
           </div>
         </SettingSection>
@@ -142,7 +167,7 @@ export function AgentGatewayPage() {
           {cloudConsent ? (
             <div {...stylex.props(styles.actions)}>
               <StatusBadge tone="success">Cloud consent granted</StatusBadge>
-              <LumenButton size="small" variant="quiet" onPress={revokeCloudConsent}>Revoke</LumenButton>
+              <LumenButton size="small" variant="quiet" onPress={() => void revokeCloudConsent()}>Revoke</LumenButton>
             </div>
           ) : (
             <ConfirmationDialog

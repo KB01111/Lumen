@@ -33,9 +33,12 @@ interface SettingsActions {
   updateGeneral(patch: Partial<GeneralSettings>): Promise<boolean>;
   updatePresentation(patch: Partial<PresentationSettings>): Promise<boolean>;
   setRoots(roots: IndexedRoot[]): Promise<boolean>;
+  setRootsAndAi(roots: IndexedRoot[], patch: Partial<AiSettings>): Promise<boolean>;
   updateSearch(patch: Partial<SearchSettings>): Promise<boolean>;
   updateAi(patch: Partial<AiSettings>): Promise<boolean>;
+  setCloudAnswerConsent(granted: boolean): Promise<boolean>;
   updateComputerUse(patch: Partial<ComputerUseSettings>): Promise<boolean>;
+  setComputerUseConsent(granted: boolean): Promise<boolean>;
   updateActivity(patch: Partial<ActivitySettings>): Promise<boolean>;
   updatePrivacy(patch: Partial<PrivacySettings>): Promise<boolean>;
 }
@@ -70,6 +73,12 @@ async function writeSettings(settings: LumenSettings) {
   window.localStorage.setItem(browserStorageKey, JSON.stringify(settings));
 }
 
+/** Internal persistence seam kept injectable for ordering and failure regression tests. */
+export const settingsPersistence = {
+  read: readSettings,
+  write: writeSettings,
+};
+
 function stateSettings(state: SettingsState): LumenSettings {
   return settingsSchema.parse({
     activePage: state.activePage,
@@ -93,12 +102,21 @@ const initialMeta: SettingsMeta = {
 export const useSettingsStore = create<SettingsState>()(
   subscribeWithSelector((set, get) => {
     let writeRevision = 0;
+    let writeQueue = Promise.resolve();
 
-    async function persist() {
+    async function persist(
+      settings: () => LumenSettings = () => stateSettings(get()),
+      afterWrite?: () => void,
+    ) {
       const revision = ++writeRevision;
       set({persistenceStatus: 'saving', persistenceError: null});
+      const write = writeQueue.then(async () => {
+        await settingsPersistence.write(settings());
+        afterWrite?.();
+      });
+      writeQueue = write.catch(() => undefined);
       try {
-        await writeSettings(stateSettings(get()));
+        await write;
         if (revision === writeRevision) {
           set({persistenceStatus: 'saved'});
         }
@@ -122,7 +140,7 @@ export const useSettingsStore = create<SettingsState>()(
           return;
         }
         set({persistenceStatus: 'loading'});
-        const settings = await readSettings();
+        const settings = await settingsPersistence.read();
         set({...settings, hydrated: true, persistenceStatus: 'ready'});
       },
       reset: () => {
@@ -145,6 +163,10 @@ export const useSettingsStore = create<SettingsState>()(
         set({roots});
         return persist();
       },
+      setRootsAndAi: (roots, patch) => {
+        set((state) => ({roots, ai: {...state.ai, ...patch}}));
+        return persist();
+      },
       updateSearch: (patch) => {
         set((state) => ({search: {...state.search, ...patch}}));
         return persist();
@@ -153,10 +175,30 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({ai: {...state.ai, ...patch}}));
         return persist();
       },
+      setCloudAnswerConsent: (granted) => persist(
+        () => {
+          const settings = stateSettings(get());
+          return settingsSchema.parse({
+            ...settings,
+            ai: {...settings.ai, cloudAnswerConsent: granted},
+          });
+        },
+        () => set((state) => ({ai: {...state.ai, cloudAnswerConsent: granted}})),
+      ),
       updateComputerUse: (patch) => {
         set((state) => ({computerUse: {...state.computerUse, ...patch}}));
         return persist();
       },
+      setComputerUseConsent: (granted) => persist(
+        () => {
+          const settings = stateSettings(get());
+          return settingsSchema.parse({
+            ...settings,
+            computerUse: {...settings.computerUse, cloudConsent: granted},
+          });
+        },
+        () => set((state) => ({computerUse: {...state.computerUse, cloudConsent: granted}})),
+      ),
       updateActivity: (patch) => {
         set((state) => ({activity: {...state.activity, ...patch}}));
         return persist();

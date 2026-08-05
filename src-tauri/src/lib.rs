@@ -1,4 +1,5 @@
 mod computer_use;
+mod consent;
 mod gateway;
 mod search;
 mod window;
@@ -38,6 +39,9 @@ pub fn run() {
         .setup(|app| {
             let data_directory = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_directory)?;
+            app.manage(consent::PersistedConsent::new(
+                data_directory.join("lumen.settings.json"),
+            ));
             let development_sidecar = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("binaries/agentgateway-x86_64-pc-windows-msvc.exe");
             let packaged_sidecar = app.path().resource_dir()?.join("agentgateway.exe");

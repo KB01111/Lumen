@@ -53,6 +53,7 @@ const styles = stylex.create({
 export function IndexedRootsPage({rootService = defaultRootService}: {rootService?: RootSelectionService}) {
   const roots = useSettingsStore((state) => state.roots);
   const setRoots = useSettingsStore((state) => state.setRoots);
+  const setRootsAndAi = useSettingsStore((state) => state.setRootsAndAi);
   const cloudEnrichedRootIds = useSettingsStore((state) => state.ai.cloudEnrichedRootIds);
   const updateAi = useSettingsStore((state) => state.updateAi);
   const [notice, setNotice] = useState<PageNotice>();
@@ -201,10 +202,7 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
               const nextRoots = roots.filter((item) => item.id !== root.id);
               const nextIds = cloudEnrichedRootIds.filter((id) => id !== root.id);
               void persistAndSynchronize(
-                async () => (await Promise.all([
-                  setRoots(nextRoots),
-                  updateAi({cloudEnrichedRootIds: nextIds}),
-                ])).every(Boolean),
+                () => setRootsAndAi(nextRoots, {cloudEnrichedRootIds: nextIds}),
                 nextRoots,
                 nextIds,
               );

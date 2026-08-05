@@ -212,20 +212,34 @@ impl LocalRuntimeSupervisor {
             .as_deref()
             .and_then(|binary| command_output(binary, &["--version"]));
         let running = lemonade_ready();
+        let lemonade_compatible =
+            self.lemonade.is_some() && lemonade_version.as_deref() == Some(REQUIRED_LEMONADE);
+        let flm_compatible = self.flm.is_none() || flm_version.as_deref() == Some(REQUIRED_FLM);
+        let compatible = lemonade_compatible && flm_compatible;
         let detail = if self.lemonade.is_none() {
             Some("LemonadeServer.exe is not installed".to_owned())
-        } else if !running {
-            Some("Lemonade is installed but its loopback API is stopped".to_owned())
-        } else if self.flm.is_some() && flm_version.as_deref() != Some(REQUIRED_FLM) {
+        } else if !lemonade_compatible {
+            Some(format!(
+                "Lemonade {REQUIRED_LEMONADE} is required for local answers"
+            ))
+        } else if !flm_compatible {
             Some(format!(
                 "FLM {REQUIRED_FLM} is required for the qualified NPU profile"
             ))
+        } else if !running {
+            Some("Lemonade is installed but its loopback API is stopped".to_owned())
         } else {
             None
         };
         LocalRuntimeHealth {
             profile,
-            state: if running { "ready" } else { "stopped" },
+            state: if !compatible {
+                "update-required"
+            } else if running {
+                "ready"
+            } else {
+                "stopped"
+            },
             accelerator,
             answer_model: if profile == "desktop-nvidia-cuda" {
                 "Qwen 3.5 9B (4-bit)"
@@ -247,6 +261,12 @@ impl LocalRuntimeSupervisor {
     }
 
     pub fn start(&self) -> Result<(), String> {
+        let health = self.health();
+        if health.lemonade.state != "ready" || health.flm.state == "update-required" {
+            return Err(health
+                .detail
+                .unwrap_or_else(|| "The local AI runtime must be updated".to_owned()));
+        }
         if lemonade_ready() {
             return Ok(());
         }
