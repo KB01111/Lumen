@@ -14,6 +14,7 @@ import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {tokens} from '../../design-system/tokens.stylex';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
 import {useQueryStore} from './query.store';
+import type {LauncherIntent} from './launcher.store';
 
 const styles = stylex.create({
   field: {
@@ -58,11 +59,13 @@ const styles = stylex.create({
 });
 
 export interface SearchInputProps {
+  intent?: LauncherIntent;
   onEscapeEmpty(): void;
+  onSubmit?(): void;
 }
 
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
-  function SearchInput({onEscapeEmpty}, ref) {
+  function SearchInput({intent = 'search', onEscapeEmpty, onSubmit}, ref) {
     const setDraft = useQueryStore((state) => state.setDraft);
     const startComposition = useQueryStore((state) => state.startComposition);
     const endComposition = useQueryStore((state) => state.endComposition);
@@ -116,6 +119,12 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     };
 
     const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter' && intent === 'computer' && !event.nativeEvent.isComposing) {
+        event.preventDefault();
+        event.stopPropagation();
+        onSubmit?.();
+        return;
+      }
       if (event.key !== 'Escape') {
         return;
       }
@@ -146,15 +155,15 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     };
 
     return (
-      <div role="search" aria-label="File search" {...stylex.props(styles.field)}>
+      <div role="search" aria-label={intent === 'computer' ? 'Browser task' : 'File search'} {...stylex.props(styles.field)}>
         <input
           ref={inputRef}
-          aria-label="Search files"
+          aria-label={intent === 'computer' ? 'Describe a browser task' : 'Search files'}
           autoCapitalize="off"
           autoComplete="off"
           defaultValue={useQueryStore.getState().draft}
           enterKeyHint="search"
-          placeholder="Search apps, files, and settings"
+          placeholder={intent === 'computer' ? 'Ask Lumen to complete a browser task' : 'Search apps, files, and settings'}
           spellCheck={false}
           type="search"
           {...stylex.props(styles.input)}

@@ -2,6 +2,7 @@ import type {ReactNode} from 'react';
 
 import {
   CpuIcon,
+  BrowserIcon,
   FolderSimpleIcon,
   GaugeIcon,
   GearSixIcon,
@@ -71,6 +72,7 @@ export const settingsPages: readonly SettingsPageDefinition[] = [
   {id: 'search', label: 'Search', description: 'Scopes and ranking priorities', icon: <MagnifyingGlassIcon size={18} />},
   {id: 'local-ai', label: 'Local AI', description: 'Hardware and model readiness', icon: <CpuIcon size={18} />},
   {id: 'agent-gateway', label: 'AgentGateway', description: 'Providers, routes, MCP, and consent', icon: <PlugsConnectedIcon size={18} />},
+  {id: 'computer-use', label: 'Computer Use', description: 'Gemini browser agent, consent, and approvals', icon: <BrowserIcon size={18} />},
   {id: 'activity', label: 'Activity', description: 'Indexing and quiet-mode policies', icon: <GaugeIcon size={18} />},
   {id: 'privacy', label: 'Privacy', description: 'Local data and destructive actions', icon: <ShieldCheckIcon size={18} />},
   {id: 'diagnostics', label: 'Diagnostics', description: 'Runtime status and performance evidence', icon: <PulseIcon size={18} />},

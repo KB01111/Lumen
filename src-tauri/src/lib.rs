@@ -1,3 +1,4 @@
+mod computer_use;
 mod gateway;
 mod search;
 mod window;
@@ -51,6 +52,16 @@ pub fn run() {
             app.manage(gateway);
             app.manage(gateway::answer::AnswerRuntime::default());
             app.manage(gateway::LocalRuntimeSupervisor::detect());
+            let packaged_computer_use = app.path().resource_dir()?.join("lumen-computer-use.exe");
+            let staged_computer_use = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("binaries/lumen-computer-use-x86_64-pc-windows-msvc.exe");
+            let source_computer_use = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../workers/computer-use-preview/worker.py");
+            app.manage(computer_use::ComputerUseSupervisor::detect(
+                packaged_computer_use,
+                staged_computer_use,
+                source_computer_use,
+            ));
             let development_worker = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("binaries/lumen-enrichment-x86_64-pc-windows-msvc.exe");
             let packaged_worker = app.path().resource_dir()?.join("lumen-enrichment.exe");
@@ -112,6 +123,10 @@ pub fn run() {
             gateway::enrichment::restart_enrichment,
             gateway::local_runtime::local_runtime_health,
             gateway::local_runtime::set_local_runtime_mode,
+            computer_use::computer_use_health,
+            computer_use::start_computer_use,
+            computer_use::respond_computer_use_approval,
+            computer_use::cancel_computer_use,
             window::show_lumen_window,
             window::hide_lumen_window,
             window::focus_lumen_input,

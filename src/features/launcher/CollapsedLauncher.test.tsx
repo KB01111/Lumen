@@ -82,4 +82,23 @@ describe('CollapsedLauncher', () => {
     await user.click(screen.getByRole('tab', {name: 'Documents'}));
     expect(useScopeStore.getState().activeScope).toBe('documents');
   });
+
+  it('switches to an explicit browser-agent task without exposing file scopes', async () => {
+    const user = userEvent.setup();
+    let submitted = 0;
+    render(
+      <CollapsedLauncher
+        windowService={new BrowserWindowService()}
+        onComputerSubmit={() => submitted += 1}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', {name: 'Switch to Computer Use'}));
+    const input = screen.getByRole('searchbox', {name: 'Describe a browser task'});
+    await user.type(input, 'Find the latest Lumen release{Enter}');
+
+    expect(useLauncherStore.getState().intent).toBe('computer');
+    expect(screen.queryByRole('tablist', {name: 'Search scopes'})).not.toBeInTheDocument();
+    expect(submitted).toBe(1);
+  });
 });
