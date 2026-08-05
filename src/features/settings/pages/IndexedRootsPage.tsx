@@ -19,6 +19,15 @@ import {isNativeRuntime, nativeAiService} from '../../../services/ai/native-ai-s
 
 const defaultRootService = createRootSelectionService();
 
+interface PageNotice {
+  text: string;
+  tone: 'info' | 'error';
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 const styles = stylex.create({
   toolbar: {display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: tokens.space8},
   actions: {display: 'flex', alignItems: 'center', gap: tokens.space6, flexWrap: 'wrap'},
@@ -46,40 +55,75 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
   const setRoots = useSettingsStore((state) => state.setRoots);
   const cloudEnrichedRootIds = useSettingsStore((state) => state.ai.cloudEnrichedRootIds);
   const updateAi = useSettingsStore((state) => state.updateAi);
-  const [message, setMessage] = useState('');
+  const [notice, setNotice] = useState<PageNotice>();
   const [choosing, setChoosing] = useState(false);
   const [indexBusy, setIndexBusy] = useState(false);
 
   useEffect(() => {
     if (!isNativeRuntime()) return;
-    void nativeAiService.indexStatus().then((status) => setMessage(status.message));
+    let active = true;
+    void nativeAiService.indexStatus()
+      .then((status) => {
+        if (active) setNotice({text: status.message, tone: 'info'});
+      })
+      .catch((error: unknown) => {
+        if (active) setNotice({text: `Index status is unavailable: ${errorMessage(error)}`, tone: 'error'});
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const synchronize = async (nextRoots = roots, cloudIds = cloudEnrichedRootIds) => {
-    if (!isNativeRuntime()) return;
-    const status = await nativeAiService.synchronizeRoots(nextRoots
-      .filter((root) => !root.paused)
-      .map((root) => ({path: root.path, cloudEnrichment: cloudIds.includes(root.id)})));
-    setMessage(status.message);
+    if (!isNativeRuntime()) return true;
+    try {
+      const status = await nativeAiService.synchronizeRoots(nextRoots
+        .filter((root) => !root.paused)
+        .map((root) => ({path: root.path, cloudEnrichment: cloudIds.includes(root.id)})));
+      setNotice({text: status.message, tone: 'info'});
+      return true;
+    } catch (error) {
+      setNotice({text: `Index synchronization failed: ${errorMessage(error)}`, tone: 'error'});
+      return false;
+    }
+  };
+
+  const persistAndSynchronize = async (
+    persist: () => Promise<boolean>,
+    nextRoots = roots,
+    cloudIds = cloudEnrichedRootIds,
+  ) => {
+    try {
+      if (!await persist()) {
+        setNotice({text: 'The root settings could not be saved, so the local index was not changed.', tone: 'error'});
+        return false;
+      }
+      return await synchronize(nextRoots, cloudIds);
+    } catch (error) {
+      setNotice({text: `The root settings could not be updated: ${errorMessage(error)}`, tone: 'error'});
+      return false;
+    }
   };
 
   const addRoot = async () => {
     setChoosing(true);
-    setMessage('');
+    setNotice(undefined);
     try {
       const path = await rootService.chooseRoot();
       if (!path) {
-        setMessage('No folder was selected.');
+        setNotice({text: 'No folder was selected.', tone: 'info'});
         return;
       }
       if (roots.some((root) => root.path.toLowerCase() === path.toLowerCase())) {
-        setMessage('That folder is already an indexed root.');
+        setNotice({text: 'That folder is already an indexed root.', tone: 'info'});
         return;
       }
       const nextRoots = [...roots, createIndexedRoot(path)];
-      await setRoots(nextRoots);
-      await synchronize(nextRoots);
-      setMessage(`${path} is indexed locally.`);
+      if (await persistAndSynchronize(() => setRoots(nextRoots), nextRoots)) {
+        setNotice({text: `${path} is indexed locally.`, tone: 'info'});
+      }
+    } catch (error) {
+      setNotice({text: `The indexed root could not be added: ${errorMessage(error)}`, tone: 'error'});
     } finally {
       setChoosing(false);
     }
@@ -99,7 +143,9 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
     setIndexBusy(true);
     try {
       const status = await nativeAiService.deleteIndex();
-      setMessage(status.message);
+      setNotice({text: status.message, tone: 'info'});
+    } catch (error) {
+      setNotice({text: `The local index could not be deleted: ${errorMessage(error)}`, tone: 'error'});
     } finally {
       setIndexBusy(false);
     }
@@ -122,7 +168,7 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
           </LumenButton>
         </div>
       </div>
-      {message ? <SettingsCallout>{message}</SettingsCallout> : null}
+      {notice ? <SettingsCallout tone={notice.tone}>{notice.text}</SettingsCallout> : null}
       <SettingSection title="Indexed search directories" description="Content stays local unless cloud enrichment is enabled explicitly for that root.">
         {roots.length === 0 ? (
           <div {...stylex.props(styles.empty)}>
@@ -141,17 +187,27 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
               const nextIds = enabled
                 ? [...new Set([...cloudEnrichedRootIds, root.id])]
                 : cloudEnrichedRootIds.filter((id) => id !== root.id);
-              void updateAi({cloudEnrichedRootIds: nextIds}).then(() => synchronize(roots, nextIds));
+              void persistAndSynchronize(
+                () => updateAi({cloudEnrichedRootIds: nextIds}),
+                roots,
+                nextIds,
+              );
             }}
             onChange={(next) => {
               const nextRoots = roots.map((item) => item.id === root.id ? next : item);
-              void setRoots(nextRoots).then(() => synchronize(nextRoots));
+              void persistAndSynchronize(() => setRoots(nextRoots), nextRoots);
             }}
             onRemove={() => {
               const nextRoots = roots.filter((item) => item.id !== root.id);
               const nextIds = cloudEnrichedRootIds.filter((id) => id !== root.id);
-              void Promise.all([setRoots(nextRoots), updateAi({cloudEnrichedRootIds: nextIds})])
-                .then(() => synchronize(nextRoots, nextIds));
+              void persistAndSynchronize(
+                async () => (await Promise.all([
+                  setRoots(nextRoots),
+                  updateAi({cloudEnrichedRootIds: nextIds}),
+                ])).every(Boolean),
+                nextRoots,
+                nextIds,
+              );
             }}
           />
         ))}
