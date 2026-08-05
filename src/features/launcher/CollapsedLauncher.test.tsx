@@ -85,11 +85,11 @@ describe('CollapsedLauncher', () => {
 
   it('switches to an explicit browser-agent task without exposing file scopes', async () => {
     const user = userEvent.setup();
-    let submitted = 0;
+    let submitted = '';
     render(
       <CollapsedLauncher
         windowService={new BrowserWindowService()}
-        onComputerSubmit={() => submitted += 1}
+        onComputerSubmit={(task) => submitted = task}
       />,
     );
 
@@ -99,6 +99,7 @@ describe('CollapsedLauncher', () => {
 
     expect(useLauncherStore.getState().intent).toBe('computer');
     expect(screen.queryByRole('tablist', {name: 'Search scopes'})).not.toBeInTheDocument();
-    expect(submitted).toBe(1);
+    expect(submitted).toBe('Find the latest Lumen release');
+    expect(useQueryStore.getState().committed).toBe('Find the latest Lumen release');
   });
 });

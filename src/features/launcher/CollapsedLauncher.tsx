@@ -102,7 +102,7 @@ export interface CollapsedLauncherProps {
   windowService?: WindowService;
   onVoiceRequest?: () => void;
   intentLocked?: boolean;
-  onComputerSubmit?: () => void;
+  onComputerSubmit?: (task: string) => void;
 }
 
 export function CollapsedLauncher({

@@ -18,6 +18,7 @@ class MemoryComputerUseService implements ComputerUseService {
   request?: ComputerUseRequest;
   responses: Array<{taskId: number; approvalId: string; approved: boolean}> = [];
   private approvalResolve?: () => void;
+  private approvalResult = true;
 
   constructor(private readonly approval = false) {}
 
@@ -39,13 +40,18 @@ class MemoryComputerUseService implements ComputerUseService {
       await new Promise<void>((resolve) => {
         this.approvalResolve = resolve;
       });
-      yield {type: 'approvalResolved', approvalId: 'approval1', approved: true};
+      yield {type: 'approvalResolved', approvalId: 'approval1', approved: this.approvalResult};
+      if (!this.approvalResult) {
+        yield {type: 'cancelled'};
+        return;
+      }
     }
     yield {type: 'completed', summary: 'The browser task is complete.'};
   }
 
   async respond(taskId: number, approvalId: string, approved: boolean) {
     this.responses.push({taskId, approvalId, approved});
+    this.approvalResult = approved;
     this.approvalResolve?.();
   }
 }
@@ -67,6 +73,7 @@ describe('useComputerUseController', () => {
     expect(result.current.phase).toBe('completed');
     expect(result.current.summary).toBe('The browser task is complete.');
     expect(result.current.activity.map((item) => item.label)).toContain('Navigate');
+    expect(result.current.activity.map((item) => item.id)).toEqual([1, 2, 3]);
   });
 
   it('pauses for one explicit approval before the worker continues', async () => {
@@ -85,6 +92,27 @@ describe('useComputerUseController', () => {
       taskId: expect.any(Number),
       approvalId: 'approval1',
       approved: true,
+    }]);
+  });
+
+  it('keeps a denied sensitive action cancelled and reports it accurately', async () => {
+    const service = new MemoryComputerUseService(true);
+    const {result} = renderHook(() => useComputerUseController(service, options));
+
+    act(() => {
+      void result.current.start('Submit the support form');
+    });
+    await waitFor(() => expect(result.current.phase).toBe('approval'));
+
+    await act(async () => result.current.deny());
+
+    await waitFor(() => expect(result.current.phase).toBe('cancelled'));
+    expect(result.current.activity.map((item) => item.label)).toContain('Sensitive action denied');
+    expect(result.current.activity.map((item) => item.label)).not.toContain('Sensitive action approved');
+    expect(service.responses).toEqual([{
+      taskId: expect.any(Number),
+      approvalId: 'approval1',
+      approved: false,
     }]);
   });
 });

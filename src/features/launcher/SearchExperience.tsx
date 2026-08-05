@@ -258,7 +258,11 @@ export function SearchExperience({
   }, [onOpenSettings, setActiveSettingsPage, showLauncher, windowService]);
 
   const handleStartComputerUse = useCallback(() => {
-    void computerUse.start(useQueryStore.getState().committed);
+    void computerUse.start(inputRef.current?.value ?? useQueryStore.getState().committed);
+  }, [computerUse.start]);
+
+  const handleSubmitComputerUse = useCallback((task: string) => {
+    void computerUse.start(task);
   }, [computerUse.start]);
 
   const handleRemoveFilter = useCallback((filter: SearchFilter) => {
@@ -355,7 +359,7 @@ export function SearchExperience({
                   : 'Browser agent'
           : statusLabel(controller.lifecycle, controller.results.length)}
         windowService={windowService}
-        onComputerSubmit={handleStartComputerUse}
+        onComputerSubmit={handleSubmitComputerUse}
       />
       {detailsMounted ? (
         <Suspense fallback={null}>

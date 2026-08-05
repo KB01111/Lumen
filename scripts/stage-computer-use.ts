@@ -39,8 +39,18 @@ function run(command: string[], cwd = projectRoot) {
   }
 }
 
+function pythonVersion(binary: string) {
+  const result = Bun.spawnSync({
+    cmd: [binary, '-c', 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'],
+    stdout: 'pipe',
+    stderr: 'ignore',
+  });
+  return result.success ? result.stdout.toString().trim() : '';
+}
+
 async function buildId() {
   const hash = createHash('sha256');
+  hash.update('python=3.11');
   for (const input of inputs) {
     hash.update(input);
     hash.update(await readFile(join(workerRoot, input)));
@@ -49,22 +59,27 @@ async function buildId() {
 }
 
 async function ensureVirtualEnvironment() {
-  if ((await stat(virtualPython).catch(() => undefined))?.isFile()) return;
+  if (
+    (await stat(virtualPython).catch(() => undefined))?.isFile()
+    && pythonVersion(virtualPython) === '3.11'
+  ) return;
+  await rm(virtualEnvironment, {recursive: true, force: true});
   const configuredPython = process.env.LUMEN_PYTHON?.trim();
-  if (configuredPython) {
-    run([configuredPython, '-m', 'venv', virtualEnvironment], workerRoot);
-    return;
+  const managedPython = configuredPython ? undefined : Bun.spawnSync({
+      cmd: ['uv', 'python', 'find', '3.11'],
+      stdout: 'pipe',
+      stderr: 'ignore',
+    });
+  const managedPath = managedPython?.success ? managedPython.stdout.toString().trim() : '';
+  const interpreter = configuredPython || managedPath || 'python';
+  if (pythonVersion(interpreter) !== '3.11') {
+    throw new Error('Computer Use staging requires Python 3.11');
   }
-  const managedPython = Bun.spawnSync({
-    cmd: ['uv', 'python', 'find', '3.11'],
-    stdout: 'pipe',
-    stderr: 'ignore',
-  });
-  const managedPath = managedPython.success ? managedPython.stdout.toString().trim() : '';
-  run([managedPath || 'python', '-m', 'venv', virtualEnvironment], workerRoot);
+  run([interpreter, '-m', 'venv', virtualEnvironment], workerRoot);
 }
 
 export async function stageComputerUse() {
+  await ensureVirtualEnvironment();
   const expectedBuildId = await buildId();
   const existingBuildId = await readFile(buildIdPath, 'utf8').catch(() => '');
   if (
@@ -75,7 +90,6 @@ export async function stageComputerUse() {
     return;
   }
 
-  await ensureVirtualEnvironment();
   run([
     virtualPython,
     '-m',

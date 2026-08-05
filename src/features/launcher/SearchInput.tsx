@@ -61,7 +61,7 @@ const styles = stylex.create({
 export interface SearchInputProps {
   intent?: LauncherIntent;
   onEscapeEmpty(): void;
-  onSubmit?(): void;
+  onSubmit?(task: string): void;
 }
 
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
@@ -122,7 +122,10 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
       if (event.key === 'Enter' && intent === 'computer' && !event.nativeEvent.isComposing) {
         event.preventDefault();
         event.stopPropagation();
-        onSubmit?.();
+        const task = inputRef.current?.value ?? '';
+        cancelPendingCommit();
+        setDraft(task);
+        onSubmit?.(task);
         return;
       }
       if (event.key !== 'Escape') {

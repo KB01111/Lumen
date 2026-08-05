@@ -130,6 +130,9 @@ class LumenBrowserAgent(BrowserAgent):
         )
         approved = self.protocol.wait_for_approval(approval_id)
         if not approved:
+            self.protocol.emit(
+                "approvalResolved", approvalId=approval_id, approved=False
+            )
             self.approval_denied = True
             return "TERMINATE"
         self.protocol.emit("approvalResolved", approvalId=approval_id, approved=True)

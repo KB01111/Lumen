@@ -390,22 +390,17 @@ impl ComputerUseSupervisor {
     }
 
     pub fn cancel(&self, task_id: u64) -> Result<(), String> {
-        let task = self
+        let mut active = self
             .active
             .lock()
-            .map_err(|_| "Computer Use state is unavailable".to_owned())?
-            .take();
-        let Some(mut task) = task else {
-            return Ok(());
-        };
-        if task.id != task_id {
-            let mut active = self
-                .active
-                .lock()
-                .map_err(|_| "Computer Use state is unavailable".to_owned())?;
-            *active = Some(task);
+            .map_err(|_| "Computer Use state is unavailable".to_owned())?;
+        if active.as_ref().is_some_and(|task| task.id != task_id) {
             return Err("The requested Computer Use task is not active".to_owned());
         }
+        let Some(mut task) = active.take() else {
+            return Ok(());
+        };
+        drop(active);
         let _ = task.stdin.write_all(b"{\"type\":\"cancel\"}\n");
         let _ = task.stdin.flush();
         let _ = task.channel.send(ComputerUseEvent::Cancelled);

@@ -52,15 +52,20 @@ interface ComputerUseOptions {
 }
 
 const initialState: ComputerUseState = {phase: 'idle', activity: []};
-let nextTaskId = 0;
-let nextActivityId = 0;
+
+function createTaskId() {
+  const words = new Uint32Array(2);
+  globalThis.crypto.getRandomValues(words);
+  return (words[0] & 0x1f_ffff) * 0x1_0000_0000 + words[1];
+}
 
 function appendActivity(
   activity: readonly ComputerUseActivity[],
   label: string,
   tone: ComputerUseActivity['tone'] = 'neutral',
 ) {
-  return [...activity, {id: ++nextActivityId, label, tone}].slice(-8);
+  const id = (activity[activity.length - 1]?.id ?? 0) + 1;
+  return [...activity, {id, label, tone}].slice(-8);
 }
 
 function actionLabel(action: string) {
@@ -94,12 +99,19 @@ function applyEvent(state: ComputerUseState, event: ComputerUseEvent): ComputerU
         activity: appendActivity(state.activity, 'Waiting for your approval', 'accent'),
       };
     case 'approvalResolved':
-      return {
-        ...state,
-        phase: 'running',
-        approval: undefined,
-        activity: appendActivity(state.activity, 'Sensitive action approved', 'success'),
-      };
+      return event.approved
+        ? {
+            ...state,
+            phase: 'running',
+            approval: undefined,
+            activity: appendActivity(state.activity, 'Sensitive action approved', 'success'),
+          }
+        : {
+            ...state,
+            phase: 'cancelled',
+            approval: undefined,
+            activity: appendActivity(state.activity, 'Sensitive action denied'),
+          };
     case 'completed':
       return {
         ...state,
@@ -149,7 +161,7 @@ export function useComputerUseController(
     const normalizedTask = task.trim();
     if (!normalizedTask) return;
     activeAbort.current?.abort();
-    const taskId = ++nextTaskId;
+    const taskId = createTaskId();
     const abortController = new AbortController();
     activeAbort.current = abortController;
     setState((current) => ({
