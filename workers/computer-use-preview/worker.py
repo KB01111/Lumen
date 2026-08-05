@@ -84,6 +84,30 @@ class Protocol:
         self._cancelled.set()
 
 
+def normalize_navigation_url(value: str) -> str:
+    candidate = value.strip()
+    if not candidate or any(character.isspace() for character in candidate):
+        raise ValueError("Navigation URL must be an HTTP or HTTPS URL")
+    if not candidate.lower().startswith(("http://", "https://")):
+        if "://" in candidate:
+            raise ValueError("Navigation URL must be an HTTP or HTTPS URL")
+        candidate = "https://" + candidate
+    parsed = urlparse(candidate)
+    if (
+        parsed.scheme.lower() not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError("Navigation URL must not contain embedded credentials")
+    return candidate
+
+
+class ConfinedPlaywrightComputer(PlaywrightComputer):
+    def navigate(self, url: str) -> EnvState:
+        return super().navigate(normalize_navigation_url(url))
+
+
 class LumenBrowserAgent(BrowserAgent):
     def __init__(self, protocol: Protocol, api_key: str, **kwargs: Any) -> None:
         os.environ["GEMINI_API_KEY"] = api_key
@@ -203,7 +227,7 @@ def run() -> int:
 
     try:
         with contextlib.redirect_stdout(sys.stderr):
-            with PlaywrightComputer(
+            with ConfinedPlaywrightComputer(
                 screen_size=SCREEN_SIZE,
                 initial_url=initial_url,
                 highlight_mouse=True,

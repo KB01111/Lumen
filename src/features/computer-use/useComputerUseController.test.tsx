@@ -16,11 +16,20 @@ const options = {
 
 class MemoryComputerUseService implements ComputerUseService {
   request?: ComputerUseRequest;
+  requests: ComputerUseRequest[] = [];
   responses: Array<{taskId: number; approvalId: string; approved: boolean}> = [];
   private approvalResolve?: () => void;
   private approvalResult = true;
+  private responseResolve?: () => void;
+  private responseWait?: Promise<void>;
 
-  constructor(private readonly approval = false) {}
+  constructor(private readonly approval = false, deferResponse = false) {
+    if (deferResponse) {
+      this.responseWait = new Promise((resolve) => {
+        this.responseResolve = resolve;
+      });
+    }
+  }
 
   async health() {
     return {
@@ -33,6 +42,7 @@ class MemoryComputerUseService implements ComputerUseService {
 
   async *stream(request: ComputerUseRequest): AsyncIterable<ComputerUseEvent> {
     this.request = request;
+    this.requests.push(request);
     yield {type: 'started', model: request.model, browser: 'Microsoft Edge'};
     yield {type: 'action', action: 'navigate'};
     if (this.approval) {
@@ -51,8 +61,13 @@ class MemoryComputerUseService implements ComputerUseService {
 
   async respond(taskId: number, approvalId: string, approved: boolean) {
     this.responses.push({taskId, approvalId, approved});
+    await this.responseWait;
     this.approvalResult = approved;
     this.approvalResolve?.();
+  }
+
+  releaseResponse() {
+    this.responseResolve?.();
   }
 }
 
@@ -114,5 +129,46 @@ describe('useComputerUseController', () => {
       approvalId: 'approval1',
       approved: false,
     }]);
+  });
+
+  it('does not replace an active task before native cancellation completes', async () => {
+    const service = new MemoryComputerUseService(true);
+    const {result} = renderHook(() => useComputerUseController(service, options));
+
+    act(() => {
+      void result.current.start('Keep this task active');
+    });
+    await waitFor(() => expect(result.current.phase).toBe('approval'));
+
+    await act(async () => result.current.start('Replace it too early'));
+
+    expect(service.requests).toHaveLength(1);
+    expect(service.request?.task).toBe('Keep this task active');
+    await act(async () => result.current.deny());
+  });
+
+  it('accepts only the first response to a pending approval', async () => {
+    const service = new MemoryComputerUseService(true, true);
+    const {result} = renderHook(() => useComputerUseController(service, options));
+
+    act(() => {
+      void result.current.start('Approve one sensitive action');
+    });
+    await waitFor(() => expect(result.current.phase).toBe('approval'));
+
+    let approve: Promise<void> | undefined;
+    let deny: Promise<void> | undefined;
+    act(() => {
+      approve = result.current.approve();
+      deny = result.current.deny();
+    });
+
+    expect(service.responses).toHaveLength(1);
+    expect(service.responses[0]?.approved).toBe(true);
+    await act(async () => {
+      service.releaseResponse();
+      await Promise.all([approve, deny]);
+    });
+    await waitFor(() => expect(result.current.phase).toBe('completed'));
   });
 });

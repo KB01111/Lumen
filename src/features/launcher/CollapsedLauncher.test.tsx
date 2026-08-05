@@ -102,4 +102,44 @@ describe('CollapsedLauncher', () => {
     expect(submitted).toBe('Find the latest Lumen release');
     expect(useQueryStore.getState().committed).toBe('Find the latest Lumen release');
   });
+
+  it('clears a local search before entering Computer Use', async () => {
+    const user = userEvent.setup();
+    let submitted = '';
+    useQueryStore.getState().setDraft('confidential acquisition notes');
+    render(
+      <CollapsedLauncher
+        windowService={new BrowserWindowService()}
+        onComputerSubmit={(task) => submitted = task}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', {name: 'Switch to Computer Use'}));
+    const input = screen.getByRole('searchbox', {name: 'Describe a browser task'});
+
+    expect(input).toHaveValue('');
+    expect(useQueryStore.getState().committed).toBe('');
+    await user.keyboard('{Enter}');
+    expect(submitted).toBe('');
+  });
+
+  it('does not submit another task while Computer Use is locked', async () => {
+    const user = userEvent.setup();
+    let submitted = '';
+    useLauncherStore.getState().setIntent('computer');
+    render(
+      <CollapsedLauncher
+        intentLocked
+        windowService={new BrowserWindowService()}
+        onComputerSubmit={(task) => submitted = task}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole('searchbox', {name: 'Describe a browser task'}),
+      'Replace the active task{Enter}',
+    );
+
+    expect(submitted).toBe('');
+  });
 });

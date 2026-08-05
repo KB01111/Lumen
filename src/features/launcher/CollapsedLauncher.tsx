@@ -116,6 +116,7 @@ export function CollapsedLauncher({
   onComputerSubmit,
 }: CollapsedLauncherProps) {
   const committedQuery = useQueryStore((state) => state.committed);
+  const clearQuery = useQueryStore((state) => state.clear);
   const mode = useLauncherStore((state) => state.mode);
   const show = useLauncherStore((state) => state.show);
   const hide = useLauncherStore((state) => state.hide);
@@ -150,6 +151,11 @@ export function CollapsedLauncher({
     void windowService.hide();
   };
 
+  const handleIntentChange = () => {
+    clearQuery();
+    setIntent(intent === 'computer' ? 'search' : 'computer');
+  };
+
   return (
     <LumenSurface
       aria-label="Lumen launcher"
@@ -168,7 +174,7 @@ export function CollapsedLauncher({
             isDisabled={intentLocked}
             size="small"
             variant={intent === 'computer' ? 'primary' : 'quiet'}
-            onPress={() => setIntent(intent === 'computer' ? 'search' : 'computer')}
+            onPress={handleIntentChange}
           >
             {intent === 'computer'
               ? <BrowserIcon aria-hidden="true" size={15} />
@@ -179,7 +185,7 @@ export function CollapsedLauncher({
             ref={inputRef}
             intent={intent}
             onEscapeEmpty={handleEscapeEmpty}
-            onSubmit={onComputerSubmit}
+            onSubmit={intentLocked ? undefined : onComputerSubmit}
           />
           {onVoiceRequest ? (
             <LumenIconButton

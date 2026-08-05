@@ -178,4 +178,16 @@ describe('core settings pages', () => {
     expect(screen.getByText('The start page must be an absolute HTTP or HTTPS URL.')).toBeVisible();
     expect(useSettingsStore.getState().computerUse.initialUrl).toBe('https://www.google.com');
   });
+
+  it('reflects a Computer Use start page loaded after the page mounts', () => {
+    renderWithProviders(<ComputerUsePage />);
+
+    act(() => useSettingsStore.setState((state) => ({
+      computerUse: {...state.computerUse, initialUrl: 'https://intranet.example.com/start'},
+    })));
+
+    expect(screen.getByRole('textbox', {name: 'Computer Use start page'})).toHaveValue(
+      'https://intranet.example.com/start',
+    );
+  });
 });

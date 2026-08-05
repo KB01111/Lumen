@@ -69,6 +69,10 @@ export function ComputerUsePage() {
     void refresh().catch((error: unknown) => setMessage(String(error)));
   }, [refresh]);
 
+  useEffect(() => {
+    setInitialUrl(settings.initialUrl);
+  }, [settings.initialUrl]);
+
   const saveCredential = async () => {
     if (!credential.trim()) return;
     await nativeAiService.saveCredential('gemini', credential);

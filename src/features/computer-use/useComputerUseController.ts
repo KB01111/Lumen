@@ -133,6 +133,7 @@ export function useComputerUseController(
 ): ComputerUseController {
   const [state, setState] = useState<ComputerUseState>(initialState);
   const activeAbort = useRef<AbortController | null>(null);
+  const respondingApproval = useRef<string | null>(null);
 
   const refreshHealth = useCallback(async () => {
     try {
@@ -159,8 +160,7 @@ export function useComputerUseController(
 
   const start = useCallback(async (task: string) => {
     const normalizedTask = task.trim();
-    if (!normalizedTask) return;
-    activeAbort.current?.abort();
+    if (!normalizedTask || activeAbort.current) return;
     const taskId = createTaskId();
     const abortController = new AbortController();
     activeAbort.current = abortController;
@@ -199,6 +199,9 @@ export function useComputerUseController(
   const respond = useCallback(async (approved: boolean) => {
     const {approval, taskId} = state;
     if (!approval || taskId === undefined) return;
+    const responseId = `${taskId}:${approval.id}`;
+    if (respondingApproval.current === responseId) return;
+    respondingApproval.current = responseId;
     try {
       await service.respond(taskId, approval.id, approved);
       setState((current) => approved ? {
@@ -216,6 +219,8 @@ export function useComputerUseController(
         phase: 'error',
         error: error instanceof Error ? error.message : String(error),
       }));
+    } finally {
+      if (respondingApproval.current === responseId) respondingApproval.current = null;
     }
   }, [service, state]);
 

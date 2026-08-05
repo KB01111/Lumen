@@ -31,7 +31,7 @@ afterEach(() => {
 });
 
 describe('TauriComputerUseService', () => {
-  it('cancels again after startup resolves when abort raced with startup', async () => {
+  it('waits for startup and native cancellation when abort races with startup', async () => {
     let finishStarting: (() => void) | undefined;
     tauri.invoke.mockImplementation((command: string) => {
       if (command === 'start_computer_use') {
@@ -47,12 +47,15 @@ describe('TauriComputerUseService', () => {
 
     await vi.waitFor(() => expect(finishStarting).toBeTypeOf('function'));
     controller.abort();
-    await expect(pending).resolves.toEqual({done: true, value: undefined});
+    expect(tauri.invoke.mock.calls.filter(
+      ([command]) => command === 'cancel_computer_use',
+    )).toHaveLength(0);
     finishStarting!();
 
-    await vi.waitFor(() => expect(tauri.invoke.mock.calls.filter(
+    await expect(pending).resolves.toEqual({done: true, value: undefined});
+    expect(tauri.invoke.mock.calls.filter(
       ([command]) => command === 'cancel_computer_use',
-    )).toHaveLength(2));
+    )).toHaveLength(1);
   });
 
   it('fails closed when the native channel sends an invalid event', async () => {
@@ -64,5 +67,8 @@ describe('TauriComputerUseService', () => {
     tauri.channels[0]({type: 'unknownNativeEvent'});
 
     await expect(pending).rejects.toThrow();
+    expect(tauri.invoke.mock.calls.filter(
+      ([command]) => command === 'cancel_computer_use',
+    )).toHaveLength(1);
   });
 });

@@ -21,12 +21,16 @@ export class TauriComputerUseService implements ComputerUseService {
     const queued: ComputerUseEvent[] = [];
     let wake: (() => void) | undefined;
     let finished = false;
+    let workerTerminal = false;
     let startFailure: unknown;
+    let startupFailed = false;
+    let cancellation: Promise<void> | undefined;
     const channel = new Channel<unknown>((payload) => {
       try {
         const event = computerUseEventSchema.parse(payload);
         queued.push(event);
-        finished ||= terminal(event);
+        workerTerminal ||= terminal(event);
+        finished ||= workerTerminal;
       } catch (error) {
         startFailure = error;
         finished = true;
@@ -34,25 +38,25 @@ export class TauriComputerUseService implements ComputerUseService {
       wake?.();
       wake = undefined;
     });
-    const cancel = () => {
-      void invoke('cancel_computer_use', {taskId: request.taskId});
-      finished = true;
-      wake?.();
-      wake = undefined;
-    };
-    signal.addEventListener('abort', cancel, {once: true});
-    void invoke<void>('start_computer_use', {request, onEvent: channel})
-      .then(() => {
-        if (signal.aborted) {
-          return invoke('cancel_computer_use', {taskId: request.taskId});
-        }
-      })
+    const startup = invoke<void>('start_computer_use', {request, onEvent: channel})
       .catch((error: unknown) => {
+        startupFailed = true;
         startFailure = error;
         finished = true;
         wake?.();
         wake = undefined;
       });
+    const cancel = () => {
+      cancellation ??= startup.then(async () => {
+        if (!startupFailed) {
+          await invoke<void>('cancel_computer_use', {taskId: request.taskId});
+        }
+      });
+      finished = true;
+      wake?.();
+      wake = undefined;
+    };
+    signal.addEventListener('abort', cancel, {once: true});
 
     try {
       while (!finished || queued.length > 0) {
@@ -70,7 +74,8 @@ export class TauriComputerUseService implements ComputerUseService {
       }
     } finally {
       signal.removeEventListener('abort', cancel);
-      if (!finished) cancel();
+      if (!workerTerminal) cancel();
+      await cancellation;
     }
   }
 
