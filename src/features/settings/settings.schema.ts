@@ -35,6 +35,13 @@ export const applicationOverrideSchema = z.object({
 
 export type ApplicationOverride = z.infer<typeof applicationOverrideSchema>;
 
+const defaultAiSettings = {
+  runtimeMode: 'auto' as const,
+  keepLocalWarm: false,
+  cloudAnswerConsent: false,
+  cloudEnrichedRootIds: [] as string[],
+};
+
 export const settingsSchema = z.object({
   activePage: settingsPageIdSchema.default('general'),
   general: z.object({
@@ -66,6 +73,12 @@ export const settingsSchema = z.object({
     semanticEnabled: z.boolean(),
     rerankingEnabled: z.boolean(),
   }),
+  ai: z.object({
+    runtimeMode: z.enum(['auto', 'local', 'cloud']),
+    keepLocalWarm: z.boolean(),
+    cloudAnswerConsent: z.boolean().default(false),
+    cloudEnrichedRootIds: z.array(z.string().min(1)),
+  }).default(defaultAiSettings),
   activity: z.object({
     detectGames: z.boolean(),
     detectFullscreen: z.boolean(),
@@ -88,6 +101,7 @@ export type LumenSettings = z.infer<typeof settingsSchema>;
 export type GeneralSettings = LumenSettings['general'];
 export type PresentationSettings = LumenSettings['presentation'];
 export type SearchSettings = LumenSettings['search'];
+export type AiSettings = LumenSettings['ai'];
 export type ActivitySettings = LumenSettings['activity'];
 export type PrivacySettings = LumenSettings['privacy'];
 
@@ -113,6 +127,7 @@ export const defaultSettings: LumenSettings = settingsSchema.parse({
     semanticEnabled: false,
     rerankingEnabled: false,
   },
+  ai: defaultAiSettings,
   activity: {
     detectGames: true,
     detectFullscreen: true,

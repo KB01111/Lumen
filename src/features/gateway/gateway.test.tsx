@@ -5,6 +5,7 @@ import {afterEach, describe, expect, it} from 'vitest';
 import {AppProviders} from '../../app/AppProviders';
 import {AgentGatewayPage} from '../settings/pages/AgentGatewayPage';
 import {LocalAiPage} from '../settings/pages/LocalAiPage';
+import {useSettingsStore} from '../settings/settings.store';
 import {useGatewayStore} from './gateway.store';
 import type {GatewayState, HardwareState, ModelState} from './gateway.types';
 
@@ -12,7 +13,10 @@ function renderPage(children: React.ReactNode) {
   return render(<AppProviders appearance={{mode: 'dark', transparency: 'disabled', effects: 'reduced', motion: 'reduced'}}>{children}</AppProviders>);
 }
 
-afterEach(() => useGatewayStore.getState().reset());
+afterEach(() => {
+  useGatewayStore.getState().reset();
+  useSettingsStore.getState().reset();
+});
 
 describe('Local AI states', () => {
   it.each(['npu', 'gpu', 'cpu', 'unavailable'] satisfies HardwareState[])(
@@ -62,7 +66,7 @@ describe('AgentGateway states and controls', () => {
     expect(screen.getByRole('dialog', {name: 'Allow cloud provider requests?'})).toBeVisible();
     await user.click(screen.getByRole('button', {name: 'Allow cloud requests'}));
 
-    expect(useGatewayStore.getState().cloudConsent).toBe(true);
+    expect(useSettingsStore.getState().ai.cloudAnswerConsent).toBe(true);
     expect(screen.getByText('Cloud consent granted')).toBeVisible();
   });
 

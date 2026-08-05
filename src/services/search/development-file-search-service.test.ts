@@ -31,6 +31,41 @@ function rustResponse() {
 }
 
 describe('DevelopmentFileSearchService', () => {
+  it('merges indexed content hits with provenance without replacing filename search', async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === 'search_filenames') return {...rustResponse(), items: [], total: 0};
+      if (command === 'search_indexed') return [{
+        stableId: 'indexed:report',
+        rootPath: 'C:\\Projects',
+        path: 'C:\\Projects\\Report.pdf',
+        name: 'Report.pdf',
+        contentHash: 'abc123',
+        indexRevision: 4,
+        extractionKind: 'pdf-text',
+        page: 7,
+        timeStartMs: null,
+        timeEndMs: null,
+        rank: -3.2,
+      }];
+      return {phase: 'ready', indexedItems: 1, queuedEnrichment: 0, skippedItems: 0, message: 'ready'};
+    });
+    const service = new DevelopmentFileSearchService({getRoots: () => ['C:\\Projects'], invoke});
+
+    const response = await service.search(request);
+
+    expect(response.groups[0]?.items[0]).toMatchObject({
+      id: 'indexed:report',
+      kind: 'pdf',
+      match: {source: 'content'},
+      provenance: {
+        extractionKind: 'pdf-text',
+        fileHash: 'abc123',
+        page: 7,
+        indexRevision: 4,
+      },
+    });
+  });
+
   it('maps Tauri filename matches into stable SearchResult values', async () => {
     const invoke = vi.fn(async () => rustResponse());
     const service = new DevelopmentFileSearchService({getRoots: () => ['C:\\Projects'], invoke});

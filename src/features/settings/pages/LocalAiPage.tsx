@@ -1,4 +1,6 @@
-import {CpuIcon, DownloadSimpleIcon, GraphicsCardIcon, WarningCircleIcon} from '@phosphor-icons/react';
+import {useCallback, useEffect, useState} from 'react';
+
+import {ArrowClockwiseIcon, CpuIcon, DownloadSimpleIcon, GraphicsCardIcon, WarningCircleIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 import {ProgressBar} from 'react-aria-components';
 
@@ -12,6 +14,9 @@ import {SettingRow} from '../components/SettingRow';
 import {SettingSection} from '../components/SettingSection';
 import {SettingsCallout, SettingsPage} from '../components/SettingsPage';
 import {StatusBadge} from '../components/StatusBadge';
+import {LumenSwitch} from '../components/SettingsControls';
+import {useSettingsStore} from '../settings.store';
+import {isNativeRuntime, nativeAiService, type LocalRuntimeHealth} from '../../../services/ai/native-ai-service';
 
 const styles = stylex.create({
   hardware: {
@@ -82,12 +87,32 @@ export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' 
   const modelName = useGatewayStore((state) => state.modelName);
   const providerName = useGatewayStore((state) => state.providerName);
   const setLocalAi = useGatewayStore((state) => state.setLocalAi);
+  const keepLocalWarm = useSettingsStore((state) => state.ai.keepLocalWarm);
+  const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
+  const updateAi = useSettingsStore((state) => state.updateAi);
+  const [nativeHealth, setNativeHealth] = useState<LocalRuntimeHealth>();
+  const [nativeError, setNativeError] = useState('');
+  const refreshNative = useCallback(async () => {
+    if (!isNativeRuntime() || model) return;
+    try {
+      setNativeHealth(await nativeAiService.localRuntimeHealth());
+      setNativeError('');
+    } catch (error) {
+      setNativeError(error instanceof Error ? error.message : String(error));
+    }
+  }, [model]);
+  useEffect(() => {
+    void refreshNative();
+  }, [refreshNative]);
+  const nativeHardware: HardwareState | undefined = nativeHealth?.profile === 'laptop-amd-npu'
+    ? 'npu'
+    : nativeHealth?.profile === 'desktop-nvidia-cuda' ? 'gpu' : nativeHealth ? 'cpu' : undefined;
   const view = {
-    hardware: model?.hardware ?? storedHardware,
-    state: model?.state ?? storedModel,
+    hardware: model?.hardware ?? nativeHardware ?? storedHardware,
+    state: model?.state ?? (nativeHealth?.state === 'ready' ? 'ready' : undefined) ?? storedModel,
     progress: model?.progress ?? storedProgress,
-    modelName: model?.modelName ?? modelName,
-    provider: model?.provider ?? providerName,
+    modelName: model?.modelName ?? nativeHealth?.answerModel ?? modelName,
+    provider: model?.provider ?? (nativeHealth ? `Lemonade ${nativeHealth.lemonade.version ?? 'missing'} / FLM ${nativeHealth.flm.version ?? 'missing'}` : providerName),
   };
   const hardware = hardwareCopy[view.hardware];
   const state = modelCopy[view.state];
@@ -105,12 +130,14 @@ export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' 
         </div>
       </section>
       <SettingsCallout>
-        Local AI is an interface preview in phase one. Exact filename search remains fully independent of this state.
+        {nativeHealth
+          ? `${nativeHealth.profile} · ${nativeHealth.accelerator}. ${nativeHealth.detail ?? 'The loopback provider is ready.'}`
+          : nativeError || 'Exact filename and content search remain independent of local inference.'}
       </SettingsCallout>
       <SettingSection title="Model and provider">
         <SettingRow
           label={view.modelName}
-          description={state.description}
+          description={nativeHealth ? `Answers: ${nativeHealth.answerModel}; embeddings: ${nativeHealth.embeddingModel}; transcription: ${nativeHealth.transcriptionModel}.` : state.description}
           status={<StatusBadge tone={state.tone}>{state.label}</StatusBadge>}
         >
           <div data-testid={`model-${view.state}`}>
@@ -122,10 +149,21 @@ export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' 
             ) : null}
             {view.state === 'failed' ? <LumenButton size="small" onPress={() => setLocalAi({state: 'loading'})}>Retry preview</LumenButton> : null}
             {['loading', 'ready', 'fallback-active'].includes(view.state) ? <LocalAiIcon size={22} /> : null}
+            {nativeHealth ? <LumenButton aria-label="Refresh local runtime" size="small" variant="quiet" onPress={() => void refreshNative()}><ArrowClockwiseIcon aria-hidden="true" size={15} /> Refresh</LumenButton> : null}
           </div>
         </SettingRow>
-        <SettingRow label="Provider" description="The production Mistral.rs or llama.cpp runtime is intentionally not part of phase one.">
+        <SettingRow label="Provider" description={nativeHealth?.baseUrl ?? 'No native runtime detected.'}>
           <LumenText tone="secondary" variant="meta">{view.provider}</LumenText>
+        </SettingRow>
+        <SettingRow label="Keep local model warm" description="Keeps local inference available in Cloud mode; search itself is always warm.">
+          <LumenSwitch
+            aria-label="Keep local model warm"
+            isSelected={keepLocalWarm}
+            onChange={(value) => {
+              void updateAi({keepLocalWarm: value});
+              if (isNativeRuntime()) void nativeAiService.setLocalRuntimeMode(runtimeMode, value).then(refreshNative);
+            }}
+          />
         </SettingRow>
       </SettingSection>
     </SettingsPage>

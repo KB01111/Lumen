@@ -1,3 +1,4 @@
+import type {ReactNode} from 'react';
 import {Suspense, useEffect, useRef, useState} from 'react';
 
 import * as stylex from '@stylexjs/stylex';
@@ -89,6 +90,7 @@ const styles = stylex.create({
 export interface ExpandedWorkspaceProps {
   activeFilters: readonly SearchFilter[];
   announcement: string;
+  answerPanel?: ReactNode;
   error: SearchError | null;
   lifecycle: SearchLifecycle;
   openingId: string | null;
@@ -233,13 +235,28 @@ function SelectionAnnouncement({
   results: readonly SearchResult[];
   selectedId?: string | null;
 }) {
+  const announcementRef = useRef<HTMLDivElement>(null);
   const storedSelectedId = useSelectionStore((state) => state.selectedId);
   const selectedId = selectedIdOverride === undefined
     ? storedSelectedId
     : selectedIdOverride;
   const selectedResult = results.find((result) => result.id === selectedId);
+  useEffect(() => {
+    const announcePreviewSelection = (event: Event) => {
+      const fileId = (event as CustomEvent<string | null>).detail;
+      const result = results.find((item) => item.id === fileId);
+      if (announcementRef.current) {
+        announcementRef.current.textContent = [announcement, result ? `${result.name} selected` : '']
+          .filter(Boolean)
+          .join('. ');
+      }
+    };
+    window.addEventListener('lumen:selection-preview', announcePreviewSelection);
+    return () => window.removeEventListener('lumen:selection-preview', announcePreviewSelection);
+  }, [announcement, results]);
   return (
     <div
+      ref={announcementRef}
       aria-atomic="true"
       aria-live="polite"
       data-testid="search-announcement"
@@ -265,6 +282,7 @@ function emptyLabel(lifecycle: SearchLifecycle, error: SearchError | null) {
 export function ExpandedWorkspace({
   activeFilters,
   announcement,
+  answerPanel,
   error,
   lifecycle,
   openingId,
@@ -292,6 +310,7 @@ export function ExpandedWorkspace({
       transition={{duration: opacityDuration}}
     >
       <FilterChips filters={activeFilters} onClear={onClearFilters} onRemove={onRemoveFilter} />
+      {answerPanel}
       <div {...stylex.props(styles.instrument)}>
         <section aria-label="Search result list" {...stylex.props(styles.results)}>
           <header {...stylex.props(styles.resultsHeader)}>

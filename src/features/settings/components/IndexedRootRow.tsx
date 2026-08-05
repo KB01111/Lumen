@@ -75,12 +75,14 @@ function validateExclusion(pattern: string) {
 }
 
 export interface IndexedRootRowProps {
+  cloudEnrichment: boolean;
   root: IndexedRoot;
+  onCloudEnrichmentChange(value: boolean): void;
   onChange(root: IndexedRoot): void;
   onRemove(): void;
 }
 
-export function IndexedRootRow({root, onChange, onRemove}: IndexedRootRowProps) {
+export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichmentChange, onRemove}: IndexedRootRowProps) {
   const [pattern, setPattern] = useState('');
   const [error, setError] = useState('');
   const status = rootStatus[root.status];
@@ -135,6 +137,11 @@ export function IndexedRootRow({root, onChange, onRemove}: IndexedRootRowProps) 
       </div>
       <div {...stylex.props(styles.policies)}>
         <LumenText tone="tertiary" variant="meta">Root policy</LumenText>
+        <LumenSwitch
+          aria-label={`Allow cloud enrichment for ${root.path}`}
+          isSelected={cloudEnrichment}
+          onChange={onCloudEnrichmentChange}
+        />
         <LumenSwitch
           aria-label={`Include hidden directories for ${root.path}`}
           isSelected={root.includeHidden}

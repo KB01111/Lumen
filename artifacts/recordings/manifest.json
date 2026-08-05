@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-31T16:34:57.067Z",
-  "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823",
+  "generatedAt": "2026-08-04T22:08:50.631Z",
+  "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02",
   "browser": {
     "name": "Microsoft Edge"
   },
@@ -25,7 +25,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
     },
     {
       "id": "settings-routing",
@@ -40,7 +40,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
     },
     {
       "id": "onboarding",
@@ -59,7 +59,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
     },
     {
       "id": "activity-provider-states",
@@ -75,7 +75,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "5c0c97a75e1cf2127c91b6cefa02422d35efc823"
+      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
     }
   ]
 }

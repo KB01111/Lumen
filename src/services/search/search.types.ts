@@ -64,6 +64,17 @@ export const searchMetadataSchema = z.object({
 });
 export type SearchMetadata = z.infer<typeof searchMetadataSchema>;
 
+export const searchProvenanceSchema = z.object({
+  extractionKind: z.string().min(1),
+  fileHash: z.string().min(1),
+  page: z.number().int().positive().optional(),
+  timeStartMs: z.number().int().nonnegative().optional(),
+  timeEndMs: z.number().int().nonnegative().optional(),
+  embeddingModel: z.string().min(1).optional(),
+  indexRevision: z.number().int().positive(),
+});
+export type SearchProvenance = z.infer<typeof searchProvenanceSchema>;
+
 export const searchResultSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -71,6 +82,7 @@ export const searchResultSchema = z.object({
   kind: searchResultKindSchema,
   match: searchMatchSchema,
   metadata: searchMetadataSchema,
+  provenance: searchProvenanceSchema.optional(),
   availability: searchAvailabilitySchema.optional().default('available'),
 });
 export type SearchResult = z.infer<typeof searchResultSchema>;

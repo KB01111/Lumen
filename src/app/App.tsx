@@ -14,6 +14,8 @@ import {useOnboardingStore} from '../features/onboarding/onboarding.store';
 import {createIndexedRoot} from '../features/settings/indexed-root';
 import {useSettingsStore} from '../features/settings/settings.store';
 import {createWindowService} from '../platform/window/tauri-window-service';
+import {TauriAnswerService} from '../services/answer/tauri-answer-service';
+import {isNativeRuntime, nativeAiService} from '../services/ai/native-ai-service';
 import {DevelopmentFileSearchService} from '../services/search/development-file-search-service';
 import {DevelopmentSearchService} from '../services/search/development-search-service';
 import {AppProviders} from './AppProviders';
@@ -135,10 +137,21 @@ function createDefaultSearchService() {
       const onboardingRoot = useOnboardingStore.getState().root;
       return onboardingRoot ? [onboardingRoot] : [];
     },
+    getRootConfigurations: () => {
+      const settings = useSettingsStore.getState();
+      return settings.roots
+        .filter((root) => !root.paused)
+        .map((root) => ({
+          id: root.id,
+          path: root.path,
+          cloudEnrichment: settings.ai.cloudEnrichedRootIds.includes(root.id),
+        }));
+    },
   });
 }
 
 const defaultSearchService = createDefaultSearchService();
+const defaultAnswerService = new TauriAnswerService();
 const appWindowService = createWindowService();
 const OnboardingFlow = lazy(async () => {
   const module = await import('../features/onboarding/OnboardingFlow');
@@ -209,6 +222,8 @@ export function App() {
   const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
   const hydrateOnboarding = useOnboardingStore((state) => state.hydrate);
   const hydrateSettings = useSettingsStore((state) => state.hydrate);
+  const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
+  const keepLocalWarm = useSettingsStore((state) => state.ai.keepLocalWarm);
   const [foundationAppearance, setFoundationAppearance] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -241,6 +256,12 @@ export function App() {
       void hydrateSettings();
     }
   }, [foundationPreview, galleryPreview, hydrateSettings]);
+
+  useEffect(() => {
+    if (isNativeRuntime()) {
+      void nativeAiService.setLocalRuntimeMode(runtimeMode, keepLocalWarm);
+    }
+  }, [keepLocalWarm, runtimeMode]);
 
   const completeOnboarding = useCallback(() => {
     const root = useOnboardingStore.getState().root;
@@ -325,6 +346,7 @@ export function App() {
           </Suspense>
         ) : onboardingPending ? null : (
           <SearchExperience
+            answerService={defaultAnswerService}
             service={defaultSearchService}
             onOpenSettings={() => setSettingsOpen(true)}
           />

@@ -3,11 +3,16 @@ import {Suspense, useCallback, useEffect, useMemo, useRef, useState} from 'react
 import {motionTokens} from '../../design-system/motion';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
+import type {AnswerService} from '../../services/answer/answer-service';
+import {UnavailableAnswerService} from '../../services/answer/unavailable-answer-service';
 import type {SearchService} from '../../services/search/search-service';
 import type {SearchFilter} from '../../services/search/search.types';
 import {useLumenKeyboard} from '../keyboard/useLumenKeyboard';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
+import {AnswerPanel} from '../answer/AnswerPanel';
+import {useAnswerController} from '../answer/useAnswerController';
 import {LazyPreviewPane} from '../preview/LazyPreviewPane';
+import {useSettingsStore} from '../settings/settings.store';
 import {CollapsedLauncher} from './CollapsedLauncher';
 import {ExpandedWorkspace} from './ExpandedWorkspace';
 import {useLauncherStore} from './launcher.store';
@@ -21,6 +26,7 @@ import {
 import {useSearchController} from './useSearchController';
 
 const defaultWindowService = createWindowService();
+const unavailableAnswerService = new UnavailableAnswerService();
 
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
@@ -44,16 +50,61 @@ function statusLabel(
 
 export interface SearchExperienceProps {
   service: SearchService;
+  answerService?: AnswerService;
   windowService?: WindowService;
   onOpenSettings?: () => void;
 }
 
+function useSettledAnswerQuery(onSupersede: () => void) {
+  const [request, setRequest] = useState({query: '', revision: 0});
+
+  useEffect(() => {
+    let pending = 0;
+    const settle = (query: string) => {
+      window.clearTimeout(pending);
+      onSupersede();
+      if (!query.trim()) {
+        setRequest((current) => current.query
+          ? {query: '', revision: current.revision + 1}
+          : current);
+        return;
+      }
+      pending = window.setTimeout(() => {
+        setRequest((current) => ({query, revision: current.revision + 1}));
+      }, 350);
+    };
+    settle(useQueryStore.getState().committed);
+    const unsubscribe = useQueryStore.subscribe((state) => state.committed, settle);
+    return () => {
+      window.clearTimeout(pending);
+      unsubscribe();
+    };
+  }, [onSupersede]);
+
+  return request;
+}
+
 export function SearchExperience({
   service,
+  answerService = unavailableAnswerService,
   windowService = defaultWindowService,
   onOpenSettings,
 }: SearchExperienceProps) {
   const controller = useSearchController(service);
+  const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
+  const cloudAnswerConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
+  const updateAi = useSettingsStore((state) => state.updateAi);
+  const answerStopRef = useRef<() => void>(() => undefined);
+  const supersedeAnswer = useCallback(() => answerStopRef.current(), []);
+  const answerRequest = useSettledAnswerQuery(supersedeAnswer);
+  const answer = useAnswerController(answerService, {
+    delayMs: 0,
+    mode: runtimeMode,
+    cloudConsent: cloudAnswerConsent,
+    query: answerRequest.query,
+    restartKey: answerRequest.revision,
+  });
+  answerStopRef.current = answer.stop;
   const activeScope = useScopeStore((state) => state.activeScope);
   const activeFilters = useScopeStore((state) => state.activeFilters);
   const clearFilters = useScopeStore((state) => state.clearFilters);
@@ -241,6 +292,16 @@ export function SearchExperience({
           <ExpandedWorkspace
             activeFilters={activeFilters}
             announcement={announcement}
+            answerPanel={(
+              <AnswerPanel
+                answer={answer}
+                mode={runtimeMode}
+                onModeChange={(nextMode) => void updateAi({runtimeMode: nextMode})}
+                onOpenCitation={(fileId) => void handleOpen(fileId)}
+                onRetry={answer.retry}
+                onStop={answer.stop}
+              />
+            )}
             error={controller.error}
             lifecycle={controller.lifecycle}
             openingId={openingId}

@@ -42,6 +42,21 @@ const rustSearchResponseSchema = z.object({
   warnings: z.array(z.object({message: z.string(), path: z.string()})),
 });
 
+const rustIndexedHitSchema = z.object({
+  stableId: z.string().min(1),
+  rootPath: z.string().min(1),
+  path: z.string().min(1),
+  name: z.string().min(1),
+  contentHash: z.string().min(1),
+  indexRevision: z.number().int().positive(),
+  extractionKind: z.string().min(1),
+  page: z.number().int().positive().nullable().optional(),
+  timeStartMs: z.number().int().nonnegative().nullable().optional(),
+  timeEndMs: z.number().int().nonnegative().nullable().optional(),
+  rank: z.number(),
+});
+const rustIndexedHitsSchema = z.array(rustIndexedHitSchema);
+
 const rustPreviewSchema = z.object({
   kind: previewKindSchema,
   title: z.string().min(1),
@@ -64,6 +79,7 @@ interface KnownFile {
 
 export interface DevelopmentFileSearchServiceOptions {
   getRoots(): readonly string[];
+  getRootConfigurations?(): readonly {id: string; path: string; cloudEnrichment: boolean}[];
   invoke?: InvokeCommand;
 }
 
@@ -127,10 +143,33 @@ function isInScope(kind: SearchResult['kind'], scope: SearchScope) {
   }
 }
 
+function indexedKind(path: string): SearchResult['kind'] {
+  const extension = path.split('.').pop()?.toLocaleLowerCase() ?? '';
+  if (extension === 'pdf') return 'pdf';
+  if (['doc', 'docx', 'odt', 'rtf', 'txt', 'md'].includes(extension)) return 'document';
+  if (['csv', 'ods', 'xls', 'xlsx'].includes(extension)) return 'spreadsheet';
+  if (['odp', 'ppt', 'pptx'].includes(extension)) return 'presentation';
+  if (['c', 'cc', 'cpp', 'cs', 'css', 'go', 'h', 'hpp', 'html', 'java', 'js', 'jsx', 'json', 'kt', 'kts', 'lua', 'php', 'py', 'rb', 'rs', 'scss', 'sh', 'sql', 'swift', 'toml', 'ts', 'tsx', 'vue', 'xml', 'yaml', 'yml'].includes(extension)) return 'source';
+  if (['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp'].includes(extension)) return 'image';
+  if (['avi', 'm4v', 'mkv', 'mov', 'mp4', 'webm', 'wmv'].includes(extension)) return 'video';
+  if (['aac', 'flac', 'm4a', 'mp3', 'ogg', 'wav', 'wma'].includes(extension)) return 'audio';
+  return 'unknown';
+}
+
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
     throw new DOMException('Request aborted.', 'AbortError');
   }
+}
+
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  throwIfAborted(signal);
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(new DOMException('Request aborted.', 'AbortError'));
+    signal.addEventListener('abort', abort, {once: true});
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+  });
 }
 
 function commandFailure(error: unknown, fallbackMessage: string): SearchError {
@@ -156,12 +195,15 @@ function commandFailure(error: unknown, fallbackMessage: string): SearchError {
 
 export class DevelopmentFileSearchService implements SearchService {
   private readonly getRoots: () => readonly string[];
+  private readonly getRootConfigurations?: DevelopmentFileSearchServiceOptions['getRootConfigurations'];
   private readonly invoke: InvokeCommand;
   private readonly knownFiles = new Map<string, KnownFile>();
   private readonly listeners = new Set<(status: SearchStatus) => void>();
+  private synchronizedRootSignature = '';
 
-  constructor({getRoots, invoke = defaultInvoke}: DevelopmentFileSearchServiceOptions) {
+  constructor({getRoots, getRootConfigurations, invoke = defaultInvoke}: DevelopmentFileSearchServiceOptions) {
     this.getRoots = getRoots;
+    this.getRootConfigurations = getRootConfigurations;
     this.invoke = invoke;
   }
 
@@ -174,9 +216,14 @@ export class DevelopmentFileSearchService implements SearchService {
     }
 
     const startedAt = performance.now();
-    const settled = await Promise.allSettled(
-      roots.map((root) => this.invoke('search_filenames', {root, query: request.query})),
-    );
+    this.synchronizeRoots(roots);
+    const indexedRequest = this.invoke('search_indexed', {query: request.query, limit: request.limit});
+    const [settled, indexedSettled] = await abortable(Promise.all([
+      Promise.allSettled(
+        roots.map((root) => this.invoke('search_filenames', {root, query: request.query})),
+      ),
+      Promise.allSettled([indexedRequest]),
+    ]), signal);
     throwIfAborted(signal);
 
     const responses: Array<{root: string; data: z.infer<typeof rustSearchResponseSchema>}> = [];
@@ -198,11 +245,7 @@ export class DevelopmentFileSearchService implements SearchService {
       responses.push({root: roots[index] ?? '', data: parsed.data});
     });
 
-    if (responses.length === 0 && firstFailure) {
-      throw commandFailure(firstFailure, 'Local filename search failed.');
-    }
-
-    const mapped = responses
+    const filenameMatches = responses
       .flatMap(({root, data}) => data.items.map((item) => ({root, item})))
       .map(({root, item}) => {
         const id = stableFileId(root, item.relativePath);
@@ -232,6 +275,49 @@ export class DevelopmentFileSearchService implements SearchService {
         left.name.length - right.name.length ||
         left.path.localeCompare(right.path),
       );
+    let indexedFailure: unknown;
+    const indexedMatches = indexedSettled.flatMap((result) => {
+      if (result.status === 'rejected') {
+        indexedFailure = result.reason;
+        return [];
+      }
+      const parsed = rustIndexedHitsSchema.safeParse(result.value);
+      if (!parsed.success) {
+        indexedFailure = {message: 'The local content index returned an invalid response.'};
+        return [];
+      }
+      return parsed.data.map((item) => {
+        this.knownFiles.set(item.stableId, {root: item.rootPath, path: item.path});
+        return {
+          id: item.stableId,
+          name: item.name,
+          path: displayPath(item.path),
+          kind: indexedKind(item.path),
+          match: {
+            source: item.extractionKind === 'ocr' ? 'ocr' as const : 'content' as const,
+            score: 1 / (1 + Math.abs(item.rank)),
+          },
+          metadata: {},
+          provenance: {
+            extractionKind: item.extractionKind,
+            fileHash: item.contentHash,
+            page: item.page ?? undefined,
+            timeStartMs: item.timeStartMs ?? undefined,
+            timeEndMs: item.timeEndMs ?? undefined,
+            indexRevision: item.indexRevision,
+          },
+          availability: 'available' as const,
+        } satisfies SearchResult;
+      }).filter((item) => isInScope(item.kind, request.scope));
+    });
+    if (responses.length === 0 && firstFailure && indexedMatches.length === 0) {
+      throw commandFailure(firstFailure ?? indexedFailure, 'Local filename search failed.');
+    }
+    const seenPaths = new Set(filenameMatches.map((item) => normalizedPath(item.path)));
+    const mapped = [
+      ...filenameMatches,
+      ...indexedMatches.filter((item) => !seenPaths.has(normalizedPath(item.path))),
+    ];
     const total = mapped.length;
     const visible = mapped.slice(0, request.limit);
     const warningCount = responses.reduce((count, response) => count + response.data.warnings.length, 0);
@@ -327,6 +413,30 @@ export class DevelopmentFileSearchService implements SearchService {
 
   private publishStatus(status: SearchStatus) {
     this.listeners.forEach((listener) => listener(status));
+  }
+
+  private synchronizeRoots(roots: readonly string[]) {
+    const configuredRoots = this.getRootConfigurations?.() ?? roots.map((path) => ({
+      id: normalizedPath(path),
+      path,
+      cloudEnrichment: false,
+    }));
+    const signature = JSON.stringify(configuredRoots.map((root) => [
+      normalizedPath(root.path),
+      root.cloudEnrichment,
+    ]));
+    if (signature === this.synchronizedRootSignature) {
+      return;
+    }
+    this.synchronizedRootSignature = signature;
+    void this.invoke('synchronize_index_roots', {
+      roots: configuredRoots.map((root) => ({
+        path: root.path,
+        cloudEnrichment: root.cloudEnrichment,
+      })),
+    }).catch(() => {
+      this.synchronizedRootSignature = '';
+    });
   }
 
   private requireKnownFile(fileId: string) {
