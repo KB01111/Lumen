@@ -323,11 +323,7 @@ pub async fn start_answer(
     let mode = request.mode;
     let cloud_consent = request.cloud_consent;
     let route_selection = tauri::async_runtime::spawn_blocking(move || {
-        routes(
-            mode,
-            cloud_consent,
-            credentials::get("openai").is_some(),
-        )
+        routes(mode, cloud_consent, credentials::get("openai").is_some())
     })
     .await
     .map_err(|error| format!("Could not join the answer-route selection: {error}"))?;

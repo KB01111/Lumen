@@ -1,10 +1,11 @@
 import {act, render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {afterEach, describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {AppProviders} from '../../../app/AppProviders';
 import {defaultAppearanceSettings} from '../../../state/appearance.schema';
 import {appearanceStore} from '../../../state/appearance.store';
+import {nativeAiService} from '../../../services/ai/native-ai-service';
 import type {RootSelectionService} from '../../onboarding/root-selection-service';
 import {useSettingsStore} from '../settings.store';
 import {AppearancePage} from './AppearancePage';
@@ -31,7 +32,11 @@ function renderWithProviders(children: React.ReactNode) {
   return render(<AppProviders>{children}</AppProviders>);
 }
 
+const defaultSetRoots = useSettingsStore.getState().setRoots;
+
 afterEach(() => {
+  Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+  useSettingsStore.setState({setRoots: defaultSetRoots});
   useSettingsStore.getState().reset();
   appearanceStore.setState({
     ...defaultAppearanceSettings,
@@ -103,6 +108,41 @@ describe('core settings pages', () => {
     await user.click(screen.getByRole('button', {name: 'Add exclusion for C:\\Projects'}));
 
     expect(screen.getByRole('alert')).toHaveTextContent('relative to this root');
+  });
+
+  it('reports native synchronization failures after an indexed root changes', async () => {
+    const user = userEvent.setup();
+    Reflect.defineProperty(window, '__TAURI_INTERNALS__', {configurable: true, value: {}});
+    vi.spyOn(nativeAiService, 'indexStatus').mockResolvedValue({
+      phase: 'ready',
+      indexedItems: 1,
+      queuedEnrichment: 0,
+      skippedItems: 0,
+      message: 'Index ready.',
+    });
+    vi.spyOn(nativeAiService, 'synchronizeRoots').mockRejectedValue(new Error('native index offline'));
+    const setRoots = vi.fn(async () => true);
+    useSettingsStore.setState({
+      roots: [{
+        id: 'projects',
+        path: 'C:\\Projects',
+        paused: false,
+        exclusions: [],
+        includeHidden: false,
+        maxFileSizeMb: 256,
+        status: 'ready',
+      }],
+      setRoots,
+    });
+    renderWithProviders(<IndexedRootsPage />);
+
+    await user.click(screen.getByRole('button', {name: 'Pause C:\\Projects'}));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Index synchronization failed: native index offline',
+    );
+    expect(setRoots).toHaveBeenCalledOnce();
+    expect(nativeAiService.synchronizeRoots).toHaveBeenCalledWith([]);
   });
 
   it('labels semantic search and reranking as unavailable in phase one', () => {
