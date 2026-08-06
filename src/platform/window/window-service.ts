@@ -5,6 +5,12 @@ export type WindowMode =
   | 'settings'
   | 'gallery';
 
+export interface GeneralWindowPreferences {
+  launchAtStartup: boolean;
+  monitorBehavior: 'active' | 'primary';
+  closeBehavior: 'hide' | 'quit';
+}
+
 export interface WindowGeometry {
   width: number;
   height: number;
@@ -68,5 +74,6 @@ export interface WindowService {
   hide(): Promise<void>;
   focusInput(): Promise<void>;
   setShortcut(accelerator: string): Promise<void>;
+  applyGeneralPreferences(preferences: GeneralWindowPreferences): Promise<void>;
 }
 

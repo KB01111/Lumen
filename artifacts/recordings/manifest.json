@@ -1,6 +1,7 @@
 {
-  "generatedAt": "2026-08-04T22:08:50.631Z",
-  "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02",
+  "generatedAt": "2026-08-06T02:51:31.333Z",
+  "gitSha": "0af619319f0d2e12ce304ce214afb663b8d6de0e",
+  "gitDirty": true,
   "browser": {
     "name": "Microsoft Edge"
   },
@@ -25,7 +26,8 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "0af619319f0d2e12ce304ce214afb663b8d6de0e",
+      "gitDirty": true
     },
     {
       "id": "settings-routing",
@@ -36,11 +38,14 @@
         "appearance",
         "local AI route",
         "AgentGateway route",
-        "activity policy"
+        "Computer Use consent",
+        "activity policy",
+        "Session Relief analysis"
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "0af619319f0d2e12ce304ce214afb663b8d6de0e",
+      "gitDirty": true
     },
     {
       "id": "onboarding",
@@ -59,7 +64,8 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "0af619319f0d2e12ce304ce214afb663b8d6de0e",
+      "gitDirty": true
     },
     {
       "id": "activity-provider-states",
@@ -75,7 +81,8 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "0af619319f0d2e12ce304ce214afb663b8d6de0e",
+      "gitDirty": true
     }
   ]
 }

@@ -1,14 +1,16 @@
 use std::{
     fs,
-    io::Read,
-    net::TcpListener,
+    io::{Read, Seek, SeekFrom},
+    net::{SocketAddr, TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::Mutex,
+    time::{Duration, Instant},
 };
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use tauri::Manager;
 
 use super::{
     config::{
@@ -41,6 +43,11 @@ struct ProcessSlot {
     job: isize,
 }
 
+const READINESS_CONNECT_TIMEOUT: Duration = Duration::from_millis(150);
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(8);
+const STARTUP_POLL_INTERVAL: Duration = Duration::from_millis(50);
+const MAX_LOG_DETAIL_BYTES: u64 = 16 * 1024;
+
 impl Drop for ProcessSlot {
     fn drop(&mut self) {
         let _ = self.child.kill();
@@ -63,12 +70,87 @@ pub struct GatewaySupervisor {
     state: Mutex<ProcessState>,
 }
 
-fn free_port() -> Result<u16, String> {
-    TcpListener::bind("127.0.0.1:0")
-        .map_err(|error| format!("Could not reserve a loopback port: {error}"))?
-        .local_addr()
-        .map(|address| address.port())
-        .map_err(|error| format!("Could not inspect a loopback port: {error}"))
+fn allocate_ports() -> Result<GatewayPorts, String> {
+    let listeners = (0..3)
+        .map(|_| {
+            TcpListener::bind("127.0.0.1:0")
+                .map_err(|error| format!("Could not reserve a loopback port: {error}"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let ports = listeners
+        .iter()
+        .map(|listener| {
+            listener
+                .local_addr()
+                .map(|address| address.port())
+                .map_err(|error| format!("Could not inspect a loopback port: {error}"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let ports = GatewayPorts {
+        interactive: ports[0],
+        enrichment: ports[1],
+        admin: ports[2],
+    };
+    if !ports.are_distinct() {
+        return Err("Could not allocate distinct AgentGateway ports".to_owned());
+    }
+    Ok(ports)
+}
+
+fn port_ready(port: u16) -> bool {
+    TcpStream::connect_timeout(
+        &SocketAddr::from(([127, 0, 0, 1], port)),
+        READINESS_CONNECT_TIMEOUT,
+    )
+    .is_ok()
+}
+
+fn ports_ready(ports: GatewayPorts) -> bool {
+    port_ready(ports.interactive) && port_ready(ports.enrichment) && port_ready(ports.admin)
+}
+
+fn wait_for_readiness(slots: &mut [ProcessSlot], ports: GatewayPorts) -> Result<(), String> {
+    let deadline = Instant::now() + STARTUP_TIMEOUT;
+    loop {
+        for (index, slot) in slots.iter_mut().enumerate() {
+            if let Some(status) = slot
+                .child
+                .try_wait()
+                .map_err(|error| format!("Could not inspect AgentGateway lane {index}: {error}"))?
+            {
+                return Err(format!(
+                    "AgentGateway lane {index} exited before becoming ready ({status})"
+                ));
+            }
+        }
+        if ports_ready(ports) {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err("AgentGateway did not open all loopback listeners in time".to_owned());
+        }
+        std::thread::sleep(STARTUP_POLL_INTERVAL);
+    }
+}
+
+fn read_log_tail(path: &Path) -> Option<String> {
+    let mut file = fs::File::open(path).ok()?;
+    let length = file.metadata().ok()?.len();
+    file.seek(SeekFrom::Start(length.saturating_sub(MAX_LOG_DETAIL_BYTES)))
+        .ok()?;
+    let mut bytes = Vec::with_capacity(MAX_LOG_DETAIL_BYTES as usize);
+    file.take(MAX_LOG_DETAIL_BYTES)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    let detail = String::from_utf8_lossy(&bytes).trim().to_owned();
+    (!detail.is_empty()).then_some(detail)
+}
+
+fn redact_detail(mut detail: String, secrets: &[&str]) -> String {
+    for secret in secrets.iter().filter(|secret| !secret.is_empty()) {
+        detail = detail.replace(secret, "[redacted]");
+    }
+    detail
 }
 
 fn sha256_file(path: &Path) -> Result<String, String> {
@@ -93,11 +175,7 @@ fn sha256_file(path: &Path) -> Result<String, String> {
 impl GatewaySupervisor {
     pub fn new(binary: PathBuf, runtime_directory: &Path) -> Result<Self, String> {
         fs::create_dir_all(runtime_directory).map_err(|error| error.to_string())?;
-        let ports = GatewayPorts {
-            interactive: free_port()?,
-            enrichment: free_port()?,
-            admin: free_port()?,
-        };
+        let ports = allocate_ports()?;
         let interactive_config = runtime_directory.join("agentgateway.interactive.yaml");
         let enrichment_config = runtime_directory.join("agentgateway.enrichment.yaml");
         let interactive_log = runtime_directory.join("agentgateway.interactive.log");
@@ -127,13 +205,10 @@ impl GatewaySupervisor {
         let mut state = self.state.lock().map_err(|_| "Gateway state is poisoned")?;
         let mut all_running = state.slots.len() == self.config_paths.len();
         for slot in &mut state.slots {
-            all_running &= slot
-                .child
-                .try_wait()
-                .map_err(|error| error.to_string())?
-                .is_none();
+            all_running &= slot.child.try_wait().is_ok_and(|status| status.is_none());
         }
-        if all_running {
+        if all_running && ports_ready(self.ports) {
+            state.detail = None;
             return Ok(());
         }
         state.slots.clear();
@@ -141,17 +216,37 @@ impl GatewaySupervisor {
             state.detail = Some("AgentGateway sidecar is not staged".to_owned());
             return Err(state.detail.clone().unwrap_or_default());
         }
-        let actual = sha256_file(&self.binary)?;
+        let actual = match sha256_file(&self.binary) {
+            Ok(actual) => actual,
+            Err(error) => {
+                state.detail = Some(format!("Could not validate AgentGateway: {error}"));
+                return Err(state.detail.clone().unwrap_or_default());
+            }
+        };
         if actual != AGENTGATEWAY_SHA256 {
             state.detail = Some("AgentGateway checksum validation failed".to_owned());
             return Err(state.detail.clone().unwrap_or_default());
         }
 
         let cloud_key = credentials::get("openai").unwrap_or_default();
+        let mut candidates = Vec::with_capacity(self.config_paths.len());
         for (index, config_path) in self.config_paths.iter().enumerate() {
-            let log =
-                fs::File::create(&self.log_paths[index]).map_err(|error| error.to_string())?;
-            let error_log = log.try_clone().map_err(|error| error.to_string())?;
+            let log = match fs::File::create(&self.log_paths[index]) {
+                Ok(log) => log,
+                Err(error) => {
+                    let error = format!("Could not create AgentGateway log: {error}");
+                    state.detail = Some(error.clone());
+                    return Err(error);
+                }
+            };
+            let error_log = match log.try_clone() {
+                Ok(error_log) => error_log,
+                Err(error) => {
+                    let error = format!("Could not clone AgentGateway log: {error}");
+                    state.detail = Some(error.clone());
+                    return Err(error);
+                }
+            };
             let mut command = Command::new(&self.binary);
             command
                 .arg("-f")
@@ -163,22 +258,41 @@ impl GatewaySupervisor {
                 .stdin(Stdio::null())
                 .stdout(Stdio::from(log))
                 .stderr(Stdio::from(error_log));
+            let mut child = match crate::child_process::spawn_hidden(&mut command) {
+                Ok(child) => child,
+                Err(error) => {
+                    let error = format!("Could not start AgentGateway lane {index}: {error}");
+                    state.detail = Some(error.clone());
+                    return Err(error);
+                }
+            };
             #[cfg(windows)]
-            {
-                use std::os::windows::process::CommandExt;
-                command.creation_flags(0x0800_0000);
-            }
-            let child = command
-                .spawn()
-                .map_err(|error| format!("Could not start AgentGateway: {error}"))?;
-            #[cfg(windows)]
-            let job = assign_kill_on_close_job(&child)?;
-            state.slots.push(ProcessSlot {
+            let job = match assign_kill_on_close_job(&child) {
+                Ok(job) => job,
+                Err(error) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    state.detail = Some(error.clone());
+                    return Err(error);
+                }
+            };
+            candidates.push(ProcessSlot {
                 child,
                 #[cfg(windows)]
                 job: job.0 as isize,
             });
         }
+        if let Err(error) = wait_for_readiness(&mut candidates, self.ports) {
+            let detail = self
+                .log_paths
+                .iter()
+                .find_map(|path| read_log_tail(path))
+                .map_or_else(|| error.clone(), |log| format!("{error}: {log}"));
+            let detail = redact_detail(detail, &[&self.bearer, &cloud_key]);
+            state.detail = Some(detail);
+            return Err(error);
+        }
+        state.slots = candidates;
         state.detail = None;
         Ok(())
     }
@@ -192,6 +306,7 @@ impl GatewaySupervisor {
     }
 
     pub fn health(&self) -> GatewayHealth {
+        let cloud_key = credentials::get("openai");
         let mut state = self
             .state
             .lock()
@@ -204,30 +319,33 @@ impl GatewaySupervisor {
                 .ok()
                 .is_some_and(|status| status.is_none());
         }
-        if !running && state.detail.is_none() {
-            state.detail = self.log_paths.iter().find_map(|path| {
-                fs::read_to_string(path)
-                    .ok()
-                    .filter(|value| !value.trim().is_empty())
-                    .map(|value| {
-                        value
-                            .chars()
-                            .rev()
-                            .take(1_000)
-                            .collect::<String>()
-                            .chars()
-                            .rev()
-                            .collect()
-                    })
-            });
+        let ready = running && ports_ready(self.ports);
+        if ready {
+            state.detail = None;
+        } else if running {
+            state.detail = Some(
+                "AgentGateway processes are running but their loopback listeners are unavailable"
+                    .to_owned(),
+            );
+        } else if state.detail.is_none() {
+            state.detail = self
+                .log_paths
+                .iter()
+                .find_map(|path| read_log_tail(path))
+                .map(|detail| {
+                    redact_detail(
+                        detail,
+                        &[&self.bearer, cloud_key.as_deref().unwrap_or_default()],
+                    )
+                });
         }
         GatewayHealth {
-            state: if running { "ready" } else { "unavailable" },
+            state: if ready { "ready" } else { "unavailable" },
             version: AGENTGATEWAY_VERSION,
             interactive_port: self.ports.interactive,
             enrichment_port: self.ports.enrichment,
             admin_port: self.ports.admin,
-            cloud_credential_configured: credentials::get("openai").is_some(),
+            cloud_credential_configured: cloud_key.is_some(),
             detail: state.detail.clone(),
         }
     }
@@ -279,19 +397,58 @@ pub(crate) fn assign_kill_on_close_job(
 }
 
 #[tauri::command]
-pub fn gateway_health(supervisor: tauri::State<'_, GatewaySupervisor>) -> GatewayHealth {
-    supervisor.inner().health()
+pub async fn gateway_health(app: tauri::AppHandle) -> Result<GatewayHealth, String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<GatewaySupervisor>().health())
+        .await
+        .map_err(|error| format!("Could not join the AgentGateway health worker: {error}"))
 }
 
 #[tauri::command]
-pub fn restart_gateway(supervisor: tauri::State<'_, GatewaySupervisor>) -> Result<(), String> {
-    supervisor.inner().restart()
+pub async fn restart_gateway(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<GatewaySupervisor>().restart())
+        .await
+        .map_err(|error| format!("Could not join the AgentGateway restart worker: {error}"))?
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{net::TcpStream, thread, time::Duration};
+    use std::{collections::HashSet, net::TcpStream, thread, time::Duration};
+
+    #[test]
+    fn allocated_ports_are_distinct_and_loopback_only() {
+        let ports = allocate_ports().unwrap();
+        assert!(ports.are_distinct());
+        assert_eq!(
+            HashSet::from([ports.interactive, ports.enrichment, ports.admin]).len(),
+            3
+        );
+    }
+
+    #[test]
+    fn readiness_requires_every_configured_listener() {
+        let interactive = TcpListener::bind("127.0.0.1:0").unwrap();
+        let enrichment = TcpListener::bind("127.0.0.1:0").unwrap();
+        let admin = TcpListener::bind("127.0.0.1:0").unwrap();
+        let ports = GatewayPorts {
+            interactive: interactive.local_addr().unwrap().port(),
+            enrichment: enrichment.local_addr().unwrap().port(),
+            admin: admin.local_addr().unwrap().port(),
+        };
+
+        assert!(ports_ready(ports));
+        drop(admin);
+        assert!(!ports_ready(ports));
+    }
+
+    #[test]
+    fn diagnostics_redact_runtime_credentials() {
+        let detail = redact_detail(
+            "bearer-token failed with cloud-secret".to_owned(),
+            &["bearer-token", "cloud-secret"],
+        );
+        assert_eq!(detail, "[redacted] failed with [redacted]");
+    }
 
     #[test]
     fn generated_config_is_secret_free_and_uses_loopback_admin() {
@@ -301,6 +458,14 @@ mod tests {
         assert!(config.contains("adminAddr: 127.0.0.1:"));
         assert!(config.contains("$LUMEN_GATEWAY_BEARER"));
         assert!(!config.contains(&supervisor.bearer));
+        assert!(supervisor.start().is_err());
+        assert!(supervisor.state.lock().unwrap().slots.is_empty());
+        let health = supervisor.health();
+        assert_eq!(health.state, "unavailable");
+        assert_eq!(
+            health.detail.as_deref(),
+            Some("AgentGateway sidecar is not staged")
+        );
         let _ = fs::remove_dir_all(root);
     }
 

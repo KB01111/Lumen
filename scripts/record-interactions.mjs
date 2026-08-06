@@ -82,14 +82,20 @@ async function record(baseUrl) {
       id: 'settings-routing',
       file: 'settings-routing.webm',
       title: 'Settings navigation and provider routes',
-      flows: ['settings navigation', 'appearance', 'local AI route', 'AgentGateway route', 'activity policy'],
+      flows: ['settings navigation', 'appearance', 'local AI route', 'AgentGateway route', 'Computer Use consent', 'activity policy', 'Session Relief analysis'],
     }, async (page) => {
       await page.goto(`${baseUrl}/?onboarded=1&service=memory`);
       await page.keyboard.press('Control+,');
       await page.getByRole('navigation', {name: 'Settings'}).waitFor();
-      for (const pageName of ['Appearance', 'Local AI', 'AgentGateway', 'Activity']) {
+      for (const pageName of ['Appearance', 'Local AI', 'AgentGateway', 'Computer Use', 'Activity', 'Session Relief']) {
         await page.getByRole('tab', {name: pageName, exact: true}).click();
         await page.getByRole('heading', {name: pageName, exact: true}).waitFor();
+        if (pageName === 'Computer Use') {
+          await page.getByText('Computer Use requires the native Windows app.', {exact: false}).waitFor();
+        }
+        if (pageName === 'Session Relief') {
+          await page.getByRole('button', {name: 'Analyze this session'}).waitFor();
+        }
         await pause(page, 520);
       }
       await page.getByRole('button', {name: 'Close settings'}).click();
@@ -149,9 +155,11 @@ async function record(baseUrl) {
   }
 
   const gitSha = execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim();
+  const gitDirty = execFileSync('git', ['status', '--porcelain'], {encoding: 'utf8'}).trim().length > 0;
   const manifest = {
     generatedAt: new Date().toISOString(),
     gitSha,
+    gitDirty,
     browser: {name: 'Microsoft Edge'},
     viewport,
     count: recordings.length,
@@ -161,6 +169,7 @@ async function record(baseUrl) {
       deterministicAdapter: true,
       audio: false,
       gitSha,
+      gitDirty,
     })),
   };
   await writeFile(

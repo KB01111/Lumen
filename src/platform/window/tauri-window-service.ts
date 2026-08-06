@@ -1,7 +1,7 @@
 import {invoke} from '@tauri-apps/api/core';
 
 import {BrowserWindowService} from './browser-window-service';
-import type {WindowMode, WindowService} from './window-service';
+import type {GeneralWindowPreferences, WindowMode, WindowService} from './window-service';
 
 export class TauriWindowService implements WindowService {
   async show(mode: WindowMode): Promise<void> {
@@ -18,6 +18,10 @@ export class TauriWindowService implements WindowService {
 
   async setShortcut(accelerator: string): Promise<void> {
     await invoke('set_lumen_shortcut', {accelerator});
+  }
+
+  async applyGeneralPreferences(preferences: GeneralWindowPreferences): Promise<void> {
+    await invoke('apply_lumen_preferences', {preferences});
   }
 }
 

@@ -2,6 +2,7 @@ import {invoke as tauriInvoke} from '@tauri-apps/api/core';
 import {z} from 'zod';
 
 import type {SearchService} from './search-service';
+import {rankSearchResults} from './search-preferences';
 import {
   filePreviewSchema,
   previewKindSchema,
@@ -79,9 +80,21 @@ interface KnownFile {
 
 export interface DevelopmentFileSearchServiceOptions {
   getRoots(): readonly string[];
-  getRootConfigurations?(): readonly {id: string; path: string; cloudEnrichment: boolean}[];
+  getRootConfigurations?(): readonly {
+    id: string;
+    path: string;
+    cloudEnrichment: boolean;
+    exclusions: readonly string[];
+    includeHidden: boolean;
+    maxFileSizeMb: number;
+  }[];
+  isBackgroundWorkPaused?(): boolean;
+  now?(): number;
+  indexRefreshIntervalMs?: number;
   invoke?: InvokeCommand;
 }
+
+const DEFAULT_INDEX_REFRESH_INTERVAL_MS = 60_000;
 
 function normalizedPath(value: string) {
   return value.replace(/\\/g, '/').replace(/\/+$/, '').toLocaleLowerCase();
@@ -196,16 +209,31 @@ function commandFailure(error: unknown, fallbackMessage: string): SearchError {
 export class DevelopmentFileSearchService implements SearchService {
   private readonly getRoots: () => readonly string[];
   private readonly getRootConfigurations?: DevelopmentFileSearchServiceOptions['getRootConfigurations'];
+  private readonly isBackgroundWorkPaused: () => boolean;
+  private readonly now: () => number;
+  private readonly indexRefreshIntervalMs: number;
   private readonly invoke: InvokeCommand;
   private readonly knownFiles = new Map<string, KnownFile>();
   private readonly listeners = new Set<(status: SearchStatus) => void>();
   private synchronizedRootSignature = '';
   private pendingRootSignature = '';
   private rootSynchronization: Promise<void> = Promise.resolve();
+  private indexGeneration = 0;
+  private synchronizedAt = 0;
 
-  constructor({getRoots, getRootConfigurations, invoke = defaultInvoke}: DevelopmentFileSearchServiceOptions) {
+  constructor({
+    getRoots,
+    getRootConfigurations,
+    isBackgroundWorkPaused = () => false,
+    now = Date.now,
+    indexRefreshIntervalMs = DEFAULT_INDEX_REFRESH_INTERVAL_MS,
+    invoke = defaultInvoke,
+  }: DevelopmentFileSearchServiceOptions) {
     this.getRoots = getRoots;
     this.getRootConfigurations = getRootConfigurations;
+    this.isBackgroundWorkPaused = isBackgroundWorkPaused;
+    this.now = now;
+    this.indexRefreshIntervalMs = Math.max(1, indexRefreshIntervalMs);
     this.invoke = invoke;
   }
 
@@ -218,14 +246,25 @@ export class DevelopmentFileSearchService implements SearchService {
     }
 
     const startedAt = performance.now();
-    await abortable(this.synchronizeRoots(roots), signal);
-    throwIfAborted(signal);
-    const indexedRequest = this.invoke('search_indexed', {query: request.query, limit: request.limit});
+    const hasUsableIndex = this.hasUsableIndex(roots);
+    const refreshDue = hasUsableIndex && this.isRefreshDue();
+    const backgroundPaused = this.isBackgroundWorkPaused();
+    if ((!hasUsableIndex || refreshDue) && !backgroundPaused) {
+      void this.synchronizeRoots(roots, refreshDue).catch((error: unknown) => {
+        this.publishStatus({
+          phase: 'degraded',
+          message: commandFailure(error, 'The local content index could not be updated.').message,
+          updatedAt: new Date().toISOString(),
+        });
+      });
+    }
     const [settled, indexedSettled] = await abortable(Promise.all([
       Promise.allSettled(
         roots.map((root) => this.invoke('search_filenames', {root, query: request.query})),
       ),
-      Promise.allSettled([indexedRequest]),
+      Promise.allSettled(hasUsableIndex
+        ? [this.invoke('search_indexed', {query: request.query, limit: request.limit})]
+        : []),
     ]), signal);
     throwIfAborted(signal);
 
@@ -321,14 +360,17 @@ export class DevelopmentFileSearchService implements SearchService {
       ...filenameMatches,
       ...indexedMatches.filter((item) => !seenPaths.has(normalizedPath(item.path))),
     ];
-    const total = mapped.length;
-    const visible = mapped.slice(0, request.limit);
+    const ranked = rankSearchResults(mapped, request.preferences);
+    const total = ranked.length;
+    const visible = ranked.slice(0, request.limit);
     const warningCount = responses.reduce((count, response) => count + response.data.warnings.length, 0);
     const failedCount = settled.length - responses.length;
     this.publishStatus({
-      phase: failedCount > 0 || warningCount > 0 ? 'degraded' : 'ready',
+      phase: backgroundPaused ? 'paused' : failedCount > 0 || warningCount > 0 ? 'degraded' : 'ready',
       indexedItems: total,
-      message: failedCount > 0
+      message: backgroundPaused
+        ? 'Background index updates paused; existing search remains available'
+        : failedCount > 0
         ? `${roots.length - failedCount} of ${roots.length} local roots searched`
         : warningCount > 0
           ? `Local search ready with ${warningCount} skipped paths`
@@ -418,37 +460,80 @@ export class DevelopmentFileSearchService implements SearchService {
     this.listeners.forEach((listener) => listener(status));
   }
 
-  private synchronizeRoots(roots: readonly string[]): Promise<void> {
-    const configuredRoots = this.getRootConfigurations?.() ?? roots.map((path) => ({
+  invalidateIndex(): void {
+    this.indexGeneration += 1;
+    this.synchronizedRootSignature = '';
+    this.pendingRootSignature = '';
+    this.synchronizedAt = 0;
+    this.knownFiles.clear();
+    this.publishStatus({
+      phase: 'idle',
+      indexedItems: 0,
+      message: 'Local index cleared; filename search remains available',
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  private configuredRoots(roots: readonly string[]) {
+    return this.getRootConfigurations?.() ?? roots.map((path) => ({
       id: normalizedPath(path),
       path,
       cloudEnrichment: false,
+      exclusions: [],
+      includeHidden: true,
+      maxFileSizeMb: 256,
     }));
-    const signature = JSON.stringify(configuredRoots.map((root) => [
+  }
+
+  private rootSignature(configuredRoots: ReturnType<DevelopmentFileSearchService['configuredRoots']>) {
+    return JSON.stringify(configuredRoots.map((root) => [
       normalizedPath(root.path),
       root.cloudEnrichment,
+      [...root.exclusions].sort(),
+      root.includeHidden,
+      root.maxFileSizeMb,
     ]));
-    if (signature === this.synchronizedRootSignature && !this.pendingRootSignature) {
+  }
+
+  private hasUsableIndex(roots: readonly string[]) {
+    const signature = this.rootSignature(this.configuredRoots(roots));
+    return signature === this.synchronizedRootSignature;
+  }
+
+  private isRefreshDue() {
+    return this.now() - this.synchronizedAt >= this.indexRefreshIntervalMs;
+  }
+
+  private synchronizeRoots(roots: readonly string[], force = false): Promise<void> {
+    const configuredRoots = this.configuredRoots(roots);
+    const signature = this.rootSignature(configuredRoots);
+    if (!force && signature === this.synchronizedRootSignature && !this.pendingRootSignature) {
       return Promise.resolve();
     }
     if (signature === this.pendingRootSignature) {
       return this.rootSynchronization;
     }
     this.pendingRootSignature = signature;
+    const generation = this.indexGeneration;
     const previous = this.rootSynchronization.catch(() => undefined);
     const synchronization = previous.then(async () => {
-      if (signature === this.synchronizedRootSignature) return;
+      if (!force && signature === this.synchronizedRootSignature) return;
       await this.invoke('synchronize_index_roots', {
         roots: configuredRoots.map((root) => ({
           path: root.path,
           cloudEnrichment: root.cloudEnrichment,
+          exclusions: root.exclusions,
+          includeHidden: root.includeHidden,
+          maxFileSizeMb: root.maxFileSizeMb,
         })),
       });
+      if (generation !== this.indexGeneration) return;
       this.synchronizedRootSignature = signature;
+      this.synchronizedAt = this.now();
     });
     this.rootSynchronization = synchronization;
     return synchronization.finally(() => {
-      if (this.pendingRootSignature === signature) {
+      if (generation === this.indexGeneration && this.pendingRootSignature === signature) {
         this.pendingRootSignature = '';
       }
     });

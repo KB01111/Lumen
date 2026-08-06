@@ -39,6 +39,7 @@ function invalidPreviewError(): SearchError {
 export function usePreviewController(
   fileId: string | null,
   service: SearchService,
+  enabled = true,
 ): PreviewController {
   const [state, setState] = useState<PreviewController>({
     error: null,
@@ -49,6 +50,18 @@ export function usePreviewController(
 
   useEffect(() => {
     const requestId = ++requestSequence.current;
+    if (!enabled) {
+      setState({
+        error: {
+          code: 'unavailable',
+          message: 'File previews are disabled in Privacy settings.',
+          recoverable: true,
+        },
+        lifecycle: 'error',
+        preview: null,
+      });
+      return;
+    }
     if (!fileId) {
       setState({error: null, lifecycle: 'idle', preview: null});
       return;
@@ -78,7 +91,7 @@ export function usePreviewController(
       });
 
     return () => abortController.abort();
-  }, [fileId, service]);
+  }, [enabled, fileId, service]);
 
   return state;
 }

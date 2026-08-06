@@ -26,6 +26,8 @@ from computers import EnvState, PlaywrightComputer  # noqa: E402
 SCREEN_SIZE = (1440, 900)
 MAX_TASK_LENGTH = 4_000
 MAX_ITERATIONS = 60
+MAX_EVENT_BYTES = 16 * 1024
+MAX_EVENT_TEXT_BYTES = 12 * 1024
 SUPPORTED_MODELS = {
     "gemini-3.6-flash",
     "gemini-3.5-flash-lite",
@@ -37,6 +39,28 @@ SUPPORTED_MODELS = {
 
 class CancelledError(RuntimeError):
     pass
+
+
+def bounded_protocol_text(value: Any, maximum_bytes: int = MAX_EVENT_TEXT_BYTES) -> str:
+    """Keep provider-controlled text printable and bounded before it reaches the UI."""
+    sanitized = "".join(
+        character if character.isprintable() else " " for character in str(value)
+    ).strip()
+    encoded = sanitized.encode("utf-8")
+    if len(encoded) <= maximum_bytes:
+        return sanitized
+
+    suffix = "…"
+    budget = maximum_bytes - len(suffix.encode("utf-8"))
+    output: list[str] = []
+    used = 0
+    for character in sanitized:
+        encoded_character = character.encode("utf-8")
+        if used + len(encoded_character) > budget:
+            break
+        output.append(character)
+        used += len(encoded_character)
+    return "".join(output) + suffix
 
 
 class Protocol:
@@ -54,9 +78,27 @@ class Protocol:
         threading.Thread(target=self._read_commands, daemon=True).start()
 
     def emit(self, event_type: str, **payload: Any) -> None:
-        event = {"type": event_type, **payload}
+        event = {
+            "type": bounded_protocol_text(event_type, 64),
+            **{
+                key: bounded_protocol_text(value)
+                if isinstance(value, str)
+                else value
+                for key, value in payload.items()
+            },
+        }
+        serialized = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
+        if len(serialized.encode("utf-8")) > MAX_EVENT_BYTES:
+            serialized = json.dumps(
+                {
+                    "type": "failed",
+                    "message": "Computer Use worker event exceeded the protocol limit.",
+                    "code": "protocol_limit",
+                },
+                separators=(",", ":"),
+            )
         with self._write_lock:
-            self._stdout.write(json.dumps(event, ensure_ascii=False) + "\n")
+            self._stdout.write(serialized + "\n")
             self._stdout.flush()
 
     def wait_for_approval(self, approval_id: str) -> bool:

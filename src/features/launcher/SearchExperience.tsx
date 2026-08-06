@@ -4,10 +4,16 @@ import {motionTokens} from '../../design-system/motion';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
 import type {AnswerService} from '../../services/answer/answer-service';
+import type {RuntimeMode} from '../../services/answer/answer.types';
 import {UnavailableAnswerService} from '../../services/answer/unavailable-answer-service';
+import {isNativeRuntime, nativeAiService} from '../../services/ai/native-ai-service';
 import type {ComputerUseService} from '../../services/computer-use/computer-use-service';
 import {UnavailableComputerUseService} from '../../services/computer-use/unavailable-computer-use-service';
 import type {SearchService} from '../../services/search/search-service';
+import {
+  projectSearchPreferences,
+  resolveSearchScope,
+} from '../../services/search/search-preferences';
 import type {SearchFilter} from '../../services/search/search.types';
 import {useLumenKeyboard} from '../keyboard/useLumenKeyboard';
 import {ComputerUsePanel} from '../computer-use/ComputerUsePanel';
@@ -21,6 +27,7 @@ import {CollapsedLauncher} from './CollapsedLauncher';
 import {ExpandedWorkspace} from './ExpandedWorkspace';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
+import {useSearchHistoryStore} from './search-history.store';
 import {useScopeStore} from './scope.store';
 import {
   readSelectionIntent,
@@ -97,10 +104,20 @@ export function SearchExperience({
   windowService = defaultWindowService,
   onOpenSettings,
 }: SearchExperienceProps) {
-  const controller = useSearchController(service);
+  const searchSettings = useSettingsStore((state) => state.search);
+  const searchPreferences = useMemo(
+    () => projectSearchPreferences(searchSettings),
+    [searchSettings],
+  );
+  const controller = useSearchController(service, searchPreferences);
   const intent = useLauncherStore((state) => state.intent);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
+  const keepLocalWarm = useSettingsStore((state) => state.ai.keepLocalWarm);
   const cloudAnswerConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
+  const previewsEnabled = useSettingsStore((state) => state.privacy.previewsEnabled);
+  const historyEnabled = useSettingsStore((state) => state.general.historyEnabled);
+  const historyEntries = useSearchHistoryStore((state) => state.entries);
+  const recordHistory = useSearchHistoryStore((state) => state.record);
   const updateAi = useSettingsStore((state) => state.updateAi);
   const computerUseSettings = useSettingsStore((state) => state.computerUse);
   const setActiveSettingsPage = useSettingsStore((state) => state.setActivePage);
@@ -118,6 +135,7 @@ export function SearchExperience({
   const computerUse = useComputerUseController(computerUseService, computerUseSettings);
   answerStopRef.current = answer.stop;
   const activeScope = useScopeStore((state) => state.activeScope);
+  const setActiveScope = useScopeStore((state) => state.setScope);
   const activeFilters = useScopeStore((state) => state.activeFilters);
   const clearFilters = useScopeStore((state) => state.clearFilters);
   const toggleFilter = useScopeStore((state) => state.toggleFilter);
@@ -134,6 +152,34 @@ export function SearchExperience({
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingSelectionFrame = useRef(0);
   const pendingSelectionTimer = useRef(0);
+  const history = useMemo(() => historyEntries.map((entry) => entry.query), [historyEntries]);
+  const changeRuntimeMode = useCallback(async (nextMode: RuntimeMode) => {
+    if (nextMode === runtimeMode) return;
+    if (!isNativeRuntime()) {
+      if (!await updateAi({runtimeMode: nextMode})) {
+        throw new Error('The answer runtime could not be saved.');
+      }
+      return;
+    }
+
+    try {
+      await nativeAiService.setLocalRuntimeMode(nextMode, keepLocalWarm);
+    } catch {
+      throw new Error('The native answer runtime did not accept that mode. Your saved setting was not changed.');
+    }
+
+    if (await updateAi({runtimeMode: nextMode})) return;
+
+    useSettingsStore.setState((state) => ({
+      ai: {...state.ai, runtimeMode},
+    }));
+    try {
+      await nativeAiService.setLocalRuntimeMode(runtimeMode, keepLocalWarm);
+    } catch {
+      throw new Error('The answer runtime setting was not saved, and the native runtime could not be restored.');
+    }
+    throw new Error('The answer runtime setting was not saved. The native runtime was restored.');
+  }, [keepLocalWarm, runtimeMode, updateAi]);
 
   useEffect(() => () => {
     window.cancelAnimationFrame(pendingSelectionFrame.current);
@@ -158,10 +204,13 @@ export function SearchExperience({
       unsubscribe();
     };
   }, [controller.setQuery, intent]);
-  useEffect(
-    () => controller.setScope(activeScope),
-    [activeScope, controller.setScope],
-  );
+  const effectiveScope = resolveSearchScope(activeScope, searchPreferences);
+  useEffect(() => {
+    if (activeScope !== effectiveScope) {
+      setActiveScope(effectiveScope);
+    }
+    controller.setScope(effectiveScope);
+  }, [activeScope, controller.setScope, effectiveScope, setActiveScope]);
   useEffect(
     () => {
       selectStoreResult(controller.selectedId);
@@ -201,6 +250,9 @@ export function SearchExperience({
     setActionMessage(`Opening ${result?.name ?? 'file'}`);
     try {
       await service.openFile(fileId);
+      if (historyEnabled) {
+        void recordHistory(useQueryStore.getState().committed);
+      }
       await delay(motionTokens.duration.press * 1000);
       hideLauncher();
       await windowService.hide();
@@ -216,6 +268,8 @@ export function SearchExperience({
     controller.results,
     hideLauncher,
     openingId,
+    historyEnabled,
+    recordHistory,
     service,
     windowService,
   ]);
@@ -227,6 +281,9 @@ export function SearchExperience({
     }
     try {
       await service.openContainingFolder(fileId);
+      if (historyEnabled) {
+        void recordHistory(useQueryStore.getState().committed);
+      }
       const result = controller.results.find((item) => item.id === fileId);
       setActionMessage(`Opened the folder containing ${result?.name ?? 'the result'}`);
     } catch (error) {
@@ -234,7 +291,7 @@ export function SearchExperience({
         error instanceof Error ? error.message : 'The containing folder could not be opened.',
       );
     }
-  }, [controller.results, controller.selectedId, service]);
+  }, [controller.results, controller.selectedId, historyEnabled, recordHistory, service]);
 
   const handleShowDetails = useCallback(() => {
     const fileId = readSelectionIntent() ?? controller.selectedId;
@@ -272,13 +329,17 @@ export function SearchExperience({
   useLumenKeyboard({
     detailsOpen,
     inputRef,
+    intent,
     isExpanded: mode === 'expanded',
+    history,
+    historyEnabled,
     results: intent === 'search' ? controller.results : [],
     selectedId: controller.selectedId,
     onCloseDetails: () => setDetailsOpen(false),
     onOpen: handleOpen,
     onOpenContainingFolder: handleOpenContainingFolder,
     onOpenSettings: () => handleOpenSettings(),
+    onRecallHistory: (query) => useQueryStore.getState().setDraft(query),
     onRequestHide: handleRequestHide,
     onSelect: handleSelect,
     onShowDetails: handleShowDetails,
@@ -327,7 +388,7 @@ export function SearchExperience({
               <AnswerPanel
                 answer={answer}
                 mode={runtimeMode}
-                onModeChange={(nextMode) => void updateAi({runtimeMode: nextMode})}
+                onModeChange={changeRuntimeMode}
                 onOpenCitation={(fileId) => void handleOpen(fileId)}
                 onRetry={answer.retry}
                 onStop={answer.stop}
@@ -336,6 +397,7 @@ export function SearchExperience({
             error={controller.error}
             lifecycle={controller.lifecycle}
             openingId={openingId}
+            previewsEnabled={previewsEnabled}
             results={controller.results}
             service={service}
             onClearFilters={clearFilters}
@@ -358,6 +420,7 @@ export function SearchExperience({
                 : computerUse.phase === 'running' || computerUse.phase === 'starting' ? 'Working'
                   : 'Browser agent'
           : statusLabel(controller.lifecycle, controller.results.length)}
+        enabledScopes={searchPreferences.enabledScopes}
         windowService={windowService}
         onComputerSubmit={handleSubmitComputerUse}
       />
@@ -367,6 +430,7 @@ export function SearchExperience({
             fileId={detailsFileId}
             isOpen={detailsOpen}
             mode="dialog"
+            previewsEnabled={previewsEnabled}
             restoreFocusRef={inputRef}
             service={service}
             onOpenChange={setDetailsOpen}

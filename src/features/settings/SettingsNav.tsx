@@ -6,6 +6,7 @@ import {
   FolderSimpleIcon,
   GaugeIcon,
   GearSixIcon,
+  LightningIcon,
   MagnifyingGlassIcon,
   PaintBrushIcon,
   PlugsConnectedIcon,
@@ -74,6 +75,7 @@ export const settingsPages: readonly SettingsPageDefinition[] = [
   {id: 'agent-gateway', label: 'AgentGateway', description: 'Providers, routes, MCP, and consent', icon: <PlugsConnectedIcon size={18} />},
   {id: 'computer-use', label: 'Computer Use', description: 'Gemini browser agent, consent, and approvals', icon: <BrowserIcon size={18} />},
   {id: 'activity', label: 'Activity', description: 'Indexing and quiet-mode policies', icon: <GaugeIcon size={18} />},
+  {id: 'session-relief', label: 'Session Relief', description: 'Current resource pressure and retained processes', icon: <LightningIcon size={18} />},
   {id: 'privacy', label: 'Privacy', description: 'Local data and destructive actions', icon: <ShieldCheckIcon size={18} />},
   {id: 'diagnostics', label: 'Diagnostics', description: 'Runtime status and performance evidence', icon: <PulseIcon size={18} />},
 ];

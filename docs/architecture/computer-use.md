@@ -10,7 +10,8 @@ Lumen integrates the pinned Google Gemini Computer Use Preview as a supervised b
 4. The Gemini key is read from Windows Credential Manager and passed only to the fixed worker environment. The worker removes it before Edge descendants start; it is never returned to the webview or written to generated configuration.
 5. The worker launches the installed Microsoft Edge channel in a fresh Playwright context. It exposes browser actions only; Lumen grants no shell plugin or arbitrary execute permission.
 6. When Gemini returns `require_confirmation`, the worker emits an `approvalRequired` event and blocks. Rust accepts only the matching alphanumeric approval ID, and the UI offers one-time approval or deny-and-stop.
-7. Cancellation terminates the worker and its descendants through a kill-on-close Job Object. A task is limited to 4,000 characters and 60 model iterations.
+7. Cancellation terminates the worker and its descendants through a kill-on-close Job Object. A task is limited to 4,000 Unicode code points and 60 model iterations.
+8. Rust reads worker output as bounded JSON lines: transport lines are capped at 64 KiB, parsed events at 16 KiB, and provider failure text is sanitized and truncated before it crosses IPC.
 
 ## Runtime flow
 
@@ -34,6 +35,8 @@ The task, visited page URLs, and screenshots are cloud data. Computer Use settin
 `workers/computer-use-preview/upstream` contains the Apache-2.0 agent and computer abstractions copied from `google-gemini/computer-use-preview` commit `77c9797e943aad63bbc963b7fd092a9e51c07863`. The adjacent README and license preserve provenance and enumerate the minimal Edge-channel and lint-only deviations. Lumen-specific JSON-lines, cancellation, credential isolation, and approval behavior lives in `worker.py`.
 
 `bun run stage:computer-use` creates a cached Python 3.11 environment, installs the fully pinned `requirements.lock`, builds a one-file PyInstaller executable, and records a SHA-256 build ID over every worker input. `bun run stage:sidecars` includes that step, and Tauri packages the result as an external binary. Both source-mode and packaged-mode `--health` checks must pass.
+
+The Tauri build script hashes the bounded staged executable and embeds that digest. A release build fails if the staged worker is missing or cannot be hashed. Rust rehashes the chosen executable during health inspection and immediately before reading the Gemini credential or spawning a task. Source-mode Python fallback is compiled only for debug builds; release builds cannot silently fall back to mutable source.
 
 ## Operational limits
 

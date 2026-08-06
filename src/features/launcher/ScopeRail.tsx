@@ -1,3 +1,5 @@
+import {useEffect, useMemo} from 'react';
+
 import {Tab, TabList, TabPanel, Tabs} from 'react-aria-components';
 
 import * as stylex from '@stylexjs/stylex';
@@ -5,7 +7,7 @@ import {motion} from 'motion/react';
 
 import {useLumenMotion} from '../../design-system/MotionProvider';
 import {tokens} from '../../design-system/tokens.stylex';
-import type {SearchScope} from '../../services/search/search.types';
+import {searchScopeValues, type SearchScope} from '../../services/search/search.types';
 import {useScopeStore} from './scope.store';
 
 export const searchScopes: ReadonlyArray<{id: SearchScope; label: string}> = [
@@ -85,18 +87,36 @@ const styles = stylex.create({
   },
 });
 
-export function ScopeRail() {
+export function ScopeRail({
+  enabledScopes = searchScopeValues,
+}: {
+  enabledScopes?: readonly SearchScope[];
+}) {
   const {layoutTransition} = useLumenMotion();
   const activeScope = useScopeStore((state) => state.activeScope);
   const setScope = useScopeStore((state) => state.setScope);
+  const visibleScopes = useMemo(() => {
+    const enabled = new Set(enabledScopes);
+    const selected = searchScopes.filter((scope) => enabled.has(scope.id));
+    return selected.length > 0 ? selected : [searchScopes[0]];
+  }, [enabledScopes]);
+  const selectedScope = visibleScopes.some((scope) => scope.id === activeScope)
+    ? activeScope
+    : visibleScopes[0]?.id ?? 'all';
+
+  useEffect(() => {
+    if (selectedScope !== activeScope) {
+      setScope(selectedScope);
+    }
+  }, [activeScope, selectedScope, setScope]);
 
   return (
     <Tabs
       {...stylex.props(styles.root)}
-      selectedKey={activeScope}
+      selectedKey={selectedScope}
       onSelectionChange={(key) => setScope(key as SearchScope)}
     >
-      <TabList aria-label="Search scopes" items={searchScopes} {...stylex.props(styles.list)}>
+      <TabList aria-label="Search scopes" items={visibleScopes} {...stylex.props(styles.list)}>
         {(scope) => (
           <Tab
             id={scope.id}
@@ -125,7 +145,7 @@ export function ScopeRail() {
           </Tab>
         )}
       </TabList>
-      {searchScopes.map((scope) => (
+      {visibleScopes.map((scope) => (
         <TabPanel key={scope.id} id={scope.id} {...stylex.props(styles.panel)} />
       ))}
     </Tabs>

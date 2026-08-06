@@ -13,11 +13,24 @@ use std::path::Path;
 
 use tauri::{AppHandle, Runtime};
 
-pub(crate) use index::{EnrichmentJobRecord, IndexedHit};
+pub(crate) use index::{EnrichmentArtifact, EnrichmentJobRecord, EnrichmentLease, IndexedHit};
 pub use indexing::IndexRuntime;
 pub use types::{
     BasicPreview, FileListResponse, FileRecord, FilenameSearchResponse, SearchFailure,
 };
+
+const MAX_SEARCH_QUERY_CHARACTERS: usize = 4_000;
+
+pub(crate) fn validate_search_query(query: &str) -> Result<(), SearchFailure> {
+    if query.chars().take(MAX_SEARCH_QUERY_CHARACTERS + 1).count() > MAX_SEARCH_QUERY_CHARACTERS {
+        return Err(SearchFailure::new(
+            "invalid-search-query",
+            format!("Search queries must be {MAX_SEARCH_QUERY_CHARACTERS} characters or fewer."),
+            None,
+        ));
+    }
+    Ok(())
+}
 
 #[tauri::command]
 pub async fn list_files(root: String) -> Result<FileListResponse, SearchFailure> {
@@ -31,11 +44,28 @@ pub async fn search_filenames(
     root: String,
     query: String,
 ) -> Result<FilenameSearchResponse, SearchFailure> {
+    validate_search_query(&query)?;
     tauri::async_runtime::spawn_blocking(move || {
         matching::search_filenames_impl(Path::new(&root), &query)
     })
     .await
     .map_err(|error| SearchFailure::new("search-failed", error.to_string(), None))?
+}
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+
+    #[test]
+    fn query_limit_counts_unicode_code_points() {
+        assert!(validate_search_query(&"🦀".repeat(MAX_SEARCH_QUERY_CHARACTERS)).is_ok());
+        assert_eq!(
+            validate_search_query(&"🦀".repeat(MAX_SEARCH_QUERY_CHARACTERS + 1))
+                .unwrap_err()
+                .code,
+            "invalid-search-query"
+        );
+    }
 }
 
 #[tauri::command]

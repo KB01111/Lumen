@@ -1,18 +1,27 @@
 use std::{
-    env, fs,
+    env,
+    io::{Read, Write},
     net::{SocketAddr, TcpStream},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
-    sync::Mutex,
-    time::Duration,
+    sync::{Mutex, mpsc},
+    thread,
+    time::{Duration, Instant},
 };
 
 use serde::Serialize;
-use tauri::State;
+use tauri::Manager;
 
 const LEMONADE_PORT: u16 = 13_305;
 const REQUIRED_LEMONADE: &str = "11.5.1";
 const REQUIRED_FLM: &str = "0.9.46";
+const EXTERNAL_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+const EXTERNAL_PROBE_POLL_INTERVAL: Duration = Duration::from_millis(20);
+const EXTERNAL_PROBE_DRAIN_TIMEOUT: Duration = Duration::from_millis(250);
+const MAX_PROBE_OUTPUT_BYTES: u64 = 64 * 1024;
+const API_PROBE_TIMEOUT: Duration = Duration::from_millis(500);
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(8);
+const STARTUP_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,20 +86,96 @@ fn known_executable(path: Option<PathBuf>, names: &[&str]) -> Option<PathBuf> {
         .or_else(|| executable_on_path(names))
 }
 
-fn command_output(binary: &Path, arguments: &[&str]) -> Option<String> {
+fn bounded_command_output(
+    binary: &Path,
+    arguments: &[&str],
+    timeout: Duration,
+) -> Option<(std::process::ExitStatus, Vec<u8>, Vec<u8>)> {
     let mut command = Command::new(binary);
-    command.args(arguments).stdin(Stdio::null());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        command.creation_flags(0x0800_0000);
+    command
+        .args(arguments)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = crate::child_process::spawn_hidden(&mut command).ok()?;
+    let Some(stdout) = child.stdout.take() else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return None;
+    };
+    let Some(stderr) = child.stderr.take() else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return None;
+    };
+    let (output_sender, output_receiver) = mpsc::sync_channel(2);
+    let stdout_sender = output_sender.clone();
+    thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let _ = stdout
+            .take(MAX_PROBE_OUTPUT_BYTES + 1)
+            .read_to_end(&mut bytes);
+        let _ = stdout_sender.send((true, bytes));
+    });
+    thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let _ = stderr
+            .take(MAX_PROBE_OUTPUT_BYTES + 1)
+            .read_to_end(&mut bytes);
+        let _ = output_sender.send((false, bytes));
+    });
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break Some(status),
+            Ok(None) if Instant::now() < deadline => {
+                thread::sleep(EXTERNAL_PROBE_POLL_INTERVAL);
+            }
+            Ok(None) | Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+        }
+    };
+    let status = status?;
+    let mut stdout = None;
+    let mut stderr = None;
+    for _ in 0..2 {
+        let (is_stdout, bytes) = output_receiver
+            .recv_timeout(EXTERNAL_PROBE_DRAIN_TIMEOUT)
+            .ok()?;
+        if is_stdout {
+            stdout = Some(bytes);
+        } else {
+            stderr = Some(bytes);
+        }
     }
-    let output = command.output().ok()?;
+    let stdout = stdout?;
+    let stderr = stderr?;
+    if stdout.len() as u64 > MAX_PROBE_OUTPUT_BYTES || stderr.len() as u64 > MAX_PROBE_OUTPUT_BYTES
+    {
+        return None;
+    }
+    Some((status, stdout, stderr))
+}
+
+fn raw_command_output(binary: &Path, arguments: &[&str]) -> Option<String> {
+    let (status, stdout, stderr) =
+        bounded_command_output(binary, arguments, EXTERNAL_PROBE_TIMEOUT)?;
+    if !status.success() {
+        return None;
+    }
     let combined = format!(
         "{} {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        String::from_utf8_lossy(&stdout),
+        String::from_utf8_lossy(&stderr)
     );
+    Some(combined)
+}
+
+fn command_output(binary: &Path, arguments: &[&str]) -> Option<String> {
+    let combined = raw_command_output(binary, arguments)?;
     let version = parse_version(&combined)?;
     (!version.is_empty()).then_some(version)
 }
@@ -107,6 +192,78 @@ fn parse_version(output: &str) -> Option<String> {
             && candidate.contains('.'))
         .then(|| candidate.to_owned())
     })
+}
+
+fn normalize_file_version(major_minor: u32, build_revision: u32) -> String {
+    let mut values = vec![
+        major_minor >> 16,
+        major_minor & 0xffff,
+        build_revision >> 16,
+        build_revision & 0xffff,
+    ];
+    while values.len() > 1 && values.last() == Some(&0) {
+        values.pop();
+    }
+    values
+        .into_iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
+#[cfg(windows)]
+fn lemonade_binary_version(binary: &Path) -> Option<String> {
+    use std::{ffi::c_void, iter::once, os::windows::ffi::OsStrExt, ptr};
+    use windows::{
+        Win32::Storage::FileSystem::{
+            GetFileVersionInfoSizeW, GetFileVersionInfoW, VS_FIXEDFILEINFO, VerQueryValueW,
+        },
+        core::PCWSTR,
+    };
+
+    let wide_path: Vec<u16> = binary.as_os_str().encode_wide().chain(once(0)).collect();
+    let mut ignored = 0_u32;
+    let size = unsafe {
+        GetFileVersionInfoSizeW(PCWSTR::from_raw(wide_path.as_ptr()), Some(&mut ignored))
+    };
+    if size == 0 || size > MAX_PROBE_OUTPUT_BYTES as u32 {
+        return None;
+    }
+    let mut data = vec![0_u8; size as usize];
+    if unsafe {
+        GetFileVersionInfoW(
+            PCWSTR::from_raw(wide_path.as_ptr()),
+            None,
+            size,
+            data.as_mut_ptr().cast(),
+        )
+        .is_err()
+    } {
+        return None;
+    }
+    let root = [b'\\' as u16, 0];
+    let mut value: *mut c_void = ptr::null_mut();
+    let mut length = 0_u32;
+    if !unsafe {
+        VerQueryValueW(
+            data.as_ptr().cast(),
+            PCWSTR::from_raw(root.as_ptr()),
+            &mut value,
+            &mut length,
+        )
+        .as_bool()
+    } || length < std::mem::size_of::<VS_FIXEDFILEINFO>() as u32
+    {
+        return None;
+    }
+    let value = unsafe { &*value.cast::<VS_FIXEDFILEINFO>() };
+    (value.dwSignature == 0xfeef_04bd)
+        .then(|| normalize_file_version(value.dwFileVersionMS, value.dwFileVersionLS))
+}
+
+#[cfg(not(windows))]
+fn lemonade_binary_version(_binary: &Path) -> Option<String> {
+    None
 }
 
 fn component(
@@ -130,12 +287,41 @@ fn component(
     }
 }
 
-fn lemonade_ready() -> bool {
-    TcpStream::connect_timeout(
-        &SocketAddr::from(([127, 0, 0, 1], LEMONADE_PORT)),
-        Duration::from_millis(150),
-    )
-    .is_ok()
+fn loopback_http_ready(port: u16, path: &str, authorization: Option<&str>) -> bool {
+    let Ok(mut stream) =
+        TcpStream::connect_timeout(&SocketAddr::from(([127, 0, 0, 1], port)), API_PROBE_TIMEOUT)
+    else {
+        return false;
+    };
+    if stream.set_read_timeout(Some(API_PROBE_TIMEOUT)).is_err()
+        || stream.set_write_timeout(Some(API_PROBE_TIMEOUT)).is_err()
+    {
+        return false;
+    }
+    let authorization = authorization
+        .map(|value| format!("Authorization: Bearer {value}\r\n"))
+        .unwrap_or_default();
+    let request = format!(
+        "GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n{authorization}Connection: close\r\n\r\n"
+    );
+    if stream.write_all(request.as_bytes()).is_err() {
+        return false;
+    }
+    let mut response = [0_u8; 512];
+    let Ok(read) = stream.read(&mut response) else {
+        return false;
+    };
+    let status_line = String::from_utf8_lossy(&response[..read]);
+    status_line
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .and_then(|status| status.parse::<u16>().ok())
+        .is_some_and(|status| (200..300).contains(&status))
+}
+
+fn loopback_api_ready() -> bool {
+    loopback_http_ready(LEMONADE_PORT, "/api/v1/models", Some("lumen-local"))
 }
 
 fn profile_for(flm: bool, accelerator: &str) -> &'static str {
@@ -145,6 +331,72 @@ fn profile_for(flm: bool, accelerator: &str) -> &'static str {
         "desktop-nvidia-cuda"
     } else {
         "generic-local"
+    }
+}
+
+fn spawn_runtime(binary: &Path) -> Result<RuntimeProcess, String> {
+    let mut command = Command::new(binary);
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    let mut child = crate::child_process::spawn_hidden(&mut command)
+        .map_err(|error| format!("Could not start Lemonade: {error}"))?;
+    #[cfg(windows)]
+    let job = match super::supervisor::assign_kill_on_close_job(&child) {
+        Ok(job) => job,
+        Err(error) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(error);
+        }
+    };
+    Ok(RuntimeProcess {
+        child,
+        #[cfg(windows)]
+        job: job.0 as isize,
+    })
+}
+
+fn owned_runtime_ready(
+    process: &mut Option<RuntimeProcess>,
+    endpoint_ready: impl FnOnce() -> bool,
+) -> Result<bool, String> {
+    let Some(runtime) = process.as_mut() else {
+        return Ok(false);
+    };
+    match runtime.child.try_wait() {
+        Ok(None) => Ok(endpoint_ready()),
+        Ok(Some(_)) => {
+            process.take();
+            Ok(false)
+        }
+        Err(error) => {
+            process.take();
+            Err(format!("Could not inspect Lemonade: {error}"))
+        }
+    }
+}
+
+fn wait_for_runtime(process: &mut RuntimeProcess) -> Result<(), String> {
+    let deadline = Instant::now() + STARTUP_TIMEOUT;
+    loop {
+        if let Some(status) = process
+            .child
+            .try_wait()
+            .map_err(|error| format!("Could not inspect Lemonade: {error}"))?
+        {
+            return Err(format!(
+                "Lemonade exited before its loopback API became ready ({status})"
+            ));
+        }
+        if loopback_api_ready() {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err("Lemonade did not expose a healthy loopback API in time".to_owned());
+        }
+        thread::sleep(STARTUP_POLL_INTERVAL);
     }
 }
 
@@ -174,16 +426,9 @@ impl LocalRuntimeSupervisor {
     fn accelerator(&self) -> String {
         let nvidia = executable_on_path(&["nvidia-smi.exe"])
             .and_then(|binary| {
-                let mut command = Command::new(binary);
-                command.args(["--query-gpu=name", "--format=csv,noheader"]);
-                #[cfg(windows)]
-                {
-                    use std::os::windows::process::CommandExt;
-                    command.creation_flags(0x0800_0000);
-                }
-                command.output().ok()
+                raw_command_output(&binary, &["--query-gpu=name", "--format=csv,noheader"])
             })
-            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+            .map(|output| output.trim().to_owned())
             .filter(|value| !value.is_empty());
         if self.flm.is_some() {
             match nvidia {
@@ -195,14 +440,18 @@ impl LocalRuntimeSupervisor {
         }
     }
 
+    fn owned_runtime_ready(&self) -> Result<bool, String> {
+        let mut process = self
+            .process
+            .lock()
+            .map_err(|_| "Local runtime state is poisoned".to_owned())?;
+        owned_runtime_ready(&mut process, loopback_api_ready)
+    }
+
     pub fn health(&self) -> LocalRuntimeHealth {
         let accelerator = self.accelerator();
         let profile = profile_for(self.flm.is_some(), &accelerator);
-        let lemonade_version = self.lemonade.as_deref().and_then(|binary| {
-            fs::metadata(binary).ok()?;
-            executable_on_path(&["lemonade.exe"])
-                .and_then(|cli| command_output(&cli, &["--version"]))
-        });
+        let lemonade_version = self.lemonade.as_deref().and_then(lemonade_binary_version);
         let flm_version = self
             .flm
             .as_deref()
@@ -211,12 +460,17 @@ impl LocalRuntimeSupervisor {
             .mistral_rs
             .as_deref()
             .and_then(|binary| command_output(binary, &["--version"]));
-        let running = lemonade_ready();
+        let (running, runtime_error) = match self.owned_runtime_ready() {
+            Ok(running) => (running, None),
+            Err(error) => (false, Some(error)),
+        };
         let lemonade_compatible =
             self.lemonade.is_some() && lemonade_version.as_deref() == Some(REQUIRED_LEMONADE);
         let flm_compatible = self.flm.is_none() || flm_version.as_deref() == Some(REQUIRED_FLM);
         let compatible = lemonade_compatible && flm_compatible;
-        let detail = if self.lemonade.is_none() {
+        let detail = if let Some(error) = runtime_error {
+            Some(error)
+        } else if self.lemonade.is_none() {
             Some("LemonadeServer.exe is not installed".to_owned())
         } else if !lemonade_compatible {
             Some(format!(
@@ -267,43 +521,27 @@ impl LocalRuntimeSupervisor {
                 .detail
                 .unwrap_or_else(|| "The local AI runtime must be updated".to_owned()));
         }
-        if lemonade_ready() {
-            return Ok(());
-        }
         let binary = self
             .lemonade
             .as_ref()
             .ok_or_else(|| "LemonadeServer.exe is not installed".to_owned())?;
-        let mut command = Command::new(binary);
-        command
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            command.creation_flags(0x0800_0000);
-        }
-        let child = command
-            .spawn()
-            .map_err(|error| format!("Could not start Lemonade: {error}"))?;
-        #[cfg(windows)]
-        let job = super::supervisor::assign_kill_on_close_job(&child)?;
-        *self
+        let mut state = self
             .process
             .lock()
-            .map_err(|_| "Local runtime state is poisoned")? = Some(RuntimeProcess {
-            child,
-            #[cfg(windows)]
-            job: job.0 as isize,
-        });
-        let deadline = std::time::Instant::now() + Duration::from_secs(8);
-        while !lemonade_ready() {
-            if std::time::Instant::now() >= deadline {
-                return Err("Lemonade did not open its loopback API".to_owned());
-            }
-            std::thread::sleep(Duration::from_millis(100));
+            .map_err(|_| "Local runtime state is poisoned")?;
+        if owned_runtime_ready(&mut state, loopback_api_ready)? {
+            return Ok(());
         }
+        if loopback_api_ready() {
+            return Err(
+                "A local Lemonade endpoint is already listening, but it is not owned by Lumen"
+                    .to_owned(),
+            );
+        }
+        state.take();
+        let mut candidate = spawn_runtime(binary)?;
+        wait_for_runtime(&mut candidate)?;
+        *state = Some(candidate);
         Ok(())
     }
 
@@ -326,22 +564,45 @@ impl LocalRuntimeSupervisor {
 }
 
 #[tauri::command]
-pub fn local_runtime_health(state: State<'_, LocalRuntimeSupervisor>) -> LocalRuntimeHealth {
-    state.inner().health()
+pub async fn local_runtime_health(app: tauri::AppHandle) -> Result<LocalRuntimeHealth, String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<LocalRuntimeSupervisor>().health())
+        .await
+        .map_err(|error| format!("Could not join the local runtime health worker: {error}"))
 }
 
 #[tauri::command]
-pub fn set_local_runtime_mode(
+pub async fn set_local_runtime_mode(
     mode: String,
     keep_warm: bool,
-    state: State<'_, LocalRuntimeSupervisor>,
+    app: tauri::AppHandle,
 ) -> Result<(), String> {
-    state.inner().apply_mode(&mode, keep_warm)
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LocalRuntimeSupervisor>()
+            .apply_mode(&mode, keep_warm)
+    })
+    .await
+    .map_err(|error| format!("Could not join the local runtime mode worker: {error}"))?
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::TcpListener;
+
+    fn serve_status(status: u16) -> (u16, thread::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let worker = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 512];
+            let _ = stream.read(&mut request);
+            let response = format!(
+                "HTTP/1.1 {status} Test\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}"
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+        });
+        (port, worker)
+    }
 
     #[test]
     fn hardware_profiles_prefer_qualified_accelerators() {
@@ -374,5 +635,64 @@ mod tests {
             parse_version(r#"{\"version\": \"0.9.43\"}"#),
             Some("0.9.43".to_owned())
         );
+    }
+
+    #[test]
+    fn file_version_is_normalized_without_running_the_binary() {
+        assert_eq!(normalize_file_version(0x000b_0005, 0x0001_0000), "11.5.1");
+        assert_eq!(normalize_file_version(0x000b_0005, 0), "11.5");
+    }
+
+    #[test]
+    fn an_unowned_endpoint_is_never_considered_ready() {
+        let mut process = None;
+        let endpoint_was_probed = std::cell::Cell::new(false);
+        assert!(
+            !owned_runtime_ready(&mut process, || {
+                endpoint_was_probed.set(true);
+                true
+            })
+            .unwrap()
+        );
+        assert!(!endpoint_was_probed.get());
+    }
+
+    #[test]
+    fn readiness_requires_a_successful_http_api_response() {
+        let (ready_port, ready_worker) = serve_status(200);
+        assert!(loopback_http_ready(
+            ready_port,
+            "/api/v1/models",
+            Some("test-key")
+        ));
+        ready_worker.join().unwrap();
+
+        let (failed_port, failed_worker) = serve_status(503);
+        assert!(!loopback_http_ready(
+            failed_port,
+            "/api/v1/models",
+            Some("test-key")
+        ));
+        failed_worker.join().unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn external_version_probes_are_bounded() {
+        assert_eq!(
+            command_output(Path::new("cmd.exe"), &["/C", "echo runtime version 1.2.3"]),
+            Some("1.2.3".to_owned())
+        );
+
+        let started = Instant::now();
+        assert!(
+            bounded_command_output(
+                Path::new("cmd.exe"),
+                &["/C", "ping -n 6 127.0.0.1 > nul"],
+                Duration::from_millis(100),
+            )
+            .is_none()
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
     }
 }

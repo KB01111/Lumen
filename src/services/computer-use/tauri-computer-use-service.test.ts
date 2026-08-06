@@ -71,4 +71,12 @@ describe('TauriComputerUseService', () => {
       ([command]) => command === 'cancel_computer_use',
     )).toHaveLength(1);
   });
+
+  it('cancels whichever native task is active without requiring its UI task id', async () => {
+    tauri.invoke.mockResolvedValue(undefined);
+
+    await new TauriComputerUseService().cancelActive();
+
+    expect(tauri.invoke).toHaveBeenCalledWith('cancel_computer_use', {taskId: null});
+  });
 });

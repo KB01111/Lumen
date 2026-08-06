@@ -1,5 +1,7 @@
 import {z} from 'zod';
 
+import {searchRecencySchema, searchScopeSchema} from '../../services/search/search.types';
+
 import {computerUseModelSchema} from '../../services/computer-use/computer-use.types';
 
 export const settingsPageIds = [
@@ -11,6 +13,7 @@ export const settingsPageIds = [
   'agent-gateway',
   'computer-use',
   'activity',
+  'session-relief',
   'privacy',
   'diagnostics',
 ] as const;
@@ -66,21 +69,9 @@ export const settingsSchema = z.object({
   }),
   roots: z.array(indexedRootSchema),
   search: z.object({
-    enabledScopes: z.array(z.enum([
-      'all',
-      'files',
-      'folders',
-      'documents',
-      'code',
-      'images',
-      'recent',
-      'related',
-    ])).min(1),
+    enabledScopes: z.array(searchScopeSchema).min(1),
     filenamePriority: z.number().int().min(0).max(100),
-    recency: z.enum(['low', 'balanced', 'high']),
-    showPinned: z.boolean(),
-    semanticEnabled: z.boolean(),
-    rerankingEnabled: z.boolean(),
+    recency: searchRecencySchema,
   }),
   ai: z.object({
     runtimeMode: z.enum(['auto', 'local', 'cloud']),
@@ -105,9 +96,6 @@ export const settingsSchema = z.object({
   }),
   privacy: z.object({
     previewsEnabled: z.boolean(),
-    ocrEnabled: z.boolean(),
-    imageAnalysisEnabled: z.boolean(),
-    historyEntries: z.number().int().min(0),
   }),
 });
 
@@ -138,9 +126,6 @@ export const defaultSettings: LumenSettings = settingsSchema.parse({
     enabledScopes: ['all', 'files', 'folders', 'documents', 'code', 'images', 'recent', 'related'],
     filenamePriority: 82,
     recency: 'balanced',
-    showPinned: true,
-    semanticEnabled: false,
-    rerankingEnabled: false,
   },
   ai: defaultAiSettings,
   computerUse: defaultComputerUseSettings,
@@ -156,13 +141,19 @@ export const defaultSettings: LumenSettings = settingsSchema.parse({
   },
   privacy: {
     previewsEnabled: true,
-    ocrEnabled: false,
-    imageAnalysisEnabled: false,
-    historyEntries: 0,
   },
 });
 
 export function parseSettings(value: unknown): LumenSettings {
   const result = settingsSchema.safeParse(value);
-  return result.success ? result.data : defaultSettings;
+  if (!result.success) return defaultSettings;
+  if (result.data.ai.cloudAnswerConsent) return result.data;
+  return {
+    ...result.data,
+    ai: {
+      ...result.data.ai,
+      cloudEnrichedRootIds: [],
+      runtimeMode: result.data.ai.runtimeMode === 'cloud' ? 'local' : result.data.ai.runtimeMode,
+    },
+  };
 }

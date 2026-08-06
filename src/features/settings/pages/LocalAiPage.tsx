@@ -8,6 +8,7 @@ import {LocalAiIcon, NpuIcon} from '../../../design-system/icons/lumen-icons';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {tokens} from '../../../design-system/tokens.stylex';
+import {isNativeRuntime, nativeAiService, type LocalRuntimeHealth, type RuntimeComponent} from '../../../services/ai/native-ai-service';
 import {useGatewayStore} from '../../gateway/gateway.store';
 import type {HardwareState, LocalAiViewModel, ModelState} from '../../gateway/gateway.types';
 import {SettingRow} from '../components/SettingRow';
@@ -16,7 +17,6 @@ import {SettingsCallout, SettingsPage} from '../components/SettingsPage';
 import {StatusBadge} from '../components/StatusBadge';
 import {LumenSwitch} from '../components/SettingsControls';
 import {useSettingsStore} from '../settings.store';
-import {isNativeRuntime, nativeAiService, type LocalRuntimeHealth} from '../../../services/ai/native-ai-service';
 
 const styles = stylex.create({
   hardware: {
@@ -64,6 +64,13 @@ const modelCopy: Record<ModelState, {label: string; description: string; tone: '
   'fallback-active': {label: 'Provider fallback active', description: 'Lumen has moved to CPU fallback without interrupting exact search.', tone: 'warning'},
 };
 
+const nativeRuntimeCopy = {
+  ready: {label: 'Runtime ready', description: 'The detected local runtime reports that it is ready.', tone: 'success' as const},
+  stopped: {label: 'Runtime stopped', description: 'The detected local runtime is installed but not currently running.', tone: 'warning' as const},
+  'update-required': {label: 'Runtime update required', description: 'The detected local runtime needs an update before it can serve requests.', tone: 'warning' as const},
+  unavailable: {label: 'Runtime health unavailable', description: 'Lumen could not retrieve local runtime health.', tone: 'error' as const},
+};
+
 function ModelProgress({value}: {value: number}) {
   return (
     <ProgressBar aria-label="Model download" value={value} {...stylex.props(styles.progress)}>
@@ -80,92 +87,172 @@ function ModelProgress({value}: {value: number}) {
   );
 }
 
+function nativeHardwareCopy(health: LocalRuntimeHealth | undefined) {
+  if (!health) {
+    return {hardware: 'unavailable', label: 'Local runtime unavailable', description: 'Native runtime health has not been retrieved.', icon: <WarningCircleIcon size={28} />, tone: 'warning' as const};
+  }
+  if (health.profile === 'laptop-amd-npu') {
+    return {hardware: 'npu', label: 'AMD NPU runtime detected', description: `${health.accelerator} is reported by the native runtime.`, icon: <NpuIcon size={28} />, tone: 'success' as const};
+  }
+  if (health.profile === 'desktop-nvidia-cuda') {
+    return {hardware: 'gpu', label: 'NVIDIA CUDA runtime detected', description: `${health.accelerator} is reported by the native runtime.`, icon: <GraphicsCardIcon size={28} />, tone: 'success' as const};
+  }
+  return {hardware: 'cpu', label: 'Local CPU runtime detected', description: `${health.accelerator} is reported by the native runtime.`, icon: <CpuIcon size={28} />, tone: 'info' as const};
+}
+
+function componentStatus(component: RuntimeComponent) {
+  if (component.state === 'ready') return {label: 'Ready', tone: 'success' as const};
+  if (component.state === 'missing') return {label: 'Missing', tone: 'warning' as const};
+  return {label: 'Update required', tone: 'warning' as const};
+}
+
 export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' | 'state'> & Partial<LocalAiViewModel>}) {
   const storedHardware = useGatewayStore((state) => state.hardwareState);
   const storedModel = useGatewayStore((state) => state.modelState);
   const storedProgress = useGatewayStore((state) => state.modelProgress);
-  const modelName = useGatewayStore((state) => state.modelName);
-  const providerName = useGatewayStore((state) => state.providerName);
+  const storedModelName = useGatewayStore((state) => state.modelName);
+  const storedProviderName = useGatewayStore((state) => state.providerName);
   const setLocalAi = useGatewayStore((state) => state.setLocalAi);
   const keepLocalWarm = useSettingsStore((state) => state.ai.keepLocalWarm);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
   const updateAi = useSettingsStore((state) => state.updateAi);
+  const native = isNativeRuntime() && !model;
   const [nativeHealth, setNativeHealth] = useState<LocalRuntimeHealth>();
   const [nativeError, setNativeError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [keepWarmBusy, setKeepWarmBusy] = useState(false);
+
   const refreshNative = useCallback(async () => {
-    if (!isNativeRuntime() || model) return;
+    if (!native) return;
+    setRefreshing(true);
     try {
       setNativeHealth(await nativeAiService.localRuntimeHealth());
       setNativeError('');
-    } catch (error) {
-      setNativeError(error instanceof Error ? error.message : String(error));
+    } catch {
+      setNativeHealth(undefined);
+      setNativeError('Local runtime health could not be retrieved.');
+    } finally {
+      setRefreshing(false);
     }
-  }, [model]);
+  }, [native]);
+
   useEffect(() => {
     void refreshNative();
   }, [refreshNative]);
-  const nativeHardware: HardwareState | undefined = nativeHealth?.profile === 'laptop-amd-npu'
-    ? 'npu'
-    : nativeHealth?.profile === 'desktop-nvidia-cuda' ? 'gpu' : nativeHealth ? 'cpu' : undefined;
-  const view = {
-    hardware: model?.hardware ?? nativeHardware ?? storedHardware,
-    state: model?.state ?? (nativeHealth ? (nativeHealth.state === 'ready' ? 'ready' : 'failed') : storedModel),
+
+  const previewView = {
+    hardware: model?.hardware ?? storedHardware,
+    state: model?.state ?? storedModel,
     progress: model?.progress ?? storedProgress,
-    modelName: model?.modelName ?? nativeHealth?.answerModel ?? modelName,
-    provider: model?.provider ?? (nativeHealth ? `Lemonade ${nativeHealth.lemonade.version ?? 'missing'} / FLM ${nativeHealth.flm.version ?? 'missing'}` : providerName),
+    modelName: model?.modelName ?? storedModelName,
+    provider: model?.provider ?? storedProviderName,
   };
-  const hardware = hardwareCopy[view.hardware];
-  const state = modelCopy[view.state];
+  const nativeHardware = nativeHardwareCopy(nativeHealth);
+  const hardware = native ? nativeHardware : hardwareCopy[previewView.hardware];
+  const state = native
+    ? nativeRuntimeCopy[nativeHealth?.state ?? 'unavailable']
+    : modelCopy[previewView.state];
+  const modelName = native ? nativeHealth?.answerModel ?? 'Local runtime unavailable' : previewView.modelName;
+
+  const changeKeepWarm = async (value: boolean) => {
+    if (!native) {
+      await updateAi({keepLocalWarm: value});
+      return;
+    }
+    if (keepWarmBusy) return;
+    const previous = keepLocalWarm;
+    setKeepWarmBusy(true);
+    setNativeError('');
+    try {
+      await nativeAiService.setLocalRuntimeMode(runtimeMode, value);
+    } catch {
+      setNativeError('The native runtime did not accept the keep-warm change. Your saved setting was not changed.');
+      setKeepWarmBusy(false);
+      return;
+    }
+
+    if (await updateAi({keepLocalWarm: value})) {
+      setKeepWarmBusy(false);
+      await refreshNative();
+      return;
+    }
+
+    useSettingsStore.setState((current) => ({ai: {...current.ai, keepLocalWarm: previous}}));
+    try {
+      await nativeAiService.setLocalRuntimeMode(runtimeMode, previous);
+      setNativeError('The keep-warm setting was not saved. The native runtime was restored.');
+    } catch {
+      setNativeError('The keep-warm setting was not saved, and the native runtime could not be restored.');
+    } finally {
+      setKeepWarmBusy(false);
+    }
+  };
 
   return (
     <SettingsPage>
-      <section data-testid={`hardware-${view.hardware}`} {...stylex.props(styles.hardware)}>
+      <section data-testid={`hardware-${native ? nativeHardware.hardware : previewView.hardware}`} {...stylex.props(styles.hardware)}>
         <span aria-hidden="true" {...stylex.props(styles.icon)}>{hardware.icon}</span>
         <div {...stylex.props(styles.text)}>
           <div {...stylex.props(styles.title)}>
             <LumenText as="h2" variant="bodyLarge" weight="semibold">{hardware.label}</LumenText>
-            <StatusBadge tone={hardware.tone}>{view.hardware.toUpperCase()}</StatusBadge>
+            <StatusBadge tone={hardware.tone}>{(native ? nativeHardware.hardware : previewView.hardware).toUpperCase()}</StatusBadge>
           </div>
           <LumenText tone="secondary">{hardware.description}</LumenText>
         </div>
       </section>
       <SettingsCallout>
-        {nativeHealth
-          ? `${nativeHealth.profile} · ${nativeHealth.accelerator}. ${nativeHealth.detail ?? 'The loopback provider is ready.'}`
-          : nativeError || 'Exact filename and content search remain independent of local inference.'}
+        {native
+          ? nativeHealth
+            ? `${nativeHealth.profile} · ${nativeHealth.accelerator}. ${nativeHealth.detail ?? 'The native runtime reported its current state.'}`
+            : nativeError || 'Checking native local runtime health…'
+          : 'Exact filename and content search remain independent of local inference.'}
       </SettingsCallout>
       <SettingSection title="Model and provider">
         <SettingRow
-          label={view.modelName}
+          label={modelName}
           description={nativeHealth ? `Answers: ${nativeHealth.answerModel}; embeddings: ${nativeHealth.embeddingModel}; transcription: ${nativeHealth.transcriptionModel}.` : state.description}
           status={<StatusBadge tone={state.tone}>{state.label}</StatusBadge>}
         >
-          <div data-testid={`model-${view.state}`}>
-            {view.state === 'downloading' ? <ModelProgress value={view.progress} /> : null}
-            {view.state === 'missing' ? (
+          <div data-testid={`model-${native ? nativeHealth?.state ?? 'unavailable' : previewView.state}`}>
+            {!native && previewView.state === 'downloading' ? <ModelProgress value={previewView.progress} /> : null}
+            {!native && previewView.state === 'missing' ? (
               <LumenButton size="small" onPress={() => setLocalAi({state: 'downloading', progress: 8})}>
                 <DownloadSimpleIcon aria-hidden="true" size={15} /> Download preview
               </LumenButton>
             ) : null}
-            {view.state === 'failed' ? <LumenButton size="small" onPress={() => setLocalAi({state: 'loading'})}>Retry preview</LumenButton> : null}
-            {['loading', 'ready', 'fallback-active'].includes(view.state) ? <LocalAiIcon size={22} /> : null}
-            {nativeHealth ? <LumenButton aria-label="Refresh local runtime" size="small" variant="quiet" onPress={() => void refreshNative()}><ArrowClockwiseIcon aria-hidden="true" size={15} /> Refresh</LumenButton> : null}
+            {!native && previewView.state === 'failed' ? <LumenButton size="small" onPress={() => setLocalAi({state: 'loading'})}>Retry preview</LumenButton> : null}
+            {!native && ['loading', 'ready', 'fallback-active'].includes(previewView.state) ? <LocalAiIcon size={22} /> : null}
+            {native ? <LumenButton aria-label="Refresh local runtime" isDisabled={refreshing} size="small" variant="quiet" onPress={() => void refreshNative()}><ArrowClockwiseIcon aria-hidden="true" size={15} /> Refresh</LumenButton> : null}
           </div>
         </SettingRow>
-        <SettingRow label="Provider" description={nativeHealth?.baseUrl ?? 'No native runtime detected.'}>
-          <LumenText tone="secondary" variant="meta">{view.provider}</LumenText>
+        <SettingRow label="Provider" description={native ? nativeHealth?.baseUrl ?? 'Native runtime health is unavailable.' : 'No native runtime detected.'}>
+          <LumenText tone="secondary" variant="meta">{native ? nativeHealth ? `Lemonade ${nativeHealth.lemonade.version ?? 'missing'} / FLM ${nativeHealth.flm.version ?? 'missing'}` : 'Unavailable' : previewView.provider}</LumenText>
         </SettingRow>
         <SettingRow label="Keep local model warm" description="Keeps local inference available in Cloud mode; search itself is always warm.">
           <LumenSwitch
             aria-label="Keep local model warm"
+            isDisabled={keepWarmBusy}
             isSelected={keepLocalWarm}
-            onChange={(value) => {
-              void updateAi({keepLocalWarm: value});
-              if (isNativeRuntime()) void nativeAiService.setLocalRuntimeMode(runtimeMode, value).then(refreshNative);
-            }}
+            onChange={(value) => void changeKeepWarm(value)}
           />
         </SettingRow>
       </SettingSection>
+      {native && nativeHealth ? (
+        <SettingSection title="Native runtime components" description="Detected versions are reported by the native local-runtime health check.">
+          {([
+            {label: 'Lemonade', component: nativeHealth.lemonade},
+            {label: 'FLM', component: nativeHealth.flm},
+            {label: 'mistral.rs', component: nativeHealth.mistralRs},
+          ] satisfies Array<{label: string; component: RuntimeComponent}>).map(({label, component}) => {
+            const status = componentStatus(component);
+            return (
+              <SettingRow key={label} label={label} description={`Required ${component.requiredVersion}; ${component.version ? `detected ${component.version}` : 'no installed version reported'}.`} status={<StatusBadge tone={status.tone}>{status.label}</StatusBadge>}>
+                <LumenText tone="tertiary" variant="meta">{component.installed ? 'Installed' : 'Not installed'}</LumenText>
+              </SettingRow>
+            );
+          })}
+        </SettingSection>
+      ) : null}
     </SettingsPage>
   );
 }

@@ -51,4 +51,20 @@ describe('window service', () => {
       shortcut: 'Alt+Space',
     });
   });
+
+  it('retains General settings in the browser adapter for deterministic previewing', async () => {
+    const service = new BrowserWindowService();
+
+    await service.applyGeneralPreferences({
+      launchAtStartup: true,
+      monitorBehavior: 'primary',
+      closeBehavior: 'quit',
+    });
+
+    expect(service.snapshot().generalPreferences).toEqual({
+      launchAtStartup: true,
+      monitorBehavior: 'primary',
+      closeBehavior: 'quit',
+    });
+  });
 });

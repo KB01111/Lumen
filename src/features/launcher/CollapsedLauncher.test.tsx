@@ -28,6 +28,24 @@ describe('CollapsedLauncher', () => {
     expect(useQueryStore.getState().committed).toBe('ルーメン');
   });
 
+  it('limits file-search input by Unicode characters after IME composition completes', () => {
+    render(<CollapsedLauncher windowService={new BrowserWindowService()} />);
+    const input = screen.getByRole('searchbox', {name: 'Search files'});
+    const composed = `${'a'.repeat(3_999)}😀tail`;
+    const expected = `${'a'.repeat(3_999)}😀`;
+
+    fireEvent.compositionStart(input);
+    fireEvent.input(input, {target: {value: composed}});
+    expect(input).toHaveValue(composed);
+    expect(useQueryStore.getState().committed).toBe('');
+
+    fireEvent.compositionEnd(input);
+
+    expect(input).toHaveValue(expected);
+    expect(Array.from(useQueryStore.getState().committed)).toHaveLength(4_000);
+    expect(useQueryStore.getState().committed).toBe(expected);
+  });
+
   it('expands for a Unicode query and preserves long controlled input', async () => {
     const user = userEvent.setup();
     const windowService = new BrowserWindowService();
@@ -81,6 +99,21 @@ describe('CollapsedLauncher', () => {
 
     await user.click(screen.getByRole('tab', {name: 'Documents'}));
     expect(useScopeStore.getState().activeScope).toBe('documents');
+  });
+
+  it('shows only enabled scopes and falls back when the active scope is disabled', async () => {
+    useScopeStore.getState().setScope('documents');
+    useQueryStore.getState().setDraft('source');
+    render(
+      <CollapsedLauncher
+        enabledScopes={['code', 'images']}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    expect(await screen.findByRole('tablist', {name: 'Search scopes'})).toBeVisible();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Code', 'Images']);
+    await waitFor(() => expect(useScopeStore.getState().activeScope).toBe('code'));
   });
 
   it('switches to an explicit browser-agent task without exposing file scopes', async () => {

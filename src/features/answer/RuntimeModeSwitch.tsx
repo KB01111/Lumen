@@ -64,6 +64,7 @@ const styles = stylex.create({
     backgroundColor: tokens.colorAccentMuted,
     boxShadow: tokens.shadowControl,
   },
+  disabled: {opacity: 0.55, cursor: 'not-allowed'},
 });
 
 const modes: readonly {id: RuntimeMode; label: string}[] = [
@@ -73,19 +74,21 @@ const modes: readonly {id: RuntimeMode; label: string}[] = [
 ];
 
 export interface RuntimeModeSwitchProps {
+  isDisabled?: boolean;
   mode: RuntimeMode;
   onChange(mode: RuntimeMode): void;
 }
 
-export function RuntimeModeSwitch({mode, onChange}: RuntimeModeSwitchProps) {
+export function RuntimeModeSwitch({isDisabled, mode, onChange}: RuntimeModeSwitchProps) {
   const name = useId();
   return (
     <fieldset aria-label="Answer runtime" {...stylex.props(styles.fieldset)}>
       <legend {...stylex.props(styles.legend)}>Answer runtime</legend>
       {modes.map((option) => (
-        <label key={option.id} {...stylex.props(styles.label, mode === option.id && styles.selected)}>
+        <label key={option.id} {...stylex.props(styles.label, mode === option.id && styles.selected, isDisabled && styles.disabled)}>
           <input
             checked={mode === option.id}
+            disabled={isDisabled}
             name={name}
             type="radio"
             value={option.id}

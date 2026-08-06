@@ -6,6 +6,7 @@ import {AnimatePresence, motion} from 'motion/react';
 import {TabPanel, Tabs} from 'react-aria-components';
 
 import {useLumenMotion} from '../../design-system/MotionProvider';
+import type {SearchService} from '../../services/search/search-service';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
@@ -22,6 +23,7 @@ import {IndexedRootsPage} from './pages/IndexedRootsPage';
 import {LocalAiPage} from './pages/LocalAiPage';
 import {PrivacyPage} from './pages/PrivacyPage';
 import {SearchPage} from './pages/SearchPage';
+import {SessionReliefPage} from '../session-relief/SessionReliefPage';
 import {settingsPageIdSchema, type SettingsPageId} from './settings.schema';
 import {useSettingsStore} from './settings.store';
 
@@ -91,25 +93,27 @@ const styles = stylex.create({
 export interface SettingsShellProps {
   onClose(): void;
   pages?: Partial<Record<SettingsPageId, ReactNode>>;
+  searchService?: SearchService;
 }
 
-function defaultPageContent(page: SettingsPageId) {
+function defaultPageContent(page: SettingsPageId, searchService?: SearchService) {
   switch (page) {
     case 'general': return <GeneralPage />;
     case 'appearance': return <AppearancePage />;
-    case 'indexed-roots': return <IndexedRootsPage />;
+    case 'indexed-roots': return <IndexedRootsPage searchService={searchService} />;
     case 'search': return <SearchPage />;
     case 'local-ai': return <LocalAiPage />;
     case 'agent-gateway': return <AgentGatewayPage />;
     case 'computer-use': return <ComputerUsePage />;
     case 'activity': return <ActivityPage />;
-    case 'privacy': return <PrivacyPage />;
+    case 'session-relief': return <SessionReliefPage />;
+    case 'privacy': return <PrivacyPage searchService={searchService} />;
     case 'diagnostics': return <DiagnosticsPage />;
     default: return null;
   }
 }
 
-export function SettingsShell({onClose, pages}: SettingsShellProps) {
+export function SettingsShell({onClose, pages, searchService}: SettingsShellProps) {
   const {pageDuration, reducedMotion} = useLumenMotion();
   const activePage = useSettingsStore((state) => state.activePage);
   const hydrate = useSettingsStore((state) => state.hydrate);
@@ -187,7 +191,7 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
                 <LumenText tone="secondary">{page.description}</LumenText>
               </div>
               <PersistenceNotice />
-              {pages?.[activePage] ?? defaultPageContent(activePage) ?? (
+              {pages?.[activePage] ?? defaultPageContent(activePage, searchService) ?? (
                 <div {...stylex.props(styles.overview)}>
                   <LumenText tone="secondary">
                     Lumen keeps this area focused on the controls that belong to {page.label.toLowerCase()}.

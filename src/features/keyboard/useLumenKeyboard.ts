@@ -1,4 +1,4 @@
-import {useEffect, type RefObject} from 'react';
+import {useEffect, useRef, type RefObject} from 'react';
 
 import type {SearchResult} from '../../services/search/search.types';
 import {useLauncherStore, type LauncherFocusRegion} from '../launcher/launcher.store';
@@ -12,7 +12,10 @@ type KeyboardAction = () => void | Promise<void>;
 
 export interface LumenKeyboardOptions {
   detailsOpen: boolean;
+  history: readonly string[];
+  historyEnabled: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
+  intent: 'search' | 'computer';
   isExpanded: boolean;
   results: readonly SearchResult[];
   selectedId: string | null;
@@ -20,6 +23,7 @@ export interface LumenKeyboardOptions {
   onOpen: KeyboardAction;
   onOpenContainingFolder: KeyboardAction;
   onOpenSettings: KeyboardAction;
+  onRecallHistory(query: string): void;
   onRequestHide: KeyboardAction;
   onSelect(fileId: string | null): void;
   onShowDetails(): void;
@@ -72,7 +76,10 @@ function isRendered(element: HTMLElement | null) {
 
 export function useLumenKeyboard({
   detailsOpen,
+  history,
+  historyEnabled,
   inputRef,
+  intent,
   isExpanded,
   results,
   selectedId,
@@ -80,10 +87,13 @@ export function useLumenKeyboard({
   onOpen,
   onOpenContainingFolder,
   onOpenSettings,
+  onRecallHistory,
   onRequestHide,
   onSelect,
   onShowDetails,
 }: LumenKeyboardOptions) {
+  const historyIndexRef = useRef<number | null>(null);
+
   useEffect(() => {
     const setRegion = (region: LauncherFocusRegion) => {
       useLauncherStore.getState().setFocusRegion(region);
@@ -167,6 +177,28 @@ export function useLumenKeyboard({
       setRegion('results');
     };
 
+    const recallHistory = (direction: -1 | 1) => {
+      if (intent !== 'search' || !historyEnabled || history.length === 0) return false;
+      const currentIndex = historyIndexRef.current;
+      if (currentIndex !== null && useQueryStore.getState().draft !== history[currentIndex]) {
+        historyIndexRef.current = null;
+      }
+      const index = historyIndexRef.current;
+      if (direction < 0) {
+        historyIndexRef.current = index === null ? 0 : Math.min(history.length - 1, index + 1);
+      } else if (index === null) {
+        return false;
+      } else if (index === 0) {
+        historyIndexRef.current = null;
+        onRecallHistory('');
+        return true;
+      } else {
+        historyIndexRef.current = index - 1;
+      }
+      onRecallHistory(history[historyIndexRef.current] ?? '');
+      return true;
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing) {
         return;
@@ -210,8 +242,15 @@ export function useLumenKeyboard({
       }
 
       const targetRegion = regionForTarget(event.target);
+      if (targetRegion === 'search' && intent !== 'search') {
+        return;
+      }
       if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') &&
         targetRegion !== 'scope' && targetRegion !== 'preview') {
+        if (targetRegion === 'search' && recallHistory(event.key === 'ArrowDown' ? 1 : -1)) {
+          event.preventDefault();
+          return;
+        }
         event.preventDefault();
         moveSelection(event.key === 'ArrowDown' ? 1 : -1);
         return;
@@ -250,12 +289,16 @@ export function useLumenKeyboard({
     return () => window.removeEventListener('keydown', handleKeyDown, {capture: true});
   }, [
     detailsOpen,
+    history,
+    historyEnabled,
     inputRef,
+    intent,
     isExpanded,
     onCloseDetails,
     onOpen,
     onOpenContainingFolder,
     onOpenSettings,
+    onRecallHistory,
     onRequestHide,
     onSelect,
     onShowDetails,

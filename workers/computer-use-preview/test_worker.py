@@ -1,6 +1,8 @@
+import io
+import json
 import unittest
 
-from worker import Protocol, normalize_navigation_url
+from worker import MAX_EVENT_BYTES, Protocol, normalize_navigation_url
 
 
 class ProtocolTests(unittest.TestCase):
@@ -11,6 +13,18 @@ class ProtocolTests(unittest.TestCase):
         protocol = Protocol()
         protocol._cancelled.set()
         self.assertFalse(protocol.wait_for_approval("approval1"))
+
+    def test_provider_text_is_sanitized_and_event_output_is_bounded(self):
+        protocol = Protocol()
+        output = io.StringIO()
+        protocol._stdout = output
+        protocol.emit("failed", message="unsafe\x07" + "🧪" * 20_000, code="provider_error")
+
+        line = output.getvalue().rstrip("\n")
+        self.assertLessEqual(len(line.encode("utf-8")), MAX_EVENT_BYTES)
+        event = json.loads(line)
+        self.assertEqual(event["type"], "failed")
+        self.assertNotIn("\x07", event["message"])
 
 
 class NavigationUrlTests(unittest.TestCase):

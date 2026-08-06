@@ -53,11 +53,11 @@ export function SearchPage() {
           ))}
         </div>
       </SettingSection>
-      <SettingSection title="Ranking" description="Tune exact filename and recent-item emphasis for the local adapter.">
-        <SettingRow label="Filename priority" description="Higher values favor direct filename matches before path fragments.">
+      <SettingSection title="Ranking" description="Tune deterministic filename and modified-time emphasis across local search providers.">
+        <SettingRow label="Filename priority" description="Higher values add a stronger boost to filename-source matches over content and metadata matches.">
           <LumenSlider label="Filename priority" value={search.filenamePriority} onChange={(filenamePriority) => void updateSearch({filenamePriority})} />
         </SettingRow>
-        <SettingRow label="Recency preference">
+        <SettingRow label="Recency preference" description="Balanced favors newer items within similar relevance; High puts known modified times first.">
           <LumenSelect
             aria-label="Recency preference"
             options={[{id: 'low', label: 'Low'}, {id: 'balanced', label: 'Balanced'}, {id: 'high', label: 'High'}]}
@@ -65,8 +65,12 @@ export function SearchPage() {
             onChange={(recency) => void updateSearch({recency})}
           />
         </SettingRow>
-        <SettingRow label="Pinned items" description="Keep pinned local files visible when they match.">
-          <LumenSwitch aria-label="Pinned items" isSelected={search.showPinned} onChange={(showPinned) => void updateSearch({showPinned})} />
+        <SettingRow
+          label="Pinned items"
+          description="Pin state is not available from the local search adapters."
+          status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}
+        >
+          <LumenSwitch aria-label="Pinned items" isDisabled isSelected={false} />
         </SettingRow>
       </SettingSection>
       <SettingSection title="Future relevance" description="These controls expose the planned state without pretending the backend exists.">

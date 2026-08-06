@@ -1,6 +1,11 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 
 import type {SearchService} from '../../services/search/search-service';
+import {limitSearchQuery} from '../../services/search/search-query';
+import {
+  defaultSearchPreferences,
+  resolveSearchScope,
+} from '../../services/search/search-preferences';
 import {
   flattenSearchGroups,
   isSelectableResult,
@@ -8,6 +13,7 @@ import {
   searchResponseSchema,
   type SearchError,
   type SearchGroup,
+  type SearchPreferences,
   type SearchResult,
   type SearchScope,
   type SearchStatus,
@@ -77,9 +83,14 @@ function nextSelection(
   )?.id ?? [...nextResults].reverse().find(isSelectableResult)?.id ?? null;
 }
 
-export function useSearchController(service: SearchService): SearchController {
+export function useSearchController(
+  service: SearchService,
+  preferences: SearchPreferences = defaultSearchPreferences,
+): SearchController {
   const [query, setQuery] = useState('');
-  const [scope, setScope] = useState<SearchScope>('all');
+  const [scope, setScopeState] = useState<SearchScope>(() =>
+    resolveSearchScope('all', preferences),
+  );
   const [groups, setGroups] = useState<readonly SearchGroup[]>([]);
   const [results, setResults] = useState<readonly SearchResult[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -91,11 +102,18 @@ export function useSearchController(service: SearchService): SearchController {
   const latestRequest = useRef(0);
   const resultsRef = useRef<readonly SearchResult[]>([]);
   const selectedIdRef = useRef<string | null>(null);
+  const effectiveScope = resolveSearchScope(scope, preferences);
 
   useEffect(() => service.subscribeToStatus(setProviderStatus), [service]);
 
   useEffect(() => {
-    const normalizedQuery = query.trim();
+    if (scope !== effectiveScope) {
+      setScopeState(effectiveScope);
+    }
+  }, [effectiveScope, scope]);
+
+  useEffect(() => {
+    const normalizedQuery = limitSearchQuery(query.trim());
     if (!normalizedQuery) {
       latestRequest.current = ++requestSequence.current;
       setGroups([]);
@@ -119,9 +137,10 @@ export function useSearchController(service: SearchService): SearchController {
         {
           requestId,
           query: normalizedQuery,
-          scope,
+          scope: effectiveScope,
           filters: [],
           limit: 500,
+          preferences,
         },
         abortController.signal,
       )
@@ -160,7 +179,11 @@ export function useSearchController(service: SearchService): SearchController {
       });
 
     return () => abortController.abort();
-  }, [query, refreshRevision, scope, service]);
+  }, [effectiveScope, preferences, query, refreshRevision, service]);
+
+  const setScope = useCallback((nextScope: SearchScope) => {
+    setScopeState(resolveSearchScope(nextScope, preferences));
+  }, [preferences]);
 
   const select = useCallback((fileId: string | null) => {
     if (fileId === null) {
@@ -193,7 +216,7 @@ export function useSearchController(service: SearchService): SearchController {
 
   return {
     query,
-    scope,
+    scope: effectiveScope,
     groups,
     results,
     selectedId,

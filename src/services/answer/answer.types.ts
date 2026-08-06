@@ -1,32 +1,53 @@
+import {z} from 'zod';
+
 export type RuntimeMode = 'auto' | 'local' | 'cloud';
 
-export interface AnswerRequest {
-  requestId: number;
-  query: string;
-  mode: RuntimeMode;
-  cloudConsent: boolean;
-}
+export const answerRequestSchema = z.object({
+  requestId: z.number().int().positive(),
+  query: z.string().trim().min(1).max(4_000),
+  mode: z.enum(['auto', 'local', 'cloud']),
+  cloudConsent: z.boolean(),
+});
 
-export interface AnswerCitation {
-  fileId: string;
-  label: string;
-  page?: number;
-  timestampSeconds?: number;
-}
+export type AnswerRequest = z.infer<typeof answerRequestSchema>;
 
-export interface AnswerUsage {
-  inputTokens: number;
-  outputTokens: number;
-  remainingTokens?: number;
-  resetAt?: string;
-}
+export const answerCitationSchema = z.object({
+  fileId: z.string().min(1),
+  label: z.string().min(1),
+  page: z.number().int().positive().optional(),
+  timestampSeconds: z.number().finite().nonnegative().optional(),
+});
 
-export type AnswerEvent =
-  | {type: 'started'; provider?: string; model?: string; route?: string}
-  | {type: 'citation'; citation: AnswerCitation}
-  | {type: 'delta'; text: string}
-  | {type: 'usage'; usage: AnswerUsage}
-  | {type: 'completed'; provider: string; model: string; route: string}
-  | {type: 'cancelled'}
-  | {type: 'failed'; message: string; code?: string};
+export type AnswerCitation = z.infer<typeof answerCitationSchema>;
+
+export const answerUsageSchema = z.object({
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  remainingTokens: z.number().int().nonnegative().optional(),
+  resetAt: z.string().min(1).optional(),
+});
+
+export type AnswerUsage = z.infer<typeof answerUsageSchema>;
+
+export const answerEventSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('started'),
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    route: z.string().min(1),
+  }),
+  z.object({type: z.literal('citation'), citation: answerCitationSchema}),
+  z.object({type: z.literal('delta'), text: z.string()}),
+  z.object({type: z.literal('usage'), usage: answerUsageSchema}),
+  z.object({
+    type: z.literal('completed'),
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    route: z.string().min(1),
+  }),
+  z.object({type: z.literal('cancelled')}),
+  z.object({type: z.literal('failed'), message: z.string().min(1), code: z.string().min(1).optional()}),
+]);
+
+export type AnswerEvent = z.infer<typeof answerEventSchema>;
 

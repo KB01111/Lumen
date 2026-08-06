@@ -60,6 +60,7 @@ async function capture(baseUrl) {
       throw new Error('The visual state gallery did not expose any scenarios.');
     }
     const gitSha = execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim();
+    const gitDirty = execFileSync('git', ['status', '--porcelain'], {encoding: 'utf8'}).trim().length > 0;
     const entries = [];
     for (const scenario of scenarios) {
       await page.goto(`${baseUrl}/?gallery=1&scenario=${encodeURIComponent(scenario.id)}&capture=1`);
@@ -84,12 +85,14 @@ async function capture(baseUrl) {
         colorScheme: scenario.id === 'theme-light' ? 'light' : 'dark',
         reducedMotion: true,
         gitSha,
+        gitDirty,
       });
     }
     await createContactSheet(browser, entries);
     const manifest = {
       generatedAt: new Date().toISOString(),
       gitSha,
+      gitDirty,
       browser: {name: 'Microsoft Edge', version: browser.version()},
       viewport,
       count: entries.length,
@@ -103,6 +106,7 @@ async function capture(baseUrl) {
         colorScheme: entry.colorScheme,
         reducedMotion: entry.reducedMotion,
         gitSha: entry.gitSha,
+        gitDirty: entry.gitDirty,
       })),
     };
     await writeFile(

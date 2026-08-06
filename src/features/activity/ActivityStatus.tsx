@@ -42,7 +42,7 @@ const styles = stylex.create({
   title: {display: 'flex', alignItems: 'center', gap: tokens.space4},
 });
 
-function ActivityIcon({mode}: {mode: ActivityMode}) {
+function ActivityIcon({mode}: {mode?: ActivityMode}) {
   switch (mode) {
     case 'indexing': return <IndexedRootIcon size={27} />;
     case 'slow': return <GaugeIcon aria-hidden="true" size={27} />;
@@ -52,15 +52,23 @@ function ActivityIcon({mode}: {mode: ActivityMode}) {
     case 'idle': return <HourglassMediumIcon aria-hidden="true" size={27} />;
     case 'battery': return <BatteryWarningIcon aria-hidden="true" size={27} />;
     case 'user': return <PlayCircleIcon aria-hidden="true" size={27} />;
+    default: return <GaugeIcon aria-hidden="true" size={27} />;
   }
 }
 
-export function ActivityStatus({mode}: {mode: ActivityMode}) {
-  const presentation = activityPresentations[mode];
+const manualOnlyPresentation = {
+  label: 'Manual control available',
+  description: 'No automatic Windows activity detector is connected.',
+  recommendation: 'Use manual pause when you want to stop new index synchronization and enrichment.',
+  tone: 'neutral' as const,
+};
+
+export function ActivityStatus({mode}: {mode?: ActivityMode}) {
+  const presentation = mode ? activityPresentations[mode] : manualOnlyPresentation;
   return (
     <section
       aria-label={`${presentation.label}. ${presentation.description}`}
-      data-testid={`activity-${mode}`}
+      data-testid={mode ? `activity-${mode}` : 'activity-manual'}
       {...stylex.props(styles.status)}
     >
       <span aria-hidden="true" {...stylex.props(

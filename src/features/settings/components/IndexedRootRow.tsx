@@ -76,13 +76,14 @@ function validateExclusion(pattern: string) {
 
 export interface IndexedRootRowProps {
   cloudEnrichment: boolean;
+  cloudEnrichmentAvailable: boolean;
   root: IndexedRoot;
   onCloudEnrichmentChange(value: boolean): void;
   onChange(root: IndexedRoot): void;
   onRemove(): void;
 }
 
-export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichmentChange, onRemove}: IndexedRootRowProps) {
+export function IndexedRootRow({cloudEnrichment, cloudEnrichmentAvailable, root, onChange, onCloudEnrichmentChange, onRemove}: IndexedRootRowProps) {
   const [pattern, setPattern] = useState('');
   const [error, setError] = useState('');
   const status = rootStatus[root.status];
@@ -139,6 +140,7 @@ export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichme
         <LumenText tone="tertiary" variant="meta">Root policy</LumenText>
         <LumenSwitch
           aria-label={`Allow cloud enrichment for ${root.path}`}
+          isDisabled={!cloudEnrichmentAvailable}
           isSelected={cloudEnrichment}
           onChange={onCloudEnrichmentChange}
         />

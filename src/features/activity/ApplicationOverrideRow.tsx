@@ -22,7 +22,8 @@ const styles = stylex.create({
   },
 });
 
-export function ApplicationOverrideRow({override, onChange, onRemove}: {
+export function ApplicationOverrideRow({isDisabled = false, override, onChange, onRemove}: {
+  isDisabled?: boolean;
   override: ApplicationOverride;
   onChange(override: ApplicationOverride): void;
   onRemove(): void;
@@ -32,6 +33,7 @@ export function ApplicationOverrideRow({override, onChange, onRemove}: {
       <LumenText weight="medium">{override.application}</LumenText>
       <LumenSelect
         aria-label={`Policy for ${override.application}`}
+        isDisabled={isDisabled}
         options={[
           {id: 'automatic', label: 'Automatic'},
           {id: 'pause', label: 'Always pause'},
@@ -41,7 +43,7 @@ export function ApplicationOverrideRow({override, onChange, onRemove}: {
         value={override.policy}
         onChange={(policy) => onChange({...override, policy})}
       />
-      <LumenIconButton aria-label={`Remove ${override.application}`} size="small" variant="quiet" onPress={onRemove}>
+      <LumenIconButton aria-label={`Remove ${override.application}`} isDisabled={isDisabled} size="small" variant="quiet" onPress={onRemove}>
         <TrashIcon aria-hidden="true" size={14} />
       </LumenIconButton>
     </div>

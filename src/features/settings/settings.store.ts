@@ -178,12 +178,29 @@ export const useSettingsStore = create<SettingsState>()(
       setCloudAnswerConsent: (granted) => persist(
         () => {
           const settings = stateSettings(get());
+          const ai = granted
+            ? {...settings.ai, cloudAnswerConsent: true}
+            : {
+                ...settings.ai,
+                cloudAnswerConsent: false,
+                cloudEnrichedRootIds: [],
+                runtimeMode: settings.ai.runtimeMode === 'cloud' ? 'local' as const : settings.ai.runtimeMode,
+              };
           return settingsSchema.parse({
             ...settings,
-            ai: {...settings.ai, cloudAnswerConsent: granted},
+            ai,
           });
         },
-        () => set((state) => ({ai: {...state.ai, cloudAnswerConsent: granted}})),
+        () => set((state) => ({
+          ai: granted
+            ? {...state.ai, cloudAnswerConsent: true}
+            : {
+                ...state.ai,
+                cloudAnswerConsent: false,
+                cloudEnrichedRootIds: [],
+                runtimeMode: state.ai.runtimeMode === 'cloud' ? 'local' : state.ai.runtimeMode,
+              },
+        })),
       ),
       updateComputerUse: (patch) => {
         set((state) => ({computerUse: {...state.computerUse, ...patch}}));

@@ -2,6 +2,8 @@ import {act, renderHook} from '@testing-library/react';
 import {describe, expect, it} from 'vitest';
 
 import {MemorySearchService} from '../../services/search/memory-search-service';
+import {SEARCH_QUERY_MAX_CHARACTERS} from '../../services/search/search-query';
+import type {SearchPreferences} from '../../services/search/search.types';
 import type {SearchResult} from '../../services/search/search.types';
 import {useSearchController} from './useSearchController';
 
@@ -79,6 +81,38 @@ describe('useSearchController', () => {
     expect(result.current.results).toEqual([]);
     expect(result.current.selectedId).toBeNull();
     expect(service.requests).toHaveLength(1);
+  });
+
+  it('limits programmatic search requests without splitting Unicode characters', () => {
+    const service = new MemorySearchService();
+    const {result} = renderHook(() => useSearchController(service));
+    const query = `${'😀'.repeat(SEARCH_QUERY_MAX_CHARACTERS)}tail`;
+
+    act(() => result.current.setQuery(query));
+
+    const submitted = service.requests[0]?.request.query ?? '';
+    expect(Array.from(submitted)).toHaveLength(SEARCH_QUERY_MAX_CHARACTERS);
+    expect(submitted).toBe('😀'.repeat(SEARCH_QUERY_MAX_CHARACTERS));
+  });
+
+  it('falls back to an enabled scope and sends the effective preferences', () => {
+    const service = new MemorySearchService();
+    const preferences: SearchPreferences = {
+      enabledScopes: ['code', 'images'],
+      filenamePriority: 35,
+      recency: 'high',
+    };
+    const {result} = renderHook(() => useSearchController(service, preferences));
+
+    expect(result.current.scope).toBe('code');
+    act(() => result.current.setScope('documents'));
+    expect(result.current.scope).toBe('code');
+    act(() => result.current.setQuery('lumen'));
+
+    expect(service.requests[0]?.request).toMatchObject({
+      scope: 'code',
+      preferences,
+    });
   });
 });
 

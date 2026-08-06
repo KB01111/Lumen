@@ -50,6 +50,31 @@ describe('AI runtime settings', () => {
     expect(saved.ai.cloudAnswerConsent).toBe(true);
   });
 
+  it('revokes cloud mode and enriched roots in the same persisted write', async () => {
+    useSettingsStore.setState((state) => ({
+      ai: {
+        ...state.ai,
+        runtimeMode: 'cloud',
+        cloudAnswerConsent: true,
+        cloudEnrichedRootIds: ['root-documents'],
+      },
+    }));
+
+    await expect(useSettingsStore.getState().setCloudAnswerConsent(false)).resolves.toBe(true);
+
+    expect(useSettingsStore.getState().ai).toMatchObject({
+      runtimeMode: 'local',
+      cloudAnswerConsent: false,
+      cloudEnrichedRootIds: [],
+    });
+    const saved = JSON.parse(window.localStorage.getItem('lumen-management-settings') ?? '{}');
+    expect(saved.ai).toMatchObject({
+      runtimeMode: 'local',
+      cloudAnswerConsent: false,
+      cloudEnrichedRootIds: [],
+    });
+  });
+
   it('does not expose cloud consent before the device write succeeds', async () => {
     let finishSave: (() => void) | undefined;
     vi.spyOn(settingsPersistence, 'write').mockImplementation(() => new Promise<void>((resolve) => {

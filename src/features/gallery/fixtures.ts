@@ -1,4 +1,5 @@
 import type {SearchService} from '../../services/search/search-service';
+import {rankSearchResults} from '../../services/search/search-preferences';
 import type {
   FilePreview,
   SearchRequest,
@@ -95,11 +96,12 @@ export class GallerySearchService implements SearchService {
 
   async search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResponse> {
     signal?.throwIfAborted();
+    const results = rankSearchResults(this.results, request.preferences);
     return {
       requestId: request.requestId,
-      groups: this.results.length ? [{id: 'local', label: 'Local files', items: this.results}] : [],
+      groups: results.length ? [{id: 'local', label: 'Local files', items: results}] : [],
       elapsedMs: 4,
-      total: this.results.length,
+      total: results.length,
     };
   }
 

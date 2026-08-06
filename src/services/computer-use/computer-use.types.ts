@@ -46,7 +46,10 @@ export const computerUseHealthSchema = z.object({
   mode: z.enum(['packaged', 'python', 'missing']),
   browser: z.string(),
   credentialConfigured: z.boolean(),
-  detail: z.string().optional(),
+  detail: z.preprocess(
+    (value) => value === null ? undefined : value,
+    z.string().min(1).optional(),
+  ),
 });
 
 export type ComputerUseHealth = z.infer<typeof computerUseHealthSchema>;

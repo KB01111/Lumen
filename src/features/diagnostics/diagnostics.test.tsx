@@ -6,6 +6,7 @@ import {AppProviders} from '../../app/AppProviders';
 import {useSettingsStore} from '../settings/settings.store';
 import {DiagnosticsPage} from '../settings/pages/DiagnosticsPage';
 import {PrivacyPage} from '../settings/pages/PrivacyPage';
+import {useSearchHistoryStore} from '../launcher/search-history.store';
 import {DiagnosticsOverlay} from './DiagnosticsOverlay';
 import {createDiagnosticsExport, sanitizeDiagnostics} from './diagnostics.types';
 import {useDiagnosticsStore} from './diagnostics.store';
@@ -66,16 +67,21 @@ describe('diagnostics privacy', () => {
     }
   });
 
-  it('clears local history and keeps future analysis controls explicitly unavailable', async () => {
+  it('clears local history and distinguishes per-root analysis from unavailable features', async () => {
     const user = userEvent.setup();
-    useSettingsStore.setState({privacy: {...useSettingsStore.getState().privacy, historyEntries: 12}});
+    useSearchHistoryStore.setState({
+      entries: Array.from({length: 12}, (_, index) => ({query: `query ${index}`, openedAt: index})),
+      hydrated: true,
+    });
     renderPage(<PrivacyPage />);
 
     await user.click(screen.getByRole('button', {name: 'Clear search history'}));
     await user.click(screen.getByRole('button', {name: 'Clear 12 history entries'}));
 
-    expect(useSettingsStore.getState().privacy.historyEntries).toBe(0);
-    expect(screen.getByRole('switch', {name: 'OCR analysis'})).toBeDisabled();
+    expect(useSearchHistoryStore.getState().entries).toEqual([]);
+    expect(screen.getByText('OCR analysis')).toBeVisible();
+    expect(screen.getByText('Audio transcription')).toBeVisible();
+    expect(screen.getAllByText('Per root')).toHaveLength(2);
     expect(screen.getByRole('switch', {name: 'Image understanding'})).toBeDisabled();
   });
 });

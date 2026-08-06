@@ -9,6 +9,14 @@ pub struct GatewayPorts {
     pub admin: u16,
 }
 
+impl GatewayPorts {
+    pub fn are_distinct(self) -> bool {
+        self.interactive != self.enrichment
+            && self.interactive != self.admin
+            && self.enrichment != self.admin
+    }
+}
+
 fn render_lane_config(
     port: u16,
     admin_address: &str,
@@ -84,6 +92,15 @@ llm:
       model: gpt-4o-mini-transcribe
       apiKey: "$LUMEN_OPENAI_API_KEY"
       tokenize: true
+  # AgentGateway 1.4.1 selects multipart routes by the submitted model name.
+  # Keep the logical alias above for Lumen's queue contract and this explicit
+  # provider-model entry for /v1/audio/transcriptions forwarding.
+  - name: gpt-4o-mini-transcribe
+    provider: openAI
+    params:
+      model: gpt-4o-mini-transcribe
+      apiKey: "$LUMEN_OPENAI_API_KEY"
+      tokenize: true
   - name: lumen.rerank.cloud
     provider: openAI
     params:
@@ -121,11 +138,14 @@ mod tests {
             enrichment: 41002,
             admin: 41003,
         };
-        let yaml = format!(
-            "{}\n{}",
-            render_gateway_config(ports),
-            render_enrichment_config(ports)
-        );
+        assert!(ports.are_distinct());
+        let interactive = render_gateway_config(ports);
+        let enrichment = render_enrichment_config(ports);
+        assert!(interactive.contains("port: 41001"));
+        assert!(interactive.contains("adminAddr: 127.0.0.1:41003"));
+        assert!(enrichment.contains("port: 41002"));
+        assert!(enrichment.contains("adminAddr: off"));
+        let yaml = format!("{}\n{}", interactive, enrichment);
         for alias in [
             "lumen.answer.local",
             "lumen.answer.cloud",
@@ -133,6 +153,7 @@ mod tests {
             "lumen.embed.cloud",
             "lumen.vision.cloud",
             "lumen.audio.cloud",
+            "gpt-4o-mini-transcribe",
             "lumen.rerank.cloud",
         ] {
             assert!(yaml.contains(alias));
@@ -143,6 +164,12 @@ mod tests {
         assert!(yaml.contains("maxTokens: 500000"));
         assert!(yaml.contains("$LUMEN_OPENAI_API_KEY"));
         assert!(!yaml.contains("sk-test-secret"));
+        assert!(yaml.contains(
+            "- name: lumen.audio.cloud\n    provider: openAI\n    params:\n      model: gpt-4o-mini-transcribe"
+        ));
+        assert!(yaml.contains(
+            "- name: gpt-4o-mini-transcribe\n    provider: openAI\n    params:\n      model: gpt-4o-mini-transcribe"
+        ));
     }
 
     #[test]

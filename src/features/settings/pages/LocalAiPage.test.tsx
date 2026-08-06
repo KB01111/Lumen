@@ -1,4 +1,4 @@
-import {render, waitFor} from '@testing-library/react';
+import {render, screen, waitFor} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {AppProviders} from '../../../app/AppProviders';
@@ -13,6 +13,7 @@ vi.mock('../../../services/ai/native-ai-service', async (importOriginal) => {
     nativeAiService: {
       ...actual.nativeAiService,
       localRuntimeHealth: vi.fn(),
+      setLocalRuntimeMode: vi.fn(),
     },
   };
 });
@@ -20,6 +21,7 @@ vi.mock('../../../services/ai/native-ai-service', async (importOriginal) => {
 describe('LocalAiPage native refresh', () => {
   beforeEach(() => {
     vi.mocked(nativeAiService.localRuntimeHealth).mockReset();
+    vi.mocked(nativeAiService.setLocalRuntimeMode).mockReset();
     vi.mocked(nativeAiService.localRuntimeHealth).mockResolvedValue({
       profile: 'generic-local',
       state: 'ready',
@@ -56,5 +58,27 @@ describe('LocalAiPage native refresh', () => {
     );
 
     await waitFor(() => expect(nativeAiService.localRuntimeHealth).toHaveBeenCalledOnce());
+  });
+
+  it('renders detected stopped health without preview download or retry actions', async () => {
+    vi.mocked(nativeAiService.localRuntimeHealth).mockResolvedValue({
+      profile: 'generic-local',
+      state: 'stopped',
+      accelerator: 'CPU',
+      answerModel: 'qwen3.5:4b',
+      embeddingModel: 'embed-gemma:300m',
+      transcriptionModel: 'whisper',
+      baseUrl: 'http://127.0.0.1:13305/api/v1',
+      lemonade: {installed: true, version: '10.0', requiredVersion: '10.0', state: 'ready'},
+      flm: {installed: true, version: '0.9.43', requiredVersion: '0.9.43', state: 'ready'},
+      mistralRs: {installed: false, requiredVersion: '0.7', state: 'missing'},
+    });
+
+    render(<AppProviders><LocalAiPage /></AppProviders>);
+
+    expect(await screen.findByText('Runtime stopped')).toBeVisible();
+    expect(screen.getByRole('button', {name: 'Refresh local runtime'})).toBeVisible();
+    expect(screen.queryByRole('button', {name: /Download preview/i})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /Retry preview/i})).not.toBeInTheDocument();
   });
 });

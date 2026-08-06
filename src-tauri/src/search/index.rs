@@ -10,6 +10,10 @@ use super::root_policy::canonicalize_confined;
 use super::types::SearchFailure;
 
 static REGISTER_SQLITE_VEC: Once = Once::new();
+const MAX_ENRICHMENT_ATTEMPTS: u32 = 5;
+const ENRICHMENT_LEASE_SECONDS: i64 = 60;
+const MAX_ENRICHMENT_TEXT_BYTES: usize = 1024 * 1024;
+const MAX_ENRICHMENT_ERROR_BYTES: usize = 2 * 1024;
 
 #[derive(Debug, thiserror::Error)]
 pub enum IndexError {
@@ -21,6 +25,8 @@ pub enum IndexError {
     Poisoned,
     #[error("An index integer exceeded SQLite's signed 64-bit range")]
     IntegerOverflow,
+    #[error("Invalid enrichment transition: {0}")]
+    InvalidEnrichment(String),
 }
 
 type IndexResult<T> = std::result::Result<T, IndexError>;
@@ -50,12 +56,13 @@ fn configure(connection: &Connection) -> rusqlite::Result<()> {
 
 fn migrate(connection: &Connection) -> rusqlite::Result<()> {
     let version: u32 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-    if version >= 1 {
+    if version >= 2 {
         return Ok(());
     }
 
-    connection.execute_batch(
-        "BEGIN IMMEDIATE;
+    if version == 0 {
+        connection.execute_batch(
+            "BEGIN IMMEDIATE;
          CREATE TABLE files (
            id INTEGER PRIMARY KEY,
            stable_id TEXT NOT NULL UNIQUE,
@@ -101,7 +108,10 @@ fn migrate(connection: &Connection) -> rusqlite::Result<()> {
            content_hash TEXT NOT NULL,
            status TEXT NOT NULL,
            attempt INTEGER NOT NULL DEFAULT 0,
-           not_before TEXT,
+           not_before INTEGER,
+           lease_token TEXT,
+           lease_until INTEGER,
+           last_error TEXT,
            UNIQUE(file_id, kind, route, content_hash)
          );
          CREATE TABLE enrichment_artifacts (
@@ -129,9 +139,41 @@ fn migrate(connection: &Connection) -> rusqlite::Result<()> {
          );
          CREATE INDEX chunks_file_id ON chunks(file_id);
          CREATE INDEX enrichment_jobs_status ON enrichment_jobs(status, not_before);
-         PRAGMA user_version = 1;
+         PRAGMA user_version = 2;
          COMMIT;",
-    )
+        )?;
+    } else {
+        connection.execute_batch(
+            "BEGIN IMMEDIATE;
+             DROP INDEX IF EXISTS enrichment_jobs_status;
+             ALTER TABLE enrichment_jobs RENAME TO enrichment_jobs_v1;
+             CREATE TABLE enrichment_jobs (
+               id INTEGER PRIMARY KEY,
+               file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+               kind TEXT NOT NULL,
+               route TEXT NOT NULL,
+               content_hash TEXT NOT NULL,
+               status TEXT NOT NULL,
+               attempt INTEGER NOT NULL DEFAULT 0,
+               not_before INTEGER,
+               lease_token TEXT,
+               lease_until INTEGER,
+               last_error TEXT,
+               UNIQUE(file_id, kind, route, content_hash)
+             );
+             INSERT INTO enrichment_jobs (
+               id, file_id, kind, route, content_hash, status, attempt, not_before
+             )
+             SELECT id, file_id, kind, route, content_hash, status, attempt,
+                    CAST(not_before AS INTEGER)
+             FROM enrichment_jobs_v1;
+             DROP TABLE enrichment_jobs_v1;
+             CREATE INDEX enrichment_jobs_status ON enrichment_jobs(status, not_before);
+             PRAGMA user_version = 2;
+             COMMIT;",
+        )?;
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -183,6 +225,31 @@ pub struct EnrichmentJobRecord {
     pub content_hash: String,
     pub kind: String,
     pub route: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EnrichmentLease {
+    pub idempotency_key: String,
+    pub file_id: String,
+    pub root_path: PathBuf,
+    pub path: PathBuf,
+    pub content_hash: String,
+    pub kind: String,
+    pub route: String,
+    pub attempt: u32,
+    pub lease_token: String,
+    pub lease_until: i64,
+    pub generation: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct EnrichmentArtifact {
+    pub provider: String,
+    pub model: String,
+    pub text: String,
+    pub page: Option<u32>,
+    pub time_start_ms: Option<u64>,
+    pub time_end_ms: Option<u64>,
 }
 
 pub struct IndexDatabase {
@@ -520,6 +587,291 @@ impl IndexDatabase {
             .map_err(IndexError::from)
     }
 
+    pub fn enrichment_status_counts(&self) -> IndexResult<Vec<(String, u64)>> {
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        let mut statement = connection.prepare(
+            "SELECT status, count(*)
+             FROM enrichment_jobs
+             GROUP BY status
+             ORDER BY status",
+        )?;
+        statement
+            .query_map([], |row| {
+                let count = u64::try_from(row.get::<_, i64>(1)?)
+                    .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(1, i64::MAX))?;
+                Ok((row.get::<_, String>(0)?, count))
+            })?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(IndexError::from)
+    }
+
+    pub fn lease_enrichment(&self, now: i64) -> IndexResult<Option<EnrichmentLease>> {
+        let mut connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        let transaction = connection.transaction()?;
+        transaction.execute(
+            "UPDATE enrichment_jobs
+             SET status = CASE WHEN attempt >= ?2 THEN 'failed' ELSE 'queued' END,
+                 not_before = CASE WHEN attempt >= ?2 THEN NULL ELSE ?1 END,
+                 lease_token = NULL, lease_until = NULL,
+                 last_error = 'The previous enrichment lease expired'
+             WHERE status = 'running' AND lease_until <= ?1",
+            params![now, MAX_ENRICHMENT_ATTEMPTS],
+        )?;
+        let candidate = transaction
+            .query_row(
+                "SELECT enrichment_jobs.id, files.stable_id, files.root_path, files.path,
+                        enrichment_jobs.content_hash, enrichment_jobs.kind,
+                        enrichment_jobs.route, enrichment_jobs.attempt
+                 FROM enrichment_jobs
+                 JOIN files ON files.id = enrichment_jobs.file_id
+                 WHERE enrichment_jobs.status = 'queued'
+                   AND enrichment_jobs.attempt < ?1
+                   AND (enrichment_jobs.not_before IS NULL
+                        OR CAST(enrichment_jobs.not_before AS INTEGER) <= ?2)
+                   AND files.content_hash = enrichment_jobs.content_hash
+                   AND files.extraction_version LIKE '%;cloud-enrichment=true'
+                 ORDER BY enrichment_jobs.id
+                 LIMIT 1",
+                params![MAX_ENRICHMENT_ATTEMPTS, now],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        PathBuf::from(row.get::<_, String>(2)?),
+                        PathBuf::from(row.get::<_, String>(3)?),
+                        row.get::<_, String>(4)?,
+                        row.get::<_, String>(5)?,
+                        row.get::<_, String>(6)?,
+                        u32::try_from(row.get::<_, i64>(7)?)
+                            .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(7, i64::MAX))?,
+                    ))
+                },
+            )
+            .optional()?;
+        let Some((job_id, file_id, root_path, path, content_hash, kind, route, prior_attempt)) =
+            candidate
+        else {
+            transaction.commit()?;
+            return Ok(None);
+        };
+        let lease_token = uuid::Uuid::new_v4().simple().to_string();
+        let lease_until = now.saturating_add(ENRICHMENT_LEASE_SECONDS);
+        let updated = transaction.execute(
+            "UPDATE enrichment_jobs
+             SET status = 'running', attempt = attempt + 1,
+                 lease_token = ?2, lease_until = ?3, last_error = NULL
+             WHERE id = ?1 AND status = 'queued'",
+            params![job_id, lease_token, lease_until],
+        )?;
+        if updated != 1 {
+            return Err(IndexError::InvalidEnrichment(
+                "The queued enrichment job changed before it could be leased".to_owned(),
+            ));
+        }
+        transaction.commit()?;
+        let attempt = prior_attempt.saturating_add(1);
+        Ok(Some(EnrichmentLease {
+            idempotency_key: format!("{file_id}:{content_hash}:{kind}:{route}"),
+            file_id,
+            root_path,
+            path,
+            content_hash,
+            kind,
+            route,
+            attempt,
+            lease_token,
+            lease_until,
+            generation: 0,
+        }))
+    }
+
+    pub fn next_enrichment_wake(&self, now: i64) -> IndexResult<Option<i64>> {
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        connection
+            .query_row(
+                "SELECT min(
+                   CASE
+                     WHEN enrichment_jobs.status = 'queued'
+                       THEN COALESCE(CAST(enrichment_jobs.not_before AS INTEGER), ?1)
+                     WHEN enrichment_jobs.status = 'running'
+                       THEN COALESCE(enrichment_jobs.lease_until, ?1)
+                   END
+                 )
+                 FROM enrichment_jobs
+                 JOIN files ON files.id = enrichment_jobs.file_id
+                 WHERE enrichment_jobs.status IN ('queued', 'running')
+                   AND files.content_hash = enrichment_jobs.content_hash
+                   AND files.extraction_version LIKE '%;cloud-enrichment=true'",
+                [now],
+                |row| row.get(0),
+            )
+            .map_err(IndexError::from)
+    }
+
+    pub fn retry_enrichment(
+        &self,
+        lease: &EnrichmentLease,
+        now: i64,
+        retryable: bool,
+        error: &str,
+    ) -> IndexResult<bool> {
+        let error = error
+            .chars()
+            .take(MAX_ENRICHMENT_ERROR_BYTES)
+            .collect::<String>();
+        let should_retry = retryable && lease.attempt < MAX_ENRICHMENT_ATTEMPTS;
+        let exponent = lease.attempt.saturating_sub(1).min(6);
+        let delay = 5_i64.saturating_mul(1_i64 << exponent).min(300);
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        let updated = connection.execute(
+            "UPDATE enrichment_jobs
+             SET status = ?3, not_before = ?4, lease_token = NULL,
+                 lease_until = NULL, last_error = ?5
+             WHERE lease_token = ?1 AND status = 'running'
+               AND content_hash = ?2",
+            params![
+                lease.lease_token,
+                lease.content_hash,
+                if should_retry { "queued" } else { "failed" },
+                should_retry.then_some(now.saturating_add(delay)),
+                error,
+            ],
+        )?;
+        Ok(updated == 1)
+    }
+
+    pub fn complete_enrichment(
+        &self,
+        lease: &EnrichmentLease,
+        artifact: &EnrichmentArtifact,
+        now: i64,
+    ) -> IndexResult<bool> {
+        validate_artifact(lease, artifact)?;
+        let mut connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        let transaction = connection.transaction()?;
+        let current = transaction
+            .query_row(
+                "SELECT enrichment_jobs.id, files.id, files.stable_id, files.name, files.path,
+                        files.content_hash, files.extraction_version,
+                        files.index_revision, enrichment_jobs.kind,
+                        enrichment_jobs.route, enrichment_jobs.lease_until
+                 FROM enrichment_jobs
+                 JOIN files ON files.id = enrichment_jobs.file_id
+                 WHERE enrichment_jobs.lease_token = ?1
+                   AND enrichment_jobs.status = 'running'",
+                [&lease.lease_token],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, String>(5)?,
+                        row.get::<_, String>(6)?,
+                        row.get::<_, i64>(7)?,
+                        row.get::<_, String>(8)?,
+                        row.get::<_, String>(9)?,
+                        row.get::<_, i64>(10)?,
+                    ))
+                },
+            )
+            .optional()?;
+        let Some((
+            job_id,
+            file_db_id,
+            stable_id,
+            name,
+            path,
+            hash,
+            extraction,
+            revision,
+            kind,
+            route,
+            until,
+        )) = current
+        else {
+            return Ok(false);
+        };
+        if until < now
+            || stable_id != lease.file_id
+            || hash != lease.content_hash
+            || kind != lease.kind
+            || route != lease.route
+            || !extraction.ends_with(";cloud-enrichment=true")
+        {
+            return Ok(false);
+        }
+        let ordinal: i64 = transaction.query_row(
+            "SELECT COALESCE(max(ordinal), -1) + 1 FROM chunks WHERE file_id = ?1",
+            [file_db_id],
+            |row| row.get(0),
+        )?;
+        let time_start = artifact
+            .time_start_ms
+            .map(i64::try_from)
+            .transpose()
+            .map_err(|_| IndexError::IntegerOverflow)?;
+        let time_end = artifact
+            .time_end_ms
+            .map(i64::try_from)
+            .transpose()
+            .map_err(|_| IndexError::IntegerOverflow)?;
+        transaction.execute(
+            "INSERT INTO chunks
+             (file_id, ordinal, text, extraction_kind, content_hash, page,
+              time_start_ms, time_end_ms, index_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                file_db_id,
+                ordinal,
+                artifact.text.trim(),
+                kind,
+                hash,
+                artifact.page,
+                time_start,
+                time_end,
+                revision,
+            ],
+        )?;
+        let chunk_id = transaction.last_insert_rowid();
+        transaction.execute(
+            "INSERT INTO search_fts(file_id, chunk_id, name, path, body)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![file_db_id, chunk_id, name, path, artifact.text.trim()],
+        )?;
+        let payload = serde_json::to_string(artifact)
+            .map_err(|error| IndexError::InvalidEnrichment(error.to_string()))?;
+        transaction.execute(
+            "INSERT INTO enrichment_artifacts
+             (file_id, chunk_id, kind, provider, model, content_hash, payload)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                file_db_id,
+                chunk_id,
+                kind,
+                artifact.provider,
+                artifact.model,
+                hash,
+                payload,
+            ],
+        )?;
+        transaction.execute("DELETE FROM answer_cache WHERE file_id = ?1", [file_db_id])?;
+        let completed = transaction.execute(
+            "UPDATE enrichment_jobs SET status = 'completed', lease_token = NULL,
+                    lease_until = NULL, not_before = NULL, last_error = NULL
+             WHERE id = ?1 AND lease_token = ?2 AND status = 'running'",
+            params![job_id, lease.lease_token],
+        )?;
+        if completed != 1 {
+            return Err(IndexError::InvalidEnrichment(
+                "The enrichment lease changed before completion".to_owned(),
+            ));
+        }
+        transaction.commit()?;
+        Ok(true)
+    }
+
     pub fn delete_all(&self) -> IndexResult<()> {
         let mut connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
         let transaction = connection.transaction()?;
@@ -533,6 +885,39 @@ impl IndexDatabase {
         transaction.commit()?;
         Ok(())
     }
+}
+
+fn validate_artifact(lease: &EnrichmentLease, artifact: &EnrichmentArtifact) -> IndexResult<()> {
+    let text = artifact.text.trim();
+    if !matches!(lease.kind.as_str(), "ocr" | "transcription") {
+        return Err(IndexError::InvalidEnrichment(
+            "Only OCR and transcription artifacts are supported".to_owned(),
+        ));
+    }
+    if text.is_empty() || text.len() > MAX_ENRICHMENT_TEXT_BYTES {
+        return Err(IndexError::InvalidEnrichment(
+            "Artifact text must be non-empty and no larger than 1 MiB".to_owned(),
+        ));
+    }
+    if artifact.provider.is_empty()
+        || artifact.provider.len() > 128
+        || artifact.model.is_empty()
+        || artifact.model.len() > 128
+    {
+        return Err(IndexError::InvalidEnrichment(
+            "Artifact provider and model must be bounded".to_owned(),
+        ));
+    }
+    if artifact
+        .time_start_ms
+        .zip(artifact.time_end_ms)
+        .is_some_and(|(start, end)| start > end)
+    {
+        return Err(IndexError::InvalidEnrichment(
+            "Artifact timestamps are out of order".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -577,7 +962,7 @@ mod tests {
             .map(|row| row.unwrap())
             .collect();
 
-        assert_eq!(version, 1);
+        assert_eq!(version, 2);
         assert!(!vec_version.is_empty());
         for expected in [
             "answer_cache",
@@ -593,6 +978,54 @@ mod tests {
                 "missing {expected}"
             );
         }
+    }
+
+    #[test]
+    fn migrates_existing_enrichment_queues_to_leased_schema() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE files (
+                   id INTEGER PRIMARY KEY
+                 );
+                 CREATE TABLE enrichment_jobs (
+                   id INTEGER PRIMARY KEY,
+                   file_id INTEGER NOT NULL,
+                   kind TEXT NOT NULL,
+                   route TEXT NOT NULL,
+                   content_hash TEXT NOT NULL,
+                   status TEXT NOT NULL,
+                   attempt INTEGER NOT NULL DEFAULT 0,
+                   not_before TEXT,
+                   UNIQUE(file_id, kind, route, content_hash)
+                 );
+                 PRAGMA user_version = 1;",
+            )
+            .unwrap();
+
+        migrate(&connection).unwrap();
+        let version: u32 = connection
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        let columns = connection
+            .prepare("PRAGMA table_info(enrichment_jobs)")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(version, 2);
+        for column in ["lease_token", "lease_until", "last_error"] {
+            assert!(columns.iter().any(|candidate| candidate == column));
+        }
+        let not_before_type = connection
+            .query_row(
+                "SELECT type FROM pragma_table_info('enrichment_jobs') WHERE name = 'not_before'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap();
+        assert_eq!(not_before_type, "INTEGER");
     }
 
     #[test]
@@ -707,5 +1140,110 @@ mod tests {
         assert_eq!(database.retain_inventory(&HashMap::new()).unwrap(), 1);
         assert!(database.search("obsolete", 10).unwrap().is_empty());
         assert_eq!(database.counts().unwrap().0, 0);
+    }
+
+    #[test]
+    fn enrichment_lease_completion_atomically_adds_searchable_text() {
+        let fixture = SearchFixture::new("enrichment-completion");
+        let path = fixture.file("scan.png", b"image bytes");
+        let database = IndexDatabase::open_memory().unwrap();
+        database
+            .upsert_document(
+                fixture.root(),
+                &IndexedDocument {
+                    stable_id: "scan".to_owned(),
+                    path,
+                    content_hash: "hash-image".to_owned(),
+                    extraction_version: "image-v1;cloud-enrichment=true".to_owned(),
+                    chunks: Vec::new(),
+                },
+            )
+            .unwrap();
+        assert!(
+            database
+                .enqueue_enrichment("scan", "ocr", "lumen.vision.cloud")
+                .unwrap()
+        );
+
+        let lease = database.lease_enrichment(1_000).unwrap().unwrap();
+        assert_eq!(lease.attempt, 1);
+        assert!(
+            database
+                .complete_enrichment(
+                    &lease,
+                    &EnrichmentArtifact {
+                        provider: "mock".to_owned(),
+                        model: "lumen.vision.cloud".to_owned(),
+                        text: "Quarterly invoice total".to_owned(),
+                        page: None,
+                        time_start_ms: None,
+                        time_end_ms: None,
+                    },
+                    1_001,
+                )
+                .unwrap()
+        );
+
+        let hits = database.search("invoice", 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].stable_id, "scan");
+        assert_eq!(hits[0].extraction_kind, "ocr");
+        assert_eq!(database.counts().unwrap().1, 0);
+        let connection = database.connection.lock().unwrap();
+        let artifacts: u32 = connection
+            .query_row("SELECT count(*) FROM enrichment_artifacts", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        let completed: String = connection
+            .query_row("SELECT status FROM enrichment_jobs", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(artifacts, 1);
+        assert_eq!(completed, "completed");
+    }
+
+    #[test]
+    fn enrichment_leases_expire_retry_with_backoff_and_stop_permanently() {
+        let fixture = SearchFixture::new("enrichment-retry");
+        let path = fixture.file("scan.png", b"image bytes");
+        let database = IndexDatabase::open_memory().unwrap();
+        database
+            .upsert_document(
+                fixture.root(),
+                &IndexedDocument {
+                    stable_id: "scan".to_owned(),
+                    path,
+                    content_hash: "hash-image".to_owned(),
+                    extraction_version: "image-v1;cloud-enrichment=true".to_owned(),
+                    chunks: Vec::new(),
+                },
+            )
+            .unwrap();
+        database
+            .enqueue_enrichment("scan", "ocr", "lumen.vision.cloud")
+            .unwrap();
+
+        let expired = database.lease_enrichment(1_000).unwrap().unwrap();
+        let recovered = database
+            .lease_enrichment(expired.lease_until + 1)
+            .unwrap()
+            .unwrap();
+        assert_eq!(recovered.attempt, 2);
+        assert!(
+            database
+                .retry_enrichment(&recovered, 2_000, true, "rate limited")
+                .unwrap()
+        );
+        assert_eq!(database.next_enrichment_wake(2_000).unwrap(), Some(2_010));
+        assert!(database.lease_enrichment(2_009).unwrap().is_none());
+        let retried = database.lease_enrichment(2_010).unwrap().unwrap();
+        assert_eq!(retried.attempt, 3);
+        assert!(
+            database
+                .retry_enrichment(&retried, 2_011, false, "unsupported")
+                .unwrap()
+        );
+        assert!(database.lease_enrichment(9_999).unwrap().is_none());
+        assert_eq!(database.next_enrichment_wake(9_999).unwrap(), None);
     }
 }

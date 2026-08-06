@@ -1,5 +1,6 @@
 import {
   windowGeometry,
+  type GeneralWindowPreferences,
   type WindowGeometry,
   type WindowMode,
   type WindowService,
@@ -10,6 +11,7 @@ export interface BrowserWindowSnapshot extends WindowGeometry {
   visible: boolean;
   inputFocusRequests: number;
   shortcut: string | null;
+  generalPreferences: GeneralWindowPreferences;
 }
 
 export class BrowserWindowService implements WindowService {
@@ -18,6 +20,11 @@ export class BrowserWindowService implements WindowService {
     visible: false,
     inputFocusRequests: 0,
     shortcut: null,
+    generalPreferences: {
+      launchAtStartup: false,
+      monitorBehavior: 'active',
+      closeBehavior: 'hide',
+    },
     ...windowGeometry.collapsed,
   };
 
@@ -43,6 +50,10 @@ export class BrowserWindowService implements WindowService {
 
   async setShortcut(accelerator: string): Promise<void> {
     this.state = {...this.state, shortcut: accelerator};
+  }
+
+  async applyGeneralPreferences(preferences: GeneralWindowPreferences): Promise<void> {
+    this.state = {...this.state, generalPreferences: {...preferences}};
   }
 
   snapshot(): BrowserWindowSnapshot {

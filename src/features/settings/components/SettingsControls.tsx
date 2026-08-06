@@ -193,19 +193,20 @@ export interface SelectOption<T extends string> {
 
 export interface LumenSelectProps<T extends string> {
   'aria-label': string;
+  isDisabled?: boolean;
   options: readonly SelectOption<T>[];
   value: T;
   onChange(value: T): void;
 }
 
-export function LumenSelect<T extends string>({options, value, onChange, ...props}: LumenSelectProps<T>) {
+export function LumenSelect<T extends string>({isDisabled, options, value, onChange, ...props}: LumenSelectProps<T>) {
   const handleChange = (key: Key | null) => {
     if (key !== null) {
       onChange(String(key) as T);
     }
   };
   return (
-    <Select aria-label={props['aria-label']} selectedKey={value} onSelectionChange={handleChange}>
+    <Select aria-label={props['aria-label']} isDisabled={isDisabled} selectedKey={value} onSelectionChange={handleChange}>
       <Label {...stylex.props(styles.sliderLabel)}>{props['aria-label']}</Label>
       <Button className={({isFocusVisible}) => stylex.props(styles.selectButton, isFocusVisible && styles.focused).className ?? ''}>
         <SelectValue />
@@ -280,6 +281,7 @@ export function LumenCheckbox({children, ...props}: CheckboxProps & {children: R
 
 export interface LumenTextFieldProps {
   'aria-label': string;
+  isDisabled?: boolean;
   placeholder?: string;
   value: string;
   onChange(value: string): void;
@@ -289,7 +291,7 @@ export interface LumenTextFieldProps {
 
 export function LumenTextField(props: LumenTextFieldProps) {
   return (
-    <TextField aria-label={props['aria-label']} value={props.value} onChange={props.onChange} {...stylex.props(styles.textField)}>
+    <TextField aria-label={props['aria-label']} isDisabled={props.isDisabled} value={props.value} onChange={props.onChange} {...stylex.props(styles.textField)}>
       <Input
         className={({isFocusVisible}) => stylex.props(styles.input, isFocusVisible && styles.focused).className ?? ''}
         placeholder={props.placeholder}

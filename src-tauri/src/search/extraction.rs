@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 use std::fs::{self, File};
-use std::io::Read;
+use std::io::{Cursor, Read};
 use std::path::Path;
 
 use quick_xml::events::Event;
@@ -12,6 +12,11 @@ use super::index::IndexedChunk;
 
 const MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_OFFICE_XML_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_EXTRACTED_TEXT_BYTES: usize = 8 * 1024 * 1024;
+const MAX_ARCHIVE_ENTRIES: usize = 1_024;
+const MAX_OFFICE_TEXT_ENTRIES: usize = 512;
+const MAX_PDF_PAGES: usize = 512;
+const MAX_DOCUMENT_CHUNKS: usize = 256;
 const CHUNK_BYTES: usize = 32 * 1024;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -29,7 +34,15 @@ fn failure(path: &Path, error: impl std::fmt::Display) -> ExtractionError {
     }
 }
 
-fn chunks_from_text(text: &str, extraction_kind: &str, page: Option<u32>) -> Vec<IndexedChunk> {
+fn chunks_from_text(
+    text: &str,
+    extraction_kind: &str,
+    page: Option<u32>,
+    path: &Path,
+) -> Result<Vec<IndexedChunk>, ExtractionError> {
+    if text.len() > MAX_EXTRACTED_TEXT_BYTES {
+        return Err(failure(path, "Extracted text exceeds the 8 MiB limit"));
+    }
     let mut chunks = Vec::new();
     let mut start = 0;
     while start < text.len() {
@@ -39,6 +52,9 @@ fn chunks_from_text(text: &str, extraction_kind: &str, page: Option<u32>) -> Vec
         }
         let fragment = text[start..end].trim();
         if !fragment.is_empty() {
+            if chunks.len() == MAX_DOCUMENT_CHUNKS {
+                return Err(failure(path, "Document exceeds the 256 chunk limit"));
+            }
             chunks.push(IndexedChunk {
                 text: fragment.to_owned(),
                 extraction_kind: extraction_kind.to_owned(),
@@ -49,7 +65,7 @@ fn chunks_from_text(text: &str, extraction_kind: &str, page: Option<u32>) -> Vec
         }
         start = end;
     }
-    chunks
+    Ok(chunks)
 }
 
 fn xml_text(xml: &str, path: &Path) -> Result<String, ExtractionError> {
@@ -69,6 +85,9 @@ fn xml_text(xml: &str, path: &Path) -> Result<String, ExtractionError> {
                         text.push(' ');
                     }
                     text.push_str(decoded.trim());
+                    if text.len() > MAX_EXTRACTED_TEXT_BYTES {
+                        return Err(failure(path, "Extracted text exceeds the 8 MiB limit"));
+                    }
                 }
             }
             Ok(Event::CData(value)) => {
@@ -78,6 +97,9 @@ fn xml_text(xml: &str, path: &Path) -> Result<String, ExtractionError> {
                         text.push(' ');
                     }
                     text.push_str(decoded.trim());
+                    if text.len() > MAX_EXTRACTED_TEXT_BYTES {
+                        return Err(failure(path, "Extracted text exceeds the 8 MiB limit"));
+                    }
                 }
             }
             Ok(Event::GeneralRef(value)) => {
@@ -99,6 +121,9 @@ fn xml_text(xml: &str, path: &Path) -> Result<String, ExtractionError> {
                     }
                     text.push(character);
                     text.push(' ');
+                    if text.len() > MAX_EXTRACTED_TEXT_BYTES {
+                        return Err(failure(path, "Extracted text exceeds the 8 MiB limit"));
+                    }
                 }
             }
             Ok(Event::Eof) => break,
@@ -125,10 +150,17 @@ fn is_office_text_entry(extension: &str, name: &str) -> bool {
     }
 }
 
-fn extract_office(path: &Path, extension: &str) -> Result<Vec<IndexedChunk>, ExtractionError> {
-    let file = File::open(path).map_err(|error| failure(path, error))?;
-    let mut archive = ZipArchive::new(file).map_err(|error| failure(path, error))?;
+fn extract_office(
+    bytes: &[u8],
+    path: &Path,
+    extension: &str,
+) -> Result<Vec<IndexedChunk>, ExtractionError> {
+    let mut archive = ZipArchive::new(Cursor::new(bytes)).map_err(|error| failure(path, error))?;
+    if archive.len() > MAX_ARCHIVE_ENTRIES {
+        return Err(failure(path, "Office archive exceeds the 1024 entry limit"));
+    }
     let mut total_bytes = 0_u64;
+    let mut text_entries = 0_usize;
     let mut combined = String::new();
     for index in 0..archive.len() {
         let mut entry = archive
@@ -137,17 +169,33 @@ fn extract_office(path: &Path, extension: &str) -> Result<Vec<IndexedChunk>, Ext
         if !is_office_text_entry(extension, entry.name()) {
             continue;
         }
-        total_bytes = total_bytes.saturating_add(entry.size());
-        if total_bytes > MAX_OFFICE_XML_BYTES {
+        text_entries = text_entries.saturating_add(1);
+        if text_entries > MAX_OFFICE_TEXT_ENTRIES {
+            return Err(failure(
+                path,
+                "Office archive exceeds the 512 text-entry limit",
+            ));
+        }
+        let remaining = MAX_OFFICE_XML_BYTES.saturating_sub(total_bytes);
+        if entry.size() > remaining {
             return Err(failure(
                 path,
                 "Office XML exceeds the 16 MiB extraction limit",
             ));
         }
-        let mut bytes = Vec::with_capacity(usize::try_from(entry.size()).unwrap_or_default());
-        entry
+        let mut bytes =
+            Vec::with_capacity(usize::try_from(entry.size().min(remaining)).unwrap_or_default());
+        (&mut entry)
+            .take(remaining + 1)
             .read_to_end(&mut bytes)
             .map_err(|error| failure(path, error))?;
+        if bytes.len() as u64 > remaining {
+            return Err(failure(
+                path,
+                "Office XML exceeds the 16 MiB extraction limit",
+            ));
+        }
+        total_bytes = total_bytes.saturating_add(bytes.len() as u64);
         let xml = String::from_utf8(bytes).map_err(|error| failure(path, error))?;
         let extracted = xml_text(&xml, path)?;
         if !extracted.is_empty() {
@@ -155,18 +203,44 @@ fn extract_office(path: &Path, extension: &str) -> Result<Vec<IndexedChunk>, Ext
                 combined.push('\n');
             }
             combined.push_str(&extracted);
+            if combined.len() > MAX_EXTRACTED_TEXT_BYTES {
+                return Err(failure(path, "Extracted text exceeds the 8 MiB limit"));
+            }
         }
     }
-    Ok(chunks_from_text(&combined, "office-xml", None))
+    chunks_from_text(&combined, "office-xml", None, path)
 }
 
-fn extract_pdf(path: &Path) -> Result<(Vec<IndexedChunk>, Option<String>), ExtractionError> {
-    let pages = pdf_extract::extract_text_by_pages(path).map_err(|error| failure(path, error))?;
-    let chunks = pages
-        .iter()
-        .enumerate()
-        .flat_map(|(index, text)| chunks_from_text(text, "pdf-text", u32::try_from(index + 1).ok()))
-        .collect::<Vec<_>>();
+fn chunks_from_pdf_pages(
+    pages: &[String],
+    path: &Path,
+) -> Result<Vec<IndexedChunk>, ExtractionError> {
+    if pages.len() > MAX_PDF_PAGES {
+        return Err(failure(path, "PDF exceeds the 512 page extraction limit"));
+    }
+    let mut extracted_bytes = 0_usize;
+    let mut chunks = Vec::new();
+    for (index, text) in pages.iter().enumerate() {
+        extracted_bytes = extracted_bytes.saturating_add(text.len());
+        if extracted_bytes > MAX_EXTRACTED_TEXT_BYTES {
+            return Err(failure(path, "Extracted text exceeds the 8 MiB limit"));
+        }
+        let page_chunks = chunks_from_text(text, "pdf-text", u32::try_from(index + 1).ok(), path)?;
+        if chunks.len().saturating_add(page_chunks.len()) > MAX_DOCUMENT_CHUNKS {
+            return Err(failure(path, "Document exceeds the 256 chunk limit"));
+        }
+        chunks.extend(page_chunks);
+    }
+    Ok(chunks)
+}
+
+fn extract_pdf(
+    bytes: &[u8],
+    path: &Path,
+) -> Result<(Vec<IndexedChunk>, Option<String>), ExtractionError> {
+    let pages =
+        pdf_extract::extract_text_from_mem_by_pages(bytes).map_err(|error| failure(path, error))?;
+    let chunks = chunks_from_pdf_pages(&pages, path)?;
     let pending = chunks.is_empty().then(|| "ocr".to_owned());
     Ok((chunks, pending))
 }
@@ -212,12 +286,15 @@ pub fn extract_document(path: &Path) -> Result<ExtractedDocument, ExtractionErro
             if bytes.contains(&0) {
                 (Vec::new(), None)
             } else {
+                if bytes.len() > MAX_EXTRACTED_TEXT_BYTES {
+                    return Err(failure(path, "Extracted text exceeds the 8 MiB limit"));
+                }
                 let text = String::from_utf8(bytes).map_err(|error| failure(path, error))?;
-                (chunks_from_text(&text, "text", None), None)
+                (chunks_from_text(&text, "text", None, path)?, None)
             }
         }
-        "docx" | "xlsx" | "pptx" => (extract_office(path, &extension)?, None),
-        "pdf" => extract_pdf(path)?,
+        "docx" | "xlsx" | "pptx" => (extract_office(&bytes, path, &extension)?, None),
+        "pdf" => extract_pdf(&bytes, path)?,
         "avif" | "bmp" | "gif" | "ico" | "jpeg" | "jpg" | "png" | "webp" => {
             (Vec::new(), Some("ocr".to_owned()))
         }
@@ -297,5 +374,74 @@ mod tests {
         let extracted = extract_document(&path).unwrap();
         assert!(extracted.chunks.is_empty());
         assert_eq!(extracted.pending_enrichment.as_deref(), Some("ocr"));
+    }
+
+    #[test]
+    fn rejects_plain_text_beyond_the_extracted_text_budget() {
+        let fixture = SearchFixture::new("oversized-text-extraction");
+        let oversized = vec![b'a'; MAX_EXTRACTED_TEXT_BYTES + 1];
+        let path = fixture.file("oversized.txt", &oversized);
+
+        let error = extract_document(&path).unwrap_err();
+        assert!(error.to_string().contains("8 MiB"));
+    }
+
+    #[test]
+    fn rejects_office_xml_that_expands_beyond_the_decompression_budget() {
+        let fixture = SearchFixture::new("office-decompression-budget");
+        let path = fixture.root().join("compressed.docx");
+        let file = File::create(&path).unwrap();
+        let mut archive = zip::ZipWriter::new(file);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        archive.start_file("word/document.xml", options).unwrap();
+        archive
+            .write_all(&vec![b'a'; MAX_OFFICE_XML_BYTES as usize + 1])
+            .unwrap();
+        archive.finish().unwrap();
+
+        let error = extract_document(&path).unwrap_err();
+        assert!(error.to_string().contains("16 MiB"));
+    }
+
+    #[test]
+    fn rejects_office_archives_with_excessive_entry_counts() {
+        let fixture = SearchFixture::new("office-entry-budget");
+        let path = fixture.root().join("many-entries.docx");
+        let file = File::create(&path).unwrap();
+        let mut archive = zip::ZipWriter::new(file);
+        for index in 0..=MAX_ARCHIVE_ENTRIES {
+            archive
+                .start_file(
+                    format!("custom/entry-{index}.xml"),
+                    SimpleFileOptions::default(),
+                )
+                .unwrap();
+        }
+        archive.finish().unwrap();
+
+        let error = extract_document(&path).unwrap_err();
+        assert!(error.to_string().contains("1024 entry"));
+    }
+
+    #[test]
+    fn rejects_pdf_page_and_chunk_explosion_before_indexing() {
+        let fixture = SearchFixture::new("pdf-output-budgets");
+        let path = fixture.root().join("hostile.pdf");
+        let too_many_pages = vec![String::new(); MAX_PDF_PAGES + 1];
+        assert!(
+            chunks_from_pdf_pages(&too_many_pages, &path)
+                .unwrap_err()
+                .to_string()
+                .contains("512 page")
+        );
+
+        let too_many_chunks = vec!["content".to_owned(); MAX_DOCUMENT_CHUNKS + 1];
+        assert!(
+            chunks_from_pdf_pages(&too_many_chunks, &path)
+                .unwrap_err()
+                .to_string()
+                .contains("256 chunk")
+        );
     }
 }

@@ -13,6 +13,7 @@ import * as stylex from '@stylexjs/stylex';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {tokens} from '../../design-system/tokens.stylex';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
+import {limitSearchQuery} from '../../services/search/search-query';
 import {useQueryStore} from './query.store';
 import type {LauncherIntent} from './launcher.store';
 
@@ -74,21 +75,25 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     const clearWrapperRef = useRef<HTMLSpanElement>(null);
     const pendingFrame = useRef(0);
     const pendingTimer = useRef(0);
+    const composingRef = useRef(false);
+
+    const normalizeValue = (value: string) => intent === 'search' ? limitSearchQuery(value) : value;
 
     useImperativeHandle(ref, () => inputRef.current as HTMLInputElement, []);
 
     useEffect(() => {
       const syncDraft = (value: string) => {
-        if (inputRef.current && inputRef.current.value !== value) {
-          inputRef.current.value = value;
+        const normalizedValue = normalizeValue(value);
+        if (inputRef.current && inputRef.current.value !== normalizedValue) {
+          inputRef.current.value = normalizedValue;
         }
         if (clearWrapperRef.current) {
-          clearWrapperRef.current.hidden = value.length === 0;
+          clearWrapperRef.current.hidden = normalizedValue.length === 0;
         }
       };
       syncDraft(useQueryStore.getState().draft);
       return useQueryStore.subscribe((state) => state.draft, syncDraft);
-    }, []);
+    }, [intent]);
 
     useEffect(() => () => {
       window.cancelAnimationFrame(pendingFrame.current);
@@ -143,7 +148,12 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
 
     const handleInput = (event: FormEvent<HTMLInputElement>) => {
       const startedAt = performance.now();
-      const value = event.currentTarget.value;
+      const value = composingRef.current
+        ? event.currentTarget.value
+        : normalizeValue(event.currentTarget.value);
+      if (event.currentTarget.value !== value) {
+        event.currentTarget.value = value;
+      }
       if (clearWrapperRef.current) {
         clearWrapperRef.current.hidden = value.length === 0;
       }
@@ -152,9 +162,19 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     };
 
     const handleCompositionEnd = () => {
+      composingRef.current = false;
       cancelPendingCommit();
-      setDraft(inputRef.current?.value ?? '');
+      const value = normalizeValue(inputRef.current?.value ?? '');
+      if (inputRef.current) {
+        inputRef.current.value = value;
+      }
+      setDraft(value);
       endComposition();
+    };
+
+    const handleCompositionStart = () => {
+      composingRef.current = true;
+      startComposition();
     };
 
     return (
@@ -164,14 +184,14 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           aria-label={intent === 'computer' ? 'Describe a browser task' : 'Search files'}
           autoCapitalize="off"
           autoComplete="off"
-          defaultValue={useQueryStore.getState().draft}
+          defaultValue={normalizeValue(useQueryStore.getState().draft)}
           enterKeyHint="search"
           placeholder={intent === 'computer' ? 'Ask Lumen to complete a browser task' : 'Search apps, files, and settings'}
           spellCheck={false}
           type="search"
           {...stylex.props(styles.input)}
           onCompositionEnd={handleCompositionEnd}
-          onCompositionStart={startComposition}
+          onCompositionStart={handleCompositionStart}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
         />

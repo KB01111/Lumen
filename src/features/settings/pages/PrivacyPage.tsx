@@ -1,11 +1,14 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 
 import {DatabaseIcon, ExportIcon, ShieldCheckIcon, TrashIcon} from '@phosphor-icons/react';
 
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
+import {isNativeRuntime, nativeAiService} from '../../../services/ai/native-ai-service';
+import type {SearchService} from '../../../services/search/search-service';
 import {useAppearanceStore} from '../../../state/appearance.store';
 import {useDiagnosticsStore} from '../../diagnostics/diagnostics.store';
+import {useSearchHistoryStore} from '../../launcher/search-history.store';
 import {ConfirmationDialog} from '../components/ConfirmationDialog';
 import {SettingRow} from '../components/SettingRow';
 import {SettingSection} from '../components/SettingSection';
@@ -23,17 +26,81 @@ function rootSummary(paths: string[]) {
   return names.length <= 2 ? names.join(', ') : `${names.length} local folders`;
 }
 
-export function PrivacyPage() {
+interface PageNotice {
+  text: string;
+  tone: 'info' | 'error';
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export function PrivacyPage({
+  searchService,
+}: {
+  searchService?: Pick<SearchService, 'invalidateIndex'>;
+}) {
   const privacy = useSettingsStore((state) => state.privacy);
+  const cloudEnrichedRootIds = useSettingsStore((state) => state.ai.cloudEnrichedRootIds);
   const roots = useSettingsStore((state) => state.roots);
   const updatePrivacy = useSettingsStore((state) => state.updatePrivacy);
   const setPreview = useAppearanceStore((state) => state.setPreview);
   const prepareExport = useDiagnosticsStore((state) => state.prepareExport);
-  const [message, setMessage] = useState('');
+  const historyEntries = useSearchHistoryStore((state) => state.entries);
+  const historyHydrated = useSearchHistoryStore((state) => state.hydrated);
+  const hydrateHistory = useSearchHistoryStore((state) => state.hydrate);
+  const clearHistory = useSearchHistoryStore((state) => state.clear);
+  const [notice, setNotice] = useState<PageNotice>();
+  const [indexBusy, setIndexBusy] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const nativeAvailable = isNativeRuntime();
+
+  useEffect(() => {
+    void hydrateHistory();
+  }, [hydrateHistory]);
 
   const togglePreviews = (previewsEnabled: boolean) => {
     void updatePrivacy({previewsEnabled});
     void setPreview(previewsEnabled ? 'automatic' : 'never');
+  };
+
+  const deleteIndex = async () => {
+    if (!nativeAvailable) {
+      setNotice({
+        text: 'Local index deletion is available only in the native Windows app.',
+        tone: 'error',
+      });
+      return;
+    }
+
+    setIndexBusy(true);
+    setNotice(undefined);
+    try {
+      const status = await nativeAiService.deleteIndex();
+      try {
+        searchService?.invalidateIndex?.();
+        setNotice({text: status.message, tone: 'info'});
+      } catch (error) {
+        setNotice({
+          text: `The local index was deleted, but the active search cache could not be refreshed: ${errorMessage(error)}`,
+          tone: 'error',
+        });
+      }
+    } catch (error) {
+      setNotice({text: `The local index could not be deleted: ${errorMessage(error)}`, tone: 'error'});
+    } finally {
+      setIndexBusy(false);
+    }
+  };
+
+  const deleteHistory = async () => {
+    setHistoryBusy(true);
+    setNotice(undefined);
+    const cleared = await clearHistory();
+    setHistoryBusy(false);
+    setNotice(cleared
+      ? {text: 'Local search history cleared.', tone: 'info'}
+      : {text: 'The local search history could not be cleared. Existing history was kept.', tone: 'error'});
   };
 
   return (
@@ -41,7 +108,7 @@ export function PrivacyPage() {
       <SettingsCallout>
         <ShieldCheckIcon aria-hidden="true" size={16} /> Lumen search data stays on this PC. Cloud provider consent is separate and off by default.
       </SettingsCallout>
-      {message ? <SettingsCallout>{message}</SettingsCallout> : null}
+      {notice ? <SettingsCallout tone={notice.tone}>{notice.text}</SettingsCallout> : null}
       <SettingSection title="Local data">
         <SettingRow label="Local-only search" description="Filenames, previews, history, and development adapter results remain local." status={<StatusBadge tone="success">On device</StatusBadge>}>
           <ShieldCheckIcon aria-hidden="true" size={20} />
@@ -49,38 +116,58 @@ export function PrivacyPage() {
         <SettingRow label="Indexed root summary" description="Only folders you explicitly chose can be traversed.">
           <LumenText tone="secondary" variant="meta">{rootSummary(roots.map((root) => root.path))}</LumenText>
         </SettingRow>
-        <SettingRow label="Search history" description={`${privacy.historyEntries} local ${privacy.historyEntries === 1 ? 'entry' : 'entries'}.`}>
+        <SettingRow label="Search history" description={historyHydrated
+          ? `${historyEntries.length} local ${historyEntries.length === 1 ? 'entry' : 'entries'}, recorded only after successful file or folder opens.`
+          : 'Loading local history…'}>
           <ConfirmationDialog
-            confirmLabel={`Clear ${privacy.historyEntries} history entries`}
-            description="This removes local recent-query history. Indexed files are not affected."
+            confirmLabel={`Clear ${historyEntries.length} history entries`}
+            description="This removes the locally stored recalled queries. Indexed files are not affected."
             title="Clear search history?"
-            onConfirm={() => {
-              void updatePrivacy({historyEntries: 0});
-              setMessage('Local search history cleared.');
-            }}
+            onConfirm={() => void deleteHistory()}
           >
-            <LumenButton aria-label="Clear search history" isDisabled={privacy.historyEntries === 0} size="small" variant="quiet">
-              <TrashIcon aria-hidden="true" size={14} /> Clear
+            <LumenButton aria-label="Clear search history" isDisabled={!historyHydrated || historyEntries.length === 0 || historyBusy} size="small" variant="quiet">
+              <TrashIcon aria-hidden="true" size={14} /> {historyBusy ? 'Clearing…' : 'Clear'}
             </LumenButton>
           </ConfirmationDialog>
         </SettingRow>
-        <SettingRow label="Local index" description="The production index does not exist in phase one; this action previews the future confirmation.">
+        <SettingRow
+          label="Local index"
+          description={nativeAvailable
+            ? 'Delete generated local index data without changing source files.'
+            : 'Index deletion requires the native Windows app and is unavailable in the browser.'}
+          status={<StatusBadge tone={nativeAvailable ? 'success' : 'neutral'}>
+            {nativeAvailable ? 'On device' : 'Unavailable'}
+          </StatusBadge>}
+        >
           <ConfirmationDialog
             confirmLabel="Delete local index data"
-            description="A future build will remove generated index data without deleting source files. No index is present in phase one."
+            description="This removes Lumen's generated local index data. Your source files are not changed."
             title="Delete the local index?"
-            onConfirm={() => setMessage('Index deletion preview completed. No source files were changed.')}
+            onConfirm={() => void deleteIndex()}
           >
-            <LumenButton size="small" variant="danger"><DatabaseIcon aria-hidden="true" size={14} /> Delete index</LumenButton>
+            <LumenButton isDisabled={!nativeAvailable || indexBusy} size="small" variant="danger">
+              <DatabaseIcon aria-hidden="true" size={14} /> {indexBusy ? 'Deleting…' : 'Delete index'}
+            </LumenButton>
           </ConfirmationDialog>
         </SettingRow>
       </SettingSection>
-      <SettingSection title="Preview and future analysis">
+      <SettingSection title="Preview and cloud analysis">
         <SettingRow label="File previews" description="Disable all text, image, and metadata preview requests.">
           <LumenSwitch aria-label="File previews" isSelected={privacy.previewsEnabled} onChange={togglePreviews} />
         </SettingRow>
-        <SettingRow label="OCR analysis" description="OCR is not implemented in phase one." status={<StatusBadge tone="neutral">Future</StatusBadge>}>
-          <LumenSwitch aria-label="OCR analysis" isDisabled isSelected={false} />
+        <SettingRow
+          label="OCR analysis"
+          description="With cloud consent and a provider credential, images are sent through the confined cloud route only for roots with cloud enrichment enabled. Extracted text is stored in the local index."
+          status={<StatusBadge tone={cloudEnrichedRootIds.length > 0 ? 'info' : 'neutral'}>{cloudEnrichedRootIds.length > 0 ? 'Opted in' : 'Off'}</StatusBadge>}
+        >
+          <LumenText tone="secondary" variant="meta">Per root</LumenText>
+        </SettingRow>
+        <SettingRow
+          label="Audio transcription"
+          description="With cloud consent and a provider credential, audio is sent through the confined cloud route only for opted-in roots. Transcripts are stored in the local index."
+          status={<StatusBadge tone={cloudEnrichedRootIds.length > 0 ? 'info' : 'neutral'}>{cloudEnrichedRootIds.length > 0 ? 'Opted in' : 'Off'}</StatusBadge>}
+        >
+          <LumenText tone="secondary" variant="meta">Per root</LumenText>
         </SettingRow>
         <SettingRow label="Image understanding" description="Image analysis is not implemented in phase one." status={<StatusBadge tone="neutral">Future</StatusBadge>}>
           <LumenSwitch aria-label="Image understanding" isDisabled isSelected={false} />
@@ -95,7 +182,7 @@ export function PrivacyPage() {
             title="Prepare diagnostic export?"
             onConfirm={() => {
               const payload = prepareExport();
-              setMessage(`${payload.filename} is prepared in memory for review.`);
+              setNotice({text: `${payload.filename} is prepared in memory for review.`, tone: 'info'});
             }}
           >
             <LumenButton size="small"><ExportIcon aria-hidden="true" size={14} /> Export</LumenButton>

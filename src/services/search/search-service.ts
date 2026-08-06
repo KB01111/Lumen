@@ -11,5 +11,6 @@ export interface SearchService {
   openFile(fileId: string): Promise<void>;
   openContainingFolder(fileId: string): Promise<void>;
   subscribeToStatus(listener: (status: SearchStatus) => void): () => void;
+  invalidateIndex?(): void;
 }
 

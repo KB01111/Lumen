@@ -1,37 +1,52 @@
 import {Channel, invoke} from '@tauri-apps/api/core';
 
 import type {AnswerService} from './answer-service';
-import type {AnswerEvent, AnswerRequest} from './answer.types';
+import {answerEventSchema, answerRequestSchema, type AnswerEvent, type AnswerRequest} from './answer.types';
+
+function terminal(event: AnswerEvent) {
+  return event.type === 'completed' || event.type === 'cancelled' || event.type === 'failed';
+}
 
 export class TauriAnswerService implements AnswerService {
   async *stream(request: AnswerRequest, signal: AbortSignal): AsyncIterable<AnswerEvent> {
+    const parsedRequest = answerRequestSchema.parse(request);
     const queued: AnswerEvent[] = [];
     let wake: (() => void) | undefined;
-    let completed = false;
-    let failure: unknown;
-    const channel = new Channel<AnswerEvent>((event) => {
-      queued.push(event);
+    let finished = false;
+    let workerTerminal = false;
+    let startFailure: unknown;
+    let cancellation: Promise<void> | undefined;
+    const channel = new Channel<unknown>((payload) => {
+      try {
+        const event = answerEventSchema.parse(payload);
+        queued.push(event);
+        workerTerminal ||= terminal(event);
+        finished ||= workerTerminal;
+      } catch (error) {
+        startFailure = error;
+        finished = true;
+      }
       wake?.();
       wake = undefined;
     });
+    const startup = invoke<void>('start_answer', {request: parsedRequest, onEvent: channel})
+      .catch((error: unknown) => {
+        startFailure = error;
+        finished = true;
+        wake?.();
+        wake = undefined;
+      });
     const cancel = () => {
-      void invoke('cancel_answer', {requestId: request.requestId});
+      cancellation ??= invoke<void>('cancel_answer', {requestId: parsedRequest.requestId})
+        .catch(() => undefined);
+      finished = true;
       wake?.();
       wake = undefined;
     };
     signal.addEventListener('abort', cancel, {once: true});
-    void invoke<void>('start_answer', {request, onEvent: channel})
-      .catch((error: unknown) => {
-        failure = error;
-      })
-      .finally(() => {
-        completed = true;
-        wake?.();
-        wake = undefined;
-      });
 
     try {
-      while (!completed || queued.length > 0) {
+      while (!finished || queued.length > 0) {
         if (signal.aborted) return;
         if (queued.length === 0) {
           await new Promise<void>((resolve) => {
@@ -41,12 +56,14 @@ export class TauriAnswerService implements AnswerService {
         }
         yield queued.shift()!;
       }
-      if (failure) {
-        throw failure instanceof Error ? failure : new Error(String(failure));
+      if (startFailure) {
+        throw startFailure instanceof Error ? startFailure : new Error(String(startFailure));
       }
     } finally {
       signal.removeEventListener('abort', cancel);
-      if (!completed) cancel();
+      if (!workerTerminal) cancel();
+      void startup;
+      await cancellation;
     }
   }
 }

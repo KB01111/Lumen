@@ -9,8 +9,10 @@ import {SearchExperience} from '../launcher/SearchExperience';
 import {useLauncherStore} from '../launcher/launcher.store';
 import {usePreviewStore} from '../launcher/preview.store';
 import {useQueryStore} from '../launcher/query.store';
+import {useSearchHistoryStore} from '../launcher/search-history.store';
 import {useScopeStore} from '../launcher/scope.store';
 import {useSelectionStore} from '../launcher/selection.store';
+import {useSettingsStore} from '../settings/settings.store';
 
 function file(id: string): SearchResult {
   return {
@@ -42,8 +44,11 @@ afterEach(() => {
   useLauncherStore.getState().reset();
   usePreviewStore.getState().reset();
   useQueryStore.getState().reset();
+  useSearchHistoryStore.getState().reset();
   useScopeStore.getState().reset();
   useSelectionStore.getState().reset();
+  useSettingsStore.getState().reset();
+  localStorage.clear();
 });
 
 describe('Lumen keyboard coordination', () => {
@@ -58,6 +63,49 @@ describe('Lumen keyboard coordination', () => {
 
     await waitFor(() => expect(service.openedFiles).toEqual(['alpha']));
     await waitFor(() => expect(windowService.snapshot().visible).toBe(false));
+    await waitFor(() => expect(useSearchHistoryStore.getState().entries.map((entry) => entry.query)).toEqual(['alpha']));
+  });
+
+  it('recalls successful open queries with arrows only for file search', async () => {
+    const user = userEvent.setup();
+    useSearchHistoryStore.setState({
+      entries: [{query: 'latest query', openedAt: 2}, {query: 'older query', openedAt: 1}],
+      hydrated: true,
+    });
+    const service = new MemorySearchService();
+    render(<SearchExperience service={service} windowService={new BrowserWindowService()} />);
+    const input = screen.getByRole('searchbox', {name: 'Search files'});
+
+    await user.keyboard('{ArrowUp}');
+    expect(input).toHaveValue('latest query');
+    await user.keyboard('{ArrowUp}');
+    expect(input).toHaveValue('older query');
+    await user.keyboard('{ArrowDown}');
+    expect(input).toHaveValue('latest query');
+
+    useSettingsStore.setState((state) => ({general: {...state.general, historyEnabled: false}}));
+    useQueryStore.getState().clear();
+    await user.keyboard('{ArrowUp}');
+    expect(input).toHaveValue('');
+
+    useSettingsStore.setState((state) => ({general: {...state.general, historyEnabled: true}}));
+    useLauncherStore.setState({intent: 'computer'});
+    expect(await screen.findByRole('searchbox', {name: 'Describe a browser task'})).toBeVisible();
+    await user.keyboard('{ArrowUp}');
+    expect(screen.getByRole('searchbox', {name: 'Describe a browser task'})).toHaveValue('');
+  });
+
+  it('keeps ArrowDown result navigation until history recall starts with ArrowUp', async () => {
+    const user = userEvent.setup();
+    useSearchHistoryStore.setState({entries: [{query: 'older query', openedAt: 1}], hydrated: true});
+    const service = new MemorySearchService();
+    render(<SearchExperience service={service} windowService={new BrowserWindowService()} />);
+
+    await searchFor(service, user, 'code', [file('alpha'), file('beta')]);
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('searchbox', {name: 'Search files'})).toHaveValue('code');
+    expect(screen.getByRole('row', {name: /beta\.tsx/i})).toHaveAttribute('data-selected', 'true');
   });
 
   it('moves stable selection with arrows and announces its context', async () => {

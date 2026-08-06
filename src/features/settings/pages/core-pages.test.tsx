@@ -6,8 +6,9 @@ import {AppProviders} from '../../../app/AppProviders';
 import {defaultAppearanceSettings} from '../../../state/appearance.schema';
 import {appearanceStore} from '../../../state/appearance.store';
 import {nativeAiService} from '../../../services/ai/native-ai-service';
+import type {WindowService} from '../../../platform/window/window-service';
 import type {RootSelectionService} from '../../onboarding/root-selection-service';
-import {useSettingsStore} from '../settings.store';
+import {settingsPersistence, useSettingsStore} from '../settings.store';
 import {AppearancePage} from './AppearancePage';
 import {ComputerUsePage} from './ComputerUsePage';
 import {GeneralPage} from './GeneralPage';
@@ -26,6 +27,16 @@ class DeferredRootService implements RootSelectionService {
   resolve(path: string | null) {
     this.resolveSelection?.(path);
   }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return {promise, resolve, reject};
 }
 
 function renderWithProviders(children: React.ReactNode) {
@@ -69,6 +80,110 @@ describe('core settings pages', () => {
 
     expect(screen.getByRole('button', {name: 'Global shortcut'})).toHaveTextContent('Ctrl + Shift + L');
     expect(useSettingsStore.getState().general.shortcut).toBe('Ctrl + Shift + L');
+  });
+
+  it('describes and toggles local successful-open history without a native preference call', async () => {
+    const user = userEvent.setup();
+    const windowService: WindowService = {
+      show: vi.fn(),
+      hide: vi.fn(),
+      focusInput: vi.fn(),
+      setShortcut: vi.fn(),
+      applyGeneralPreferences: vi.fn(),
+    };
+    renderWithProviders(<GeneralPage windowService={windowService} />);
+
+    expect(screen.getByText(/Keep queries only after a successful file or folder open/)).toBeVisible();
+    await user.click(screen.getByRole('switch', {name: 'Search history'}));
+    await waitFor(() => expect(useSettingsStore.getState().general.historyEnabled).toBe(false));
+    expect(windowService.applyGeneralPreferences).not.toHaveBeenCalled();
+  });
+
+  it('does not persist a shortcut when Windows rejects its registration', async () => {
+    const user = userEvent.setup();
+    const windowService: WindowService = {
+      show: vi.fn(),
+      hide: vi.fn(),
+      focusInput: vi.fn(),
+      setShortcut: vi.fn().mockRejectedValue(new Error('reserved by another app')),
+      applyGeneralPreferences: vi.fn(),
+    };
+    renderWithProviders(<GeneralPage windowService={windowService} />);
+
+    await user.click(screen.getByRole('button', {name: 'Global shortcut'}));
+    await user.keyboard('{Control>}{Shift>}l{/Shift}{/Control}');
+
+    expect(await screen.findByText(/Windows could not register that shortcut/)).toBeVisible();
+    expect(useSettingsStore.getState().general.shortcut).toBe('Alt + Space');
+  });
+
+  it('restores the native shortcut when settings persistence fails', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(settingsPersistence, 'write').mockRejectedValue(new Error('disk unavailable'));
+    const setShortcut = vi.fn().mockResolvedValue(undefined);
+    const windowService: WindowService = {
+      show: vi.fn(),
+      hide: vi.fn(),
+      focusInput: vi.fn(),
+      setShortcut,
+      applyGeneralPreferences: vi.fn(),
+    };
+    renderWithProviders(<GeneralPage windowService={windowService} />);
+
+    await user.click(screen.getByRole('button', {name: 'Global shortcut'}));
+    await user.keyboard('{Control>}{Shift>}l{/Shift}{/Control}');
+
+    expect(await screen.findByText('The shortcut was not saved, so Windows was restored to your previous shortcut.')).toBeVisible();
+    expect(setShortcut).toHaveBeenNthCalledWith(1, 'Ctrl + Shift + L');
+    expect(setShortcut).toHaveBeenLastCalledWith('Alt + Space');
+    expect(useSettingsStore.getState().general.shortcut).toBe('Alt + Space');
+  });
+
+  it('keeps General settings unchanged when their native application fails', async () => {
+    const user = userEvent.setup();
+    const windowService: WindowService = {
+      show: vi.fn(),
+      hide: vi.fn(),
+      focusInput: vi.fn(),
+      setShortcut: vi.fn(),
+      applyGeneralPreferences: vi.fn().mockRejectedValue(new Error('autostart unavailable')),
+    };
+    renderWithProviders(<GeneralPage windowService={windowService} />);
+
+    await user.click(screen.getByRole('switch', {name: 'Launch at startup'}));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Windows could not apply Launch at startup');
+    expect(useSettingsStore.getState().general.launchAtStartup).toBe(false);
+  });
+
+  it('serializes General mutations and rolls back only the failed field', async () => {
+    const user = userEvent.setup();
+    const pendingWrite = deferred<void>();
+    vi.spyOn(settingsPersistence, 'write').mockReturnValue(pendingWrite.promise);
+    const windowService: WindowService = {
+      show: vi.fn(),
+      hide: vi.fn(),
+      focusInput: vi.fn(),
+      setShortcut: vi.fn(),
+      applyGeneralPreferences: vi.fn().mockResolvedValue(undefined),
+    };
+    renderWithProviders(<GeneralPage windowService={windowService} />);
+
+    await user.click(screen.getByRole('switch', {name: 'Launch at startup'}));
+    await waitFor(() => expect(useSettingsStore.getState().general.launchAtStartup).toBe(true));
+    expect(screen.getByRole('button', {name: /Monitor behavior/})).toBeDisabled();
+
+    act(() => useSettingsStore.setState((state) => ({
+      general: {...state.general, historyEnabled: false},
+    })));
+    pendingWrite.reject(new Error('disk unavailable'));
+
+    expect(await screen.findByText('Launch at startup was not saved, so Windows was restored to your previous setting.')).toBeVisible();
+    expect(useSettingsStore.getState().general).toMatchObject({
+      launchAtStartup: false,
+      historyEnabled: false,
+    });
+    expect(screen.getByRole('button', {name: /Monitor behavior/})).toBeEnabled();
   });
 
   it('adds, pauses, and removes an indexed root with confirmation', async () => {
@@ -156,27 +271,88 @@ describe('core settings pages', () => {
 
   it('records Computer Use cloud consent separately from answer consent', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<ComputerUsePage />);
+    vi.spyOn(settingsPersistence, 'write').mockResolvedValue(undefined);
+    Reflect.defineProperty(window, '__TAURI_INTERNALS__', {configurable: true, value: {}});
+    renderWithProviders(<ComputerUsePage service={{
+      cancelActive: vi.fn(),
+      health: vi.fn().mockResolvedValue({
+        state: 'ready',
+        mode: 'packaged',
+        browser: 'Microsoft Edge',
+        credentialConfigured: false,
+      }),
+    }} />);
 
     await user.click(screen.getByRole('button', {name: 'Review Computer Use consent'}));
     await user.click(screen.getByRole('button', {name: 'Allow Computer Use'}));
 
-    expect(useSettingsStore.getState().computerUse.cloudConsent).toBe(true);
+    await waitFor(() => expect(useSettingsStore.getState().computerUse.cloudConsent).toBe(true));
     expect(useSettingsStore.getState().ai.cloudAnswerConsent).toBe(false);
     expect(screen.getByText('Consent granted')).toBeVisible();
   });
 
+  it('stops an active native task only after consent revocation is persisted', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(settingsPersistence, 'write').mockResolvedValue(undefined);
+    const cancelActive = vi.fn().mockImplementation(() => {
+      expect(useSettingsStore.getState().computerUse.cloudConsent).toBe(false);
+      return Promise.resolve();
+    });
+    Object.defineProperty(window, '__TAURI_INTERNALS__', {
+      configurable: true,
+      value: {},
+    });
+    useSettingsStore.setState((state) => ({
+      computerUse: {...state.computerUse, cloudConsent: true},
+    }));
+    renderWithProviders(<ComputerUsePage service={{
+      cancelActive,
+      health: vi.fn().mockResolvedValue({
+        state: 'ready',
+        mode: 'packaged',
+        browser: 'Microsoft Edge',
+        credentialConfigured: true,
+      }),
+    }} />);
+
+    await user.click(screen.getByRole('button', {name: 'Revoke'}));
+
+    await waitFor(() => expect(cancelActive).toHaveBeenCalledOnce());
+    expect(useSettingsStore.getState().computerUse.cloudConsent).toBe(false);
+    expect(screen.getByText('Computer Use consent revoked. Any active browser task was stopped.')).toBeVisible();
+  });
+
   it('rejects embedded credentials in a Computer Use start page', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<ComputerUsePage />);
+    Reflect.defineProperty(window, '__TAURI_INTERNALS__', {configurable: true, value: {}});
+    renderWithProviders(<ComputerUsePage service={{
+      cancelActive: vi.fn(),
+      health: vi.fn().mockResolvedValue({
+        state: 'ready',
+        mode: 'packaged',
+        browser: 'Microsoft Edge',
+        credentialConfigured: false,
+      }),
+    }} />);
 
     const startPage = screen.getByRole('textbox', {name: 'Computer Use start page'});
     await user.clear(startPage);
     await user.type(startPage, 'https://user:secret@example.com');
-    await user.click(screen.getByRole('button', {name: 'Save'}));
+    await user.click(screen.getByRole('button', {name: 'Save Computer Use start page'}));
 
     expect(screen.getByText('The start page must be an absolute HTTP or HTTPS URL.')).toBeVisible();
     expect(useSettingsStore.getState().computerUse.initialUrl).toBe('https://www.google.com');
+  });
+
+  it('labels Computer Use controls unavailable in browser preview mode', () => {
+    renderWithProviders(<ComputerUsePage />);
+
+    expect(screen.getByText('Worker health is available only through the native Rust boundary.')).toBeVisible();
+    expect(screen.getByRole('button', {name: 'Check'})).toBeDisabled();
+    expect(screen.getByRole('button', {name: /Computer Use model/})).toBeDisabled();
+    expect(screen.getByRole('textbox', {name: 'Computer Use start page'})).toBeDisabled();
+    expect(screen.getByText('Native only')).toBeVisible();
+    expect(screen.queryByRole('button', {name: 'Review Computer Use consent'})).not.toBeInTheDocument();
   });
 
   it('reflects a Computer Use start page loaded after the page mounts', () => {

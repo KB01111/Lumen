@@ -2,6 +2,12 @@ import {createHash} from 'node:crypto';
 import {mkdir, readFile, rm, stat, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 
+import {
+  testComputerUseWorker,
+  verifyComputerUsePackagedHealth,
+  verifyComputerUseSourceHealth,
+} from './verify-computer-use';
+
 const projectRoot = join(import.meta.dirname, '..');
 const workerRoot = join(projectRoot, 'workers', 'computer-use-preview');
 const virtualEnvironment = join(workerRoot, '.venv');
@@ -14,6 +20,11 @@ const output = join(
   'binaries',
   'lumen-computer-use-x86_64-pc-windows-msvc.exe',
 );
+
+interface BuildMetadata {
+  inputDigest: string;
+  outputDigest: string;
+}
 
 const inputs = [
   'worker.py',
@@ -44,8 +55,42 @@ function pythonVersion(binary: string) {
     cmd: [binary, '-c', 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'],
     stdout: 'pipe',
     stderr: 'ignore',
+    timeout: 10_000,
   });
   return result.success ? result.stdout.toString().trim() : '';
+}
+
+async function digest(path: string) {
+  return createHash('sha256').update(await readFile(path)).digest('hex');
+}
+
+async function readBuildMetadata(): Promise<BuildMetadata | undefined> {
+  try {
+    const parsed = JSON.parse(await readFile(buildIdPath, 'utf8')) as Partial<BuildMetadata>;
+    return typeof parsed.inputDigest === 'string' && typeof parsed.outputDigest === 'string'
+      ? {inputDigest: parsed.inputDigest, outputDigest: parsed.outputDigest}
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function lockUsesArtifactHashes(lock: string) {
+  const blocks: string[] = [];
+  let current = '';
+  for (const line of lock.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    if (!/^\s/.test(line) && !trimmed.startsWith('--hash=')) {
+      if (current) blocks.push(current);
+      current = line;
+    } else {
+      current += `\n${line}`;
+    }
+  }
+  if (current) blocks.push(current);
+  return blocks.length > 0
+    && blocks.every((requirement) => requirement.includes('--hash=sha256:'));
 }
 
 async function buildId() {
@@ -80,55 +125,71 @@ async function ensureVirtualEnvironment() {
 
 export async function stageComputerUse() {
   await ensureVirtualEnvironment();
-  const expectedBuildId = await buildId();
-  const existingBuildId = await readFile(buildIdPath, 'utf8').catch(() => '');
-  if (
-    existingBuildId === expectedBuildId
-    && (await stat(output).catch(() => undefined))?.isFile()
-  ) {
+  const expectedInputDigest = await buildId();
+  const existingBuild = await readBuildMetadata();
+  const outputExists = (await stat(output).catch(() => undefined))?.isFile() === true;
+  const outputDigest = outputExists ? await digest(output) : '';
+  if (existingBuild?.inputDigest === expectedInputDigest && existingBuild.outputDigest === outputDigest) {
     console.log('Gemini Computer Use sidecar is already staged.');
-    return;
+  } else {
+    const lockPath = join(workerRoot, 'requirements.lock');
+    const lock = await readFile(lockPath, 'utf8');
+    const hashed = lockUsesArtifactHashes(lock);
+    if (!hashed) {
+      console.warn(
+        'Computer Use dependencies are version-pinned but not artifact-hashed. '
+        + 'With network access, regenerate the lock using '
+        + '`uv pip compile --generate-hashes --output-file requirements.lock requirements-build.txt`; '
+        + 'do not enable --require-hashes until every resolved artifact has a recorded hash.',
+      );
+    }
+    run([
+      virtualPython,
+      '-m',
+      'pip',
+      'install',
+      '--disable-pip-version-check',
+      ...(hashed ? ['--require-hashes'] : []),
+      '-r',
+      lockPath,
+    ], workerRoot);
+    await rm(buildRoot, {recursive: true, force: true});
+    await mkdir(buildRoot, {recursive: true});
+    await mkdir(join(projectRoot, 'src-tauri', 'binaries'), {recursive: true});
+    run([
+      virtualPython,
+      '-m',
+      'PyInstaller',
+      '--noconfirm',
+      '--clean',
+      '--onefile',
+      '--name',
+      'lumen-computer-use-x86_64-pc-windows-msvc',
+      '--paths',
+      join(workerRoot, 'upstream'),
+      '--hidden-import',
+      'agent',
+      '--collect-all',
+      'google.genai',
+      '--collect-all',
+      'playwright',
+      '--distpath',
+      join(projectRoot, 'src-tauri', 'binaries'),
+      '--workpath',
+      join(buildRoot, 'work'),
+      '--specpath',
+      buildRoot,
+      join(workerRoot, 'worker.py'),
+    ], workerRoot);
+    await writeFile(buildIdPath, JSON.stringify({
+      inputDigest: expectedInputDigest,
+      outputDigest: await digest(output),
+    } satisfies BuildMetadata));
+    console.log('Staged the Gemini Computer Use worker for Microsoft Edge.');
   }
-
-  run([
-    virtualPython,
-    '-m',
-    'pip',
-    'install',
-    '--disable-pip-version-check',
-    '-r',
-    join(workerRoot, 'requirements.lock'),
-  ], workerRoot);
-  await rm(buildRoot, {recursive: true, force: true});
-  await mkdir(buildRoot, {recursive: true});
-  await mkdir(join(projectRoot, 'src-tauri', 'binaries'), {recursive: true});
-  run([
-    virtualPython,
-    '-m',
-    'PyInstaller',
-    '--noconfirm',
-    '--clean',
-    '--onefile',
-    '--name',
-    'lumen-computer-use-x86_64-pc-windows-msvc',
-    '--paths',
-    join(workerRoot, 'upstream'),
-    '--hidden-import',
-    'agent',
-    '--collect-all',
-    'google.genai',
-    '--collect-all',
-    'playwright',
-    '--distpath',
-    join(projectRoot, 'src-tauri', 'binaries'),
-    '--workpath',
-    join(buildRoot, 'work'),
-    '--specpath',
-    buildRoot,
-    join(workerRoot, 'worker.py'),
-  ], workerRoot);
-  await writeFile(buildIdPath, expectedBuildId);
-  console.log('Staged the Gemini Computer Use worker for Microsoft Edge.');
+  await testComputerUseWorker();
+  await verifyComputerUseSourceHealth();
+  await verifyComputerUsePackagedHealth();
 }
 
 if (import.meta.main) {

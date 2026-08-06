@@ -1,6 +1,8 @@
 import {z} from 'zod';
 
-export const searchScopeSchema = z.enum([
+import {isSearchQueryWithinLimit, SEARCH_QUERY_MAX_CHARACTERS} from './search-query';
+
+export const searchScopeValues = [
   'all',
   'files',
   'folders',
@@ -9,8 +11,20 @@ export const searchScopeSchema = z.enum([
   'images',
   'recent',
   'related',
-]);
+] as const;
+
+export const searchScopeSchema = z.enum(searchScopeValues);
 export type SearchScope = z.infer<typeof searchScopeSchema>;
+
+export const searchRecencySchema = z.enum(['low', 'balanced', 'high']);
+export type SearchRecency = z.infer<typeof searchRecencySchema>;
+
+export const searchPreferencesSchema = z.object({
+  enabledScopes: z.array(searchScopeSchema).min(1),
+  filenamePriority: z.number().int().min(0).max(100),
+  recency: searchRecencySchema,
+});
+export type SearchPreferences = z.infer<typeof searchPreferencesSchema>;
 
 export const searchResultKindSchema = z.enum([
   'folder',
@@ -96,10 +110,13 @@ export type SearchFilter = z.infer<typeof searchFilterSchema>;
 
 export const searchRequestSchema = z.object({
   requestId: z.number().int().positive(),
-  query: z.string(),
+  query: z.string().refine(isSearchQueryWithinLimit, {
+    message: `Search queries cannot exceed ${SEARCH_QUERY_MAX_CHARACTERS.toLocaleString()} characters.`,
+  }),
   scope: searchScopeSchema,
   filters: z.array(searchFilterSchema).default([]),
   limit: z.number().int().positive().max(10_000).default(500),
+  preferences: searchPreferencesSchema,
 });
 export type SearchRequest = z.infer<typeof searchRequestSchema>;
 

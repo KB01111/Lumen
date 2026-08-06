@@ -145,6 +145,18 @@ describe('PreviewPane', () => {
     expect(within(alert).getByText('Lumen cannot read this location.')).toBeVisible();
   });
 
+  it.each([
+    {isOpen: true, mode: 'pane' as const},
+    {isOpen: true, mode: 'dialog' as const},
+  ])('does not request $mode previews while Privacy settings disable them', ({isOpen, mode}) => {
+    const service = new MemorySearchService();
+    render(<PreviewPane fileId="private" isOpen={isOpen} mode={mode} previewsEnabled={false} reducedMotion service={service} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('File previews disabled');
+    expect(screen.getByRole('alert')).toHaveTextContent('File previews are disabled in Privacy settings.');
+    expect(service.previewSignal('private')).toBeUndefined();
+  });
+
   it('dismisses the narrow details dialog with Escape and restores focus', async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();

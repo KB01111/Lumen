@@ -8,6 +8,8 @@ import {LumenText} from '../design-system/primitives/LumenText';
 import type {AppearancePreferences} from '../design-system/themes.stylex';
 import {tokens} from '../design-system/tokens.stylex';
 import {SearchExperience} from '../features/launcher/SearchExperience';
+import {useSearchHistoryStore} from '../features/launcher/search-history.store';
+import {useActivityStore} from '../features/activity/activity.store';
 import {useLauncherStore} from '../features/launcher/launcher.store';
 import {useQueryStore} from '../features/launcher/query.store';
 import {useOnboardingStore} from '../features/onboarding/onboarding.store';
@@ -15,6 +17,7 @@ import {createIndexedRoot} from '../features/settings/indexed-root';
 import {useSettingsStore} from '../features/settings/settings.store';
 import {createWindowService} from '../platform/window/tauri-window-service';
 import {TauriAnswerService} from '../services/answer/tauri-answer-service';
+import {UnavailableAnswerService} from '../services/answer/unavailable-answer-service';
 import {TauriComputerUseService} from '../services/computer-use/tauri-computer-use-service';
 import {UnavailableComputerUseService} from '../services/computer-use/unavailable-computer-use-service';
 import {isNativeRuntime, nativeAiService} from '../services/ai/native-ai-service';
@@ -121,8 +124,7 @@ const foundationAppearances: AppearancePreferences[] = [
 ];
 
 function createDefaultSearchService() {
-  const useDevelopmentService = import.meta.env.DEV &&
-    new URLSearchParams(window.location.search).get('service') === 'memory';
+  const useDevelopmentService = isDevelopmentMemoryMode();
   if (useDevelopmentService) {
     return new DevelopmentSearchService();
   }
@@ -147,6 +149,9 @@ function createDefaultSearchService() {
           id: root.id,
           path: root.path,
           cloudEnrichment: settings.ai.cloudEnrichedRootIds.includes(root.id),
+          exclusions: root.exclusions,
+          includeHidden: root.includeHidden,
+          maxFileSizeMb: root.maxFileSizeMb,
         }));
       if (configuredRoots.length > 0) {
         return configuredRoots;
@@ -156,13 +161,25 @@ function createDefaultSearchService() {
         id: `onboarding:${onboardingRoot}`,
         path: onboardingRoot,
         cloudEnrichment: false,
+        exclusions: [],
+        includeHidden: false,
+        maxFileSizeMb: 256,
       }] : [];
     },
+    isBackgroundWorkPaused: () => useActivityStore.getState().manualPauseActive,
   });
 }
 
+function isDevelopmentMemoryMode() {
+  return import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('service') === 'memory';
+}
+
 const defaultSearchService = createDefaultSearchService();
-const defaultAnswerService = new TauriAnswerService();
+const defaultAnswerService = isNativeRuntime() && !isDevelopmentMemoryMode()
+  ? new TauriAnswerService()
+  : new UnavailableAnswerService();
 const defaultComputerUseService = isNativeRuntime()
   ? new TauriComputerUseService()
   : new UnavailableComputerUseService();
@@ -236,6 +253,10 @@ export function App() {
   const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
   const hydrateOnboarding = useOnboardingStore((state) => state.hydrate);
   const hydrateSettings = useSettingsStore((state) => state.hydrate);
+  const settingsHydrated = useSettingsStore((state) => state.hydrated);
+  const hydrateSearchHistory = useSearchHistoryStore((state) => state.hydrate);
+  const searchHistoryHydrated = useSearchHistoryStore((state) => state.hydrated);
+  const general = useSettingsStore((state) => state.general);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
   const keepLocalWarm = useSettingsStore((state) => state.ai.keepLocalWarm);
   const [foundationAppearance, setFoundationAppearance] = useState(0);
@@ -268,14 +289,26 @@ export function App() {
   useEffect(() => {
     if (!foundationPreview && !galleryPreview) {
       void hydrateSettings();
+      void hydrateSearchHistory();
     }
-  }, [foundationPreview, galleryPreview, hydrateSettings]);
+  }, [foundationPreview, galleryPreview, hydrateSearchHistory, hydrateSettings]);
 
   useEffect(() => {
-    if (isNativeRuntime()) {
-      void nativeAiService.setLocalRuntimeMode(runtimeMode, keepLocalWarm);
-    }
-  }, [keepLocalWarm, runtimeMode]);
+    if (!settingsHydrated || !isNativeRuntime()) return;
+    void appWindowService.applyGeneralPreferences({
+      launchAtStartup: general.launchAtStartup,
+      monitorBehavior: general.monitorBehavior,
+      closeBehavior: general.closeBehavior,
+    }).catch(() => undefined);
+    void appWindowService.setShortcut(general.shortcut).catch(() => undefined);
+  }, [general.closeBehavior, general.launchAtStartup, general.monitorBehavior, general.shortcut, settingsHydrated]);
+
+  useEffect(() => {
+    if (!settingsHydrated || !isNativeRuntime()) return;
+    void nativeAiService
+      .setLocalRuntimeMode(runtimeMode, keepLocalWarm)
+      .catch(() => undefined);
+  }, [keepLocalWarm, runtimeMode, settingsHydrated]);
 
   const completeOnboarding = useCallback(() => {
     const root = useOnboardingStore.getState().root;
@@ -295,6 +328,8 @@ export function App() {
   const onboardingPending = !foundationPreview && !galleryPreview &&
     onboardingMode === 'persisted' &&
     !onboardingHydrated;
+  const settingsPending = !foundationPreview && !galleryPreview && !settingsHydrated;
+  const searchHistoryPending = !foundationPreview && !galleryPreview && !searchHistoryHydrated;
 
   const closeSettings = useCallback(() => {
     const targetMode = useQueryStore.getState().committed ? 'expanded' : 'collapsed';
@@ -350,15 +385,15 @@ export function App() {
               </kbd>
             </div>
           </LumenSurface>
-        ) : showOnboarding ? (
+        ) : onboardingPending || settingsPending || searchHistoryPending ? null : showOnboarding ? (
           <Suspense fallback={null}>
             <OnboardingFlow onComplete={completeOnboarding} />
           </Suspense>
         ) : settingsOpen ? (
           <Suspense fallback={null}>
-            <SettingsShell onClose={closeSettings} />
+            <SettingsShell searchService={defaultSearchService} onClose={closeSettings} />
           </Suspense>
-        ) : onboardingPending ? null : (
+        ) : (
           <SearchExperience
             answerService={defaultAnswerService}
             computerUseService={defaultComputerUseService}

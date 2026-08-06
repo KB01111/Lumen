@@ -7,6 +7,7 @@ import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenIconButton} from '../../../design-system/primitives/LumenIconButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {tokens} from '../../../design-system/tokens.stylex';
+import {isNativeRuntime, nativeAiService} from '../../../services/ai/native-ai-service';
 import {ActivityStatus} from '../../activity/ActivityStatus';
 import {ApplicationOverrideRow} from '../../activity/ApplicationOverrideRow';
 import {useActivityStore} from '../../activity/activity.store';
@@ -15,6 +16,7 @@ import {SettingRow} from '../components/SettingRow';
 import {SettingSection} from '../components/SettingSection';
 import {LumenSelect, LumenSwitch, LumenTextField} from '../components/SettingsControls';
 import {SettingsCallout, SettingsPage} from '../components/SettingsPage';
+import {StatusBadge} from '../components/StatusBadge';
 import {useSettingsStore} from '../settings.store';
 
 const styles = stylex.create({
@@ -35,127 +37,156 @@ const styles = stylex.create({
   },
 });
 
-function applicationId(application: string) {
-  return `app-${application.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
-export function ActivityPage() {
+type ActivityRuntimeService = Pick<typeof nativeAiService, 'pauseEnrichment' | 'resumeEnrichment'>;
+
+export function ActivityPage({
+  runtimeService = nativeAiService,
+}: {
+  runtimeService?: ActivityRuntimeService;
+}) {
   const activity = useSettingsStore((state) => state.activity);
-  const updateActivity = useSettingsStore((state) => state.updateActivity);
+  const manualPauseActive = useActivityStore((state) => state.manualPauseActive);
   const mode = useActivityStore((state) => state.mode);
   const message = useActivityStore((state) => state.message);
   const setMode = useActivityStore((state) => state.setMode);
-  const toggleUserPause = useActivityStore((state) => state.toggleUserPause);
+  const setUserPaused = useActivityStore((state) => state.setUserPaused);
   const resetClassifications = useActivityStore((state) => state.resetClassifications);
-  const [overrideName, setOverrideName] = useState('');
-  const [gameName, setGameName] = useState('');
+  const [runtimeBusy, setRuntimeBusy] = useState(false);
+  const [runtimeError, setRuntimeError] = useState('');
+  const nativeAvailable = isNativeRuntime();
+  const userPaused = manualPauseActive;
 
-  const addOverride = () => {
-    const application = overrideName.trim();
-    if (!application || activity.overrides.some((item) => item.application.toLowerCase() === application.toLowerCase())) return;
-    void updateActivity({
-      overrides: [...activity.overrides, {id: applicationId(application), application, policy: 'automatic'}],
-    });
-    setOverrideName('');
-  };
-
-  const addGame = () => {
-    const game = gameName.trim();
-    if (!game || activity.userGames.includes(game)) return;
-    void updateActivity({userGames: [...activity.userGames, game]});
-    setGameName('');
-  };
-
-  const resetAll = () => {
-    void updateActivity({overrides: [], userGames: []});
-    resetClassifications();
+  const updateManualPause = async () => {
+    if (!nativeAvailable || runtimeBusy) return;
+    const shouldPause = !userPaused;
+    setRuntimeBusy(true);
+    setRuntimeError('');
+    try {
+      if (shouldPause) {
+        await runtimeService.pauseEnrichment();
+      } else {
+        await runtimeService.resumeEnrichment();
+      }
+      setUserPaused(shouldPause);
+    } catch (error) {
+      setRuntimeError(
+        `Background work could not be ${shouldPause ? 'paused' : 'resumed'}: ${errorMessage(error)}`,
+      );
+    } finally {
+      setRuntimeBusy(false);
+    }
   };
 
   return (
     <SettingsPage>
-      <div {...stylex.props(styles.stateToolbar)}>
-        <LumenSelect<ActivityMode>
-          aria-label="Development activity state"
-          options={[
-            {id: 'indexing', label: 'Indexing'},
-            {id: 'slow', label: 'Indexing slowly'},
-            {id: 'gaming', label: 'Paused for gaming'},
-            {id: 'fullscreen', label: 'Paused for fullscreen'},
-            {id: 'cinema', label: 'Cinema mode'},
-            {id: 'idle', label: 'Waiting for idle'},
-            {id: 'battery', label: 'Paused on battery'},
-            {id: 'user', label: 'Paused by user'},
-          ]}
-          value={mode}
-          onChange={(next) => setMode(next)}
-        />
-        <LumenButton size="small" variant={mode === 'user' ? 'primary' : 'subtle'} onPress={toggleUserPause}>
-          {mode === 'user' ? 'Resume indexing' : 'Pause indexing'}
-        </LumenButton>
-      </div>
-      <ActivityStatus mode={mode} />
+      {import.meta.env.DEV ? (
+        <div {...stylex.props(styles.stateToolbar)}>
+          <LumenSelect<ActivityMode>
+            aria-label="Development activity state"
+            isDisabled={userPaused}
+            options={[
+              {id: 'indexing', label: 'Indexing'},
+              {id: 'slow', label: 'Indexing slowly'},
+              {id: 'gaming', label: 'Paused for gaming'},
+              {id: 'fullscreen', label: 'Paused for fullscreen'},
+              {id: 'cinema', label: 'Cinema mode'},
+              {id: 'idle', label: 'Waiting for idle'},
+              {id: 'battery', label: 'Paused on battery'},
+              {id: 'user', label: 'Paused by user'},
+            ]}
+            value={mode}
+            onChange={(next) => setMode(next)}
+          />
+          <LumenButton isDisabled={userPaused} size="small" variant="quiet" onPress={resetClassifications}>
+            Reset development state
+          </LumenButton>
+        </div>
+      ) : null}
+      <ActivityStatus mode={nativeAvailable ? userPaused ? 'user' : undefined : mode} />
+      {runtimeError ? <SettingsCallout tone="error">{runtimeError}</SettingsCallout> : null}
       {message ? <SettingsCallout>{message}</SettingsCallout> : null}
-      <SettingSection title="Automatic quiet modes" description="Classification changes background work only; the launcher remains available.">
-        <SettingRow label="Detect games automatically" description="Pause background indexing for recognized games.">
-          <LumenSwitch aria-label="Detect games automatically" isSelected={activity.detectGames} onChange={(detectGames) => void updateActivity({detectGames})} />
+      <SettingSection title="Manual control" description="Manual pause is the only connected activity policy in phase one.">
+        <SettingRow
+          label="Background indexing and enrichment"
+          description={nativeAvailable
+            ? 'Pausing stops native enrichment and new automatic index synchronization. Existing filename and matching-index search stay available.'
+            : 'Manual background pause requires the native Windows app.'}
+          status={<StatusBadge tone={nativeAvailable ? userPaused ? 'warning' : 'success' : 'neutral'}>
+            {nativeAvailable ? userPaused ? 'Paused' : 'Available' : 'Unavailable'}
+          </StatusBadge>}
+        >
+          <LumenButton
+            isDisabled={!nativeAvailable || runtimeBusy}
+            size="small"
+            variant={userPaused ? 'primary' : 'subtle'}
+            onPress={() => void updateManualPause()}
+          >
+            {runtimeBusy ? 'Working…' : userPaused ? 'Resume background work' : 'Pause background work'}
+          </LumenButton>
         </SettingRow>
-        <SettingRow label="Detect fullscreen applications" description="Stay quiet when a foreground app occupies the display.">
-          <LumenSwitch aria-label="Detect fullscreen applications" isSelected={activity.detectFullscreen} onChange={(detectFullscreen) => void updateActivity({detectFullscreen})} />
+      </SettingSection>
+      <SettingSection title="Automatic quiet modes" description="Windows activity detection is not connected in phase one. Stored values are preserved for compatibility.">
+        <SettingRow label="Detect games automatically" description="No Windows game detector is connected." status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}>
+          <LumenSwitch aria-label="Detect games automatically" isDisabled isSelected={activity.detectGames} />
         </SettingRow>
-        <SettingRow label="Allow indexing during video" description="Permit normal indexing instead of Cinema behavior.">
-          <LumenSwitch aria-label="Allow indexing during video" isSelected={activity.allowDuringVideo} onChange={(allowDuringVideo) => void updateActivity({allowDuringVideo})} />
+        <SettingRow label="Detect fullscreen applications" description="No foreground-window detector is connected." status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}>
+          <LumenSwitch aria-label="Detect fullscreen applications" isDisabled isSelected={activity.detectFullscreen} />
         </SettingRow>
-        <SettingRow label="Metadata-only Cinema mode" description="During playback, allow only lightweight filename and metadata work.">
-          <LumenSwitch aria-label="Metadata-only Cinema mode" isSelected={activity.cinemaMetadataOnly} onChange={(cinemaMetadataOnly) => void updateActivity({cinemaMetadataOnly})} />
+        <SettingRow label="Allow indexing during video" description="No media-playback detector is connected." status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}>
+          <LumenSwitch aria-label="Allow indexing during video" isDisabled isSelected={activity.allowDuringVideo} />
         </SettingRow>
-        <SettingRow label="Pause on battery" description="Protect battery life when the device is unplugged.">
-          <LumenSwitch aria-label="Pause on battery" isSelected={activity.pauseOnBattery} onChange={(pauseOnBattery) => void updateActivity({pauseOnBattery})} />
+        <SettingRow label="Metadata-only Cinema mode" description="Cinema scheduling has no native runtime consumer." status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}>
+          <LumenSwitch aria-label="Metadata-only Cinema mode" isDisabled isSelected={activity.cinemaMetadataOnly} />
         </SettingRow>
-        <SettingRow label="Resume delay" description="Wait after a game or fullscreen app closes before background work resumes.">
+        <SettingRow label="Pause on battery" description="No Windows power-state monitor is connected." status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}>
+          <LumenSwitch aria-label="Pause on battery" isDisabled isSelected={activity.pauseOnBattery} />
+        </SettingRow>
+        <SettingRow label="Resume delay" description="Automatic resume requires an activity detector." status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}>
           <LumenSelect
             aria-label="Resume delay"
+            isDisabled
             options={[{id: '0', label: 'Immediately'}, {id: '15', label: '15 seconds'}, {id: '30', label: '30 seconds'}, {id: '60', label: '1 minute'}]}
             value={String(activity.resumeDelaySeconds) as '0' | '15' | '30' | '60'}
-            onChange={(value) => void updateActivity({resumeDelaySeconds: Number(value)})}
+            onChange={() => undefined}
           />
         </SettingRow>
       </SettingSection>
-      <SettingSection title="Application overrides" description="Give a specific executable a stable policy instead of relying on classification.">
+      <SettingSection title="Application overrides" description="Stored overrides are preserved, but no process detector consumes them in phase one.">
         <div {...stylex.props(styles.addRow)}>
           <LumenTextField
             aria-label="Application override"
+            isDisabled
             placeholder="Example: render.exe"
-            value={overrideName}
-            onChange={setOverrideName}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                addOverride();
-              }
-            }}
+            value=""
+            onChange={() => undefined}
           />
-          <LumenButton aria-label="Add application override" size="small" onPress={addOverride}><PlusIcon aria-hidden="true" size={14} /> Add</LumenButton>
+          <LumenButton aria-label="Add application override" isDisabled size="small"><PlusIcon aria-hidden="true" size={14} /> Unavailable</LumenButton>
         </div>
         {activity.overrides.map((override) => (
           <ApplicationOverrideRow
+            isDisabled
             key={override.id}
             override={override}
-            onChange={(next) => void updateActivity({overrides: activity.overrides.map((item) => item.id === next.id ? next : item)})}
-            onRemove={() => void updateActivity({overrides: activity.overrides.filter((item) => item.id !== override.id)})}
+            onChange={() => undefined}
+            onRemove={() => undefined}
           />
         ))}
       </SettingSection>
-      <SettingSection title="User-defined games" description="Add executables that Windows or a future detector may not classify.">
+      <SettingSection title="User-defined games" description="Stored entries are preserved, but no game detector consumes them in phase one.">
         <div {...stylex.props(styles.addRow)}>
-          <LumenTextField aria-label="User-defined game" placeholder="Example: game.exe" value={gameName} onChange={setGameName} />
-          <LumenButton aria-label="Add user-defined game" size="small" onPress={addGame}><GameControllerIcon aria-hidden="true" size={15} /> Add game</LumenButton>
+          <LumenTextField aria-label="User-defined game" isDisabled placeholder="Example: game.exe" value="" onChange={() => undefined} />
+          <LumenButton aria-label="Add user-defined game" isDisabled size="small"><GameControllerIcon aria-hidden="true" size={15} /> Unavailable</LumenButton>
         </div>
         {activity.userGames.length ? (
           <div {...stylex.props(styles.chips)}>
             {activity.userGames.map((game) => (
               <span key={game} {...stylex.props(styles.chip)}>
                 {game}
-                <LumenIconButton aria-label={`Remove game ${game}`} size="small" variant="quiet" onPress={() => void updateActivity({userGames: activity.userGames.filter((item) => item !== game)})}>
+                <LumenIconButton aria-label={`Remove game ${game}`} isDisabled size="small" variant="quiet">
                   <XIcon aria-hidden="true" size={11} />
                 </LumenIconButton>
               </span>
@@ -163,7 +194,6 @@ export function ActivityPage() {
           </div>
         ) : <div {...stylex.props(styles.chips)}><LumenText tone="tertiary" variant="meta">No custom game classifications.</LumenText></div>}
       </SettingSection>
-      <LumenButton aria-label="Reset classifications" size="small" variant="quiet" onPress={resetAll}>Reset classifications</LumenButton>
     </SettingsPage>
   );
 }

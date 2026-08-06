@@ -1,7 +1,9 @@
+mod child_process;
 mod computer_use;
 mod consent;
 mod gateway;
 mod search;
+mod session_relief;
 mod window;
 
 use std::sync::Mutex;
@@ -52,7 +54,6 @@ pub fn run() {
             };
             let gateway =
                 gateway::GatewaySupervisor::new(sidecar, &data_directory.join("runtime"))?;
-            let _ = gateway.start();
             app.manage(gateway);
             app.manage(gateway::answer::AnswerRuntime::default());
             app.manage(gateway::LocalRuntimeSupervisor::detect());
@@ -87,13 +88,26 @@ pub fn run() {
                 engine_binary,
                 data_directory.join("enrichment"),
             )?;
-            let _ = enrichment.start();
             app.manage(enrichment);
             app.manage(search::IndexRuntime::open(
                 &data_directory.join("lumen-index.sqlite3"),
             )?);
+            app.manage(session_relief::SessionReliefRuntime::default());
+            let runtime_app = app.handle().clone();
+            let _runtime_start = tauri::async_runtime::spawn_blocking(move || {
+                if let Err(error) = runtime_app.state::<gateway::GatewaySupervisor>().start() {
+                    tauri_plugin_log::log::warn!("AgentGateway startup is unavailable: {error}");
+                }
+                if let Err(error) = runtime_app.state::<gateway::EnrichmentSupervisor>().start() {
+                    tauri_plugin_log::log::warn!("Enrichment startup is unavailable: {error}");
+                }
+                gateway::enrichment::schedule_enrichment_drain(runtime_app);
+            });
             app.manage(window::ShortcutRegistration(Mutex::new(
-                "Alt+Space".to_owned(),
+                "Alt + Space".to_owned(),
+            )));
+            app.manage(window::WindowPreferenceState(Mutex::new(
+                window::GeneralWindowPreferences::default(),
             )));
 
             if let Some(main_window) = app.get_webview_window("main") {
@@ -115,6 +129,7 @@ pub fn run() {
             search::indexing::delete_index_data,
             gateway::answer::start_answer,
             gateway::answer::cancel_answer,
+            gateway::answer::cancel_cloud_answers,
             gateway::supervisor::gateway_health,
             gateway::supervisor::restart_gateway,
             gateway::credentials::set_provider_credential,
@@ -131,13 +146,17 @@ pub fn run() {
             computer_use::start_computer_use,
             computer_use::respond_computer_use_approval,
             computer_use::cancel_computer_use,
+            session_relief::session_relief_snapshot,
             window::show_lumen_window,
             window::hide_lumen_window,
             window::focus_lumen_input,
             window::set_lumen_shortcut,
+            window::apply_lumen_preferences,
         ])
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event
+                && window::closes_by_hiding(window.app_handle())
+            {
                 api.prevent_close();
                 let _ = window.hide();
             }

@@ -15,6 +15,7 @@ name = "lumen_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
+sha2 = "0.11.0"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
@@ -26,7 +27,7 @@ base64 = "0.22"
 futures-util = "0.3"
 pdf-extract = "0.12.0"
 quick-xml = "0.41.0"
-reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls", "stream"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "multipart", "rustls", "stream"] }
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 sha2 = "0.11.0"
 sqlite-vec = "=0.1.7"
@@ -35,6 +36,7 @@ tokio = { version = "1", features = ["sync", "time"] }
 tokio-util = "0.7"
 uuid = { version = "1", features = ["v4"] }
 zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
+sysinfo = { version = "0.39.6", default-features = false, features = ["disk", "system"] }
 tauri-plugin-store = "2"
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
@@ -47,4 +49,4 @@ tauri-plugin-single-instance = "2"
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "4.1.6", default-features = false, features = ["v1"] }
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_Diagnostics_Debug", "Win32_System_JobObjects", "Win32_System_Memory", "Win32_System_SystemInformation", "Win32_System_Threading"] }

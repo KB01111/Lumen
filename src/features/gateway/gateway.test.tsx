@@ -1,8 +1,9 @@
-import {render, screen} from '@testing-library/react';
+import {render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {afterEach, describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {AppProviders} from '../../app/AppProviders';
+import * as nativeAi from '../../services/ai/native-ai-service';
 import {AgentGatewayPage} from '../settings/pages/AgentGatewayPage';
 import {LocalAiPage} from '../settings/pages/LocalAiPage';
 import {useSettingsStore} from '../settings/settings.store';
@@ -40,6 +41,29 @@ describe('Local AI states', () => {
 });
 
 describe('AgentGateway states and controls', () => {
+  function mockNativeHealth() {
+    vi.spyOn(nativeAi, 'isNativeRuntime').mockReturnValue(true);
+    vi.spyOn(nativeAi.nativeAiService, 'gatewayHealth').mockResolvedValue({
+      state: 'ready',
+      version: '1.0.0',
+      interactivePort: 9411,
+      enrichmentPort: 9412,
+      adminPort: 9413,
+      cloudCredentialConfigured: true,
+    });
+    vi.spyOn(nativeAi.nativeAiService, 'enrichmentHealth').mockResolvedValue({
+      state: 'ready',
+      processorState: 'ready',
+      coordinatorState: 'ready',
+      paused: false,
+      controlPort: 9421,
+      actorPort: 9422,
+      processorDetail: undefined,
+      coordinatorDetail: undefined,
+      detail: undefined,
+    });
+  }
+
   it.each(['starting', 'ready', 'unavailable'] satisfies GatewayState[])(
     'renders gateway state %s',
     (state) => {
@@ -68,6 +92,36 @@ describe('AgentGateway states and controls', () => {
 
     expect(useSettingsStore.getState().ai.cloudAnswerConsent).toBe(true);
     expect(screen.getByText('Cloud consent granted')).toBeVisible();
+  });
+
+  it('cancels active cloud answers after persisted consent is revoked', async () => {
+    mockNativeHealth();
+    const cancelCloudAnswers = vi.spyOn(nativeAi.nativeAiService, 'cancelCloudAnswers').mockResolvedValue();
+    useSettingsStore.setState((state) => ({
+      ai: {...state.ai, cloudAnswerConsent: true, runtimeMode: 'auto'},
+    }));
+    const user = userEvent.setup();
+    renderPage(<AgentGatewayPage />);
+
+    await user.click(screen.getByRole('button', {name: 'Revoke'}));
+
+    await waitFor(() => expect(cancelCloudAnswers).toHaveBeenCalledOnce());
+    expect(useSettingsStore.getState().ai.cloudAnswerConsent).toBe(false);
+    expect(screen.getByText('Cloud consent revoked. Any active cloud answer was stopped.')).toBeVisible();
+  });
+
+  it('restarts the native gateway after deleting a provider credential', async () => {
+    mockNativeHealth();
+    const deleteCredential = vi.spyOn(nativeAi.nativeAiService, 'deleteCredential').mockResolvedValue();
+    const restartGateway = vi.spyOn(nativeAi.nativeAiService, 'restartGateway').mockResolvedValue();
+    const user = userEvent.setup();
+    renderPage(<AgentGatewayPage />);
+
+    await user.click(screen.getByRole('button', {name: 'Delete'}));
+
+    await waitFor(() => expect(deleteCredential).toHaveBeenCalledWith('openai'));
+    expect(restartGateway).toHaveBeenCalledOnce();
+    expect(screen.getByText('OpenAI credential removed and AgentGateway restarted.')).toBeVisible();
   });
 
   it('tests provider and MCP actions as deterministic previews', async () => {

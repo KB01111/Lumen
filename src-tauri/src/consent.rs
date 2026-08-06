@@ -1,4 +1,6 @@
-use std::{fs, path::PathBuf};
+use std::{fs, io::Read, path::PathBuf};
+
+const MAX_SETTINGS_BYTES: u64 = 1024 * 1024;
 
 #[derive(Clone)]
 pub struct PersistedConsent {
@@ -11,9 +13,15 @@ impl PersistedConsent {
     }
 
     fn setting(&self, section: &str, key: &str) -> bool {
-        fs::read_to_string(&self.settings_path)
+        let mut contents = String::new();
+        let read = fs::File::open(&self.settings_path)
+            .map(|file| file.take(MAX_SETTINGS_BYTES + 1))
+            .and_then(|mut file| file.read_to_string(&mut contents));
+        if read.is_err() || contents.len() as u64 > MAX_SETTINGS_BYTES {
+            return false;
+        }
+        serde_json::from_str::<serde_json::Value>(&contents)
             .ok()
-            .and_then(|contents| serde_json::from_str::<serde_json::Value>(&contents).ok())
             .and_then(|settings| {
                 settings
                     .get("management")?
@@ -61,6 +69,10 @@ mod tests {
             r#"{"management":{"ai":{"cloudAnswerConsent":"true"}}}"#,
         )
         .unwrap();
+        assert!(!consent.answer_granted());
+        assert!(!consent.computer_use_granted());
+
+        fs::write(&path, "x".repeat((MAX_SETTINGS_BYTES + 1) as usize)).unwrap();
         assert!(!consent.answer_granted());
         assert!(!consent.computer_use_granted());
 

@@ -126,6 +126,7 @@ export interface PreviewPaneProps {
   fileId: string | null;
   isOpen?: boolean;
   mode?: PreviewPresentation;
+  previewsEnabled?: boolean;
   reducedMotion?: boolean;
   restoreFocusRef?: RefObject<HTMLElement | null>;
   service: SearchService;
@@ -140,6 +141,9 @@ function stateTitle(controller: PreviewController) {
     return 'Loading preview';
   }
   if (controller.lifecycle === 'error') {
+    if (controller.error?.code === 'unavailable') {
+      return 'File previews disabled';
+    }
     return controller.error?.code === 'permission-denied'
       ? 'Permission required'
       : 'Preview unavailable';
@@ -148,9 +152,11 @@ function stateTitle(controller: PreviewController) {
 }
 
 function PreviewError({error}: {error: SearchError | null}) {
-  const title = error?.code === 'permission-denied'
-    ? 'Permission required'
-    : 'Preview unavailable';
+  const title = error?.code === 'unavailable'
+    ? 'File previews disabled'
+    : error?.code === 'permission-denied'
+      ? 'Permission required'
+      : 'Preview unavailable';
   return (
     <div role="alert" {...stylex.props(styles.centered)}>
       <span aria-hidden="true" {...stylex.props(styles.errorMark)}>!</span>
@@ -246,6 +252,7 @@ export function PreviewPane({
   fileId,
   isOpen = true,
   mode = 'pane',
+  previewsEnabled = true,
   reducedMotion = false,
   restoreFocusRef,
   service,
@@ -254,6 +261,7 @@ export function PreviewPane({
   const controller = usePreviewController(
     mode === 'dialog' && !isOpen ? null : fileId,
     service,
+    previewsEnabled,
   );
   const wasOpen = useRef(isOpen);
 

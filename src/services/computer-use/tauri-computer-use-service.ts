@@ -82,4 +82,8 @@ export class TauriComputerUseService implements ComputerUseService {
   respond(taskId: number, approvalId: string, approved: boolean) {
     return invoke<void>('respond_computer_use_approval', {taskId, approvalId, approved});
   }
+
+  cancelActive() {
+    return invoke<void>('cancel_computer_use', {taskId: null});
+  }
 }

@@ -1,6 +1,6 @@
 # Lumen
 
-Keyboard-first Windows 11 file-search launcher. Tauri 2 + React 19 + TypeScript + StyleX + React Aria Components + Motion. Phase one is a finished frontend against a confined local-file adapter — the production index, semantic search, AI inference, AgentGateway, and MCP services intentionally do **not** exist. New backend capability must go behind the existing typed contracts (`src/services`), never into UI components.
+Keyboard-first Windows 11 file-search launcher. Tauri 2 + React 19 + TypeScript + StyleX + React Aria Components + Motion. The native app includes confined filename search, a durable SQLite content index, checksum-pinned AgentGateway and enrichment supervision, local/cloud answers, browser-only Computer Use, and read-only Session Relief. Semantic/vector search, reranking, MCP tools, and generic execution intentionally do **not** exist. New backend capability must go behind the existing typed contracts (`src/services`), never into UI components.
 
 ## Environment
 
@@ -36,7 +36,7 @@ Focused runs:
 ## Testing gotchas
 
 - Playwright is serial (`workers: 1`, no retries) and uses the installed Edge via `channel: 'msedge'` — do not switch to a downloaded chromium.
-- Playwright auto-starts `bun run dev` on `127.0.0.1:1420` and **reuses an already-running server** (`reuseExistingServer`). A stale dev server serving old code will silently affect e2e results.
+- `bun run test:e2e` starts and owns the current Vite server on `127.0.0.1:1420` and refuses to reuse an existing listener. Stop the exact listener before e2e; a different Lumen worktree on the strict port must fail visibly instead of supplying stale code.
 - Vitest compiles StyleX with `devMode: 'css-only'`; jsdom + `@testing-library/jest-dom` setup is in `src/test/setup.ts`. Mocks restore automatically (`restoreMocks: true`).
 
 ## Dev-only URL modes (browser/e2e, gated by `import.meta.env.DEV`)
@@ -52,9 +52,11 @@ The plain browser has no Tauri IPC, so deterministic states are reached via quer
 
 - `src/app` — composition root (`App.tsx`), providers, route/dev-mode branching.
 - `src/design-system` — StyleX tokens (`tokens.stylex.ts`), themes, materials, motion, primitives. All styling goes through `stylex.create` + these tokens; do not add raw CSS (only `global.css` exists).
-- `src/features` — launcher, results, preview, onboarding, settings, activity, gateway, local-AI, diagnostics, gallery.
-- `src/services/search` — the key boundary: UI only knows the `SearchService` interface and never imports Tauri commands directly. Adapters: `DevelopmentFileSearchService` (default, real Tauri commands), `DevelopmentSearchService` (`?service=memory`), `MemorySearchService` (unit tests), `FutureProductionSearchService` (throws — the phase-two seam). Every native payload is Zod-parsed before entering UI state.
+- `src/features` — launcher, results, preview, onboarding, settings, activity, gateway, local-AI, Session Relief, diagnostics, gallery.
+- `src/services/search` — the key boundary: UI only knows the `SearchService` interface and never imports Tauri commands directly. `DevelopmentFileSearchService` is the native default and combines immediate filename results with the matching durable index; `DevelopmentSearchService` (`?service=memory`) and `MemorySearchService` are deterministic test adapters. Every native payload is Zod-parsed before entering UI state.
 - `src/services/computer-use` — typed Computer Use health, stream, approval, and cancellation boundary. Rust owns the fixed worker process and Job Object; React receives only Zod-parsed progress events. The Gemini key is never returned to React.
+- `src/services/session-relief` — typed, bounded, read-only Windows pressure report. Browser mode is unavailable; copied summaries remove process names, PIDs, trees, and finding evidence.
+- `src-tauri/src/gateway` — checksum-pinned AgentGateway, owned local runtime, bounded answer streaming, and the durable SQLite enrichment processor. Rivet is optional coordination and its health must remain separate from processor readiness.
 - `src/state` + feature `*.store.ts` — zustand stores. Persistence uses the Tauri Store plugin when `window.__TAURI_INTERNALS__` exists, else `localStorage`. Persisted stores must be `hydrate()`d before their state is read (see `App.tsx`).
 - `src/platform` — Tauri/window abstractions.
 - `src-tauri/src` — `lib.rs` (plugins, Alt+Space global shortcut, single-instance, close-to-hide), `window.rs` (owns the window-mode geometry table and native material), `search/` (confined local-file commands).
@@ -62,7 +64,7 @@ The plain browser has no Tauri IPC, so deterministic states are reached via quer
 ## Hard constraints (do not break)
 
 - Security: Rust search commands canonicalize all paths, reject paths outside selected roots, never follow symlinks, skip `.git`/`node_modules`/`dist`/`target`/etc., and cap previews (64 KiB text, 4 MiB images). `src-tauri/capabilities/main.json` is least-privilege — the shell plugin is deliberately absent; do not add execute/spawn permissions.
-- Computer Use remains browser-only. It requires recorded cloud consent, launches only the staged/source worker selected by Rust, uses a fresh Microsoft Edge context, rejects non-HTTP(S) start pages, caps tasks at 4,000 characters/60 steps, and pauses Gemini safety decisions for one-time approval. Never replace this with webview-side provider calls or generic process arguments.
+- Computer Use remains browser automation only. It requires recorded cloud consent, launches only the staged worker whose build-time SHA-256 Rust revalidates before secrets or spawn (source fallback is debug-only), uses a fresh Microsoft Edge context, rejects non-HTTP(S) start pages, caps tasks at 4,000 Unicode code points/60 steps, bounds worker events, and pauses Gemini safety decisions for one-time approval. Never replace this with webview-side provider calls or generic process arguments.
 - The window is borderless/transparent with Acrylic→Mica→Blur fallback; close hides rather than destroys. Window sizes/constraints per mode are owned by Rust (`window.rs`), not the frontend.
 - Vite port 1420 is `strictPort` — it must be free for dev/e2e.
 - tsconfig has `noUnusedLocals`/`noUnusedParameters` — dead variables fail typecheck.

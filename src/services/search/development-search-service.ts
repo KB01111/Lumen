@@ -1,4 +1,5 @@
 import type {SearchService} from './search-service';
+import {rankSearchResults} from './search-preferences';
 import type {
   FilePreview,
   SearchRequest,
@@ -223,7 +224,8 @@ export class DevelopmentSearchService implements SearchService {
       );
     }
     const scoped = matches.filter((item) => inScope(item, request.scope));
-    const visible = query === 'large-set' ? scoped : scoped.slice(0, request.limit);
+    const ranked = rankSearchResults(scoped, request.preferences);
+    const visible = query === 'large-set' ? ranked : ranked.slice(0, request.limit);
     visible.forEach((item) => this.knownResults.set(item.id, item));
     return {
       requestId: request.requestId,

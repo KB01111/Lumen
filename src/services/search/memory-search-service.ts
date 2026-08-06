@@ -1,4 +1,5 @@
 import type {SearchService} from './search-service';
+import {rankSearchGroups} from './search-preferences';
 import {
   type FilePreview,
   type SearchGroup,
@@ -59,7 +60,10 @@ export class MemorySearchService implements SearchService {
     }
 
     pending.settled = true;
-    const groups = this.asGroups(resultsOrGroups);
+    const groups = rankSearchGroups(
+      this.asGroups(resultsOrGroups),
+      pending.request.preferences,
+    );
     pending.resolve({
       requestId: pending.request.requestId,
       groups,

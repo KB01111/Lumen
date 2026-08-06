@@ -94,6 +94,7 @@ export interface ExpandedWorkspaceProps {
   error: SearchError | null;
   lifecycle: SearchLifecycle;
   openingId: string | null;
+  previewsEnabled?: boolean;
   results: readonly SearchResult[];
   selectedId?: string | null;
   service: SearchService;
@@ -174,10 +175,12 @@ function useSettledSelection(delayMs = 48) {
 }
 
 function SelectionBoundPreview({
+  previewsEnabled = true,
   reducedMotion,
   selectedId: selectedIdOverride,
   service,
 }: {
+  previewsEnabled?: boolean;
   reducedMotion: boolean;
   selectedId?: string | null;
   service: SearchService;
@@ -189,6 +192,7 @@ function SelectionBoundPreview({
   return (
     <LazyPreviewPane
       fileId={fileId}
+      previewsEnabled={previewsEnabled}
       reducedMotion={reducedMotion}
       service={service}
     />
@@ -286,6 +290,7 @@ export function ExpandedWorkspace({
   error,
   lifecycle,
   openingId,
+  previewsEnabled = true,
   results,
   selectedId,
   service,
@@ -336,6 +341,7 @@ export function ExpandedWorkspace({
             )}
           >
             <SelectionBoundPreview
+              previewsEnabled={previewsEnabled}
               reducedMotion={reducedMotion}
               selectedId={selectedId}
               service={service}

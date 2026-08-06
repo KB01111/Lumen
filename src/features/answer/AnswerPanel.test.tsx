@@ -1,4 +1,4 @@
-import {render, screen} from '@testing-library/react';
+import {act, render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {describe, expect, it, vi} from 'vitest';
 
@@ -58,6 +58,53 @@ describe('AnswerPanel', () => {
 
     await user.click(screen.getByRole('button', {name: 'Stop answer'}));
     expect(onStop).toHaveBeenCalledOnce();
+  });
+
+  it('shows a visible runtime-mode failure without changing the rendered mode', async () => {
+    const user = userEvent.setup();
+    render(
+      <AppProviders>
+        <AnswerPanel
+          answer={{phase: 'idle', text: '', citations: []}}
+          mode="auto"
+          onModeChange={async () => { throw new Error('The native runtime did not accept that mode.'); }}
+          onOpenCitation={vi.fn()}
+          onRetry={vi.fn()}
+          onStop={vi.fn()}
+        />
+      </AppProviders>,
+    );
+
+    await user.click(screen.getByRole('radio', {name: 'Cloud'}));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The native runtime did not accept that mode.');
+    expect(screen.getByRole('radio', {name: 'Auto'})).toBeChecked();
+  });
+
+  it('serializes runtime-mode mutations while the native transaction is pending', async () => {
+    const user = userEvent.setup();
+    let resolve!: () => void;
+    const pending = new Promise<void>((nextResolve) => { resolve = nextResolve; });
+    const onModeChange = vi.fn(() => pending);
+    render(
+      <AppProviders>
+        <AnswerPanel
+          answer={{phase: 'idle', text: '', citations: []}}
+          mode="auto"
+          onModeChange={onModeChange}
+          onOpenCitation={vi.fn()}
+          onRetry={vi.fn()}
+          onStop={vi.fn()}
+        />
+      </AppProviders>,
+    );
+
+    await user.click(screen.getByRole('radio', {name: 'Local'}));
+    expect(screen.getByRole('radio', {name: 'Cloud'})).toBeDisabled();
+    await user.click(screen.getByRole('radio', {name: 'Cloud'}));
+    expect(onModeChange).toHaveBeenCalledOnce();
+    await act(async () => resolve());
+    await waitFor(() => expect(screen.getByRole('radio', {name: 'Cloud'})).toBeEnabled());
   });
 });
 

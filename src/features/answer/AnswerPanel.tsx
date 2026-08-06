@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 
 import {ArrowClockwiseIcon, CopyIcon, StopIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
@@ -104,7 +104,7 @@ function citationLabel(label: string, page?: number, timestampSeconds?: number) 
 export interface AnswerPanelProps {
   answer: AnswerState;
   mode: RuntimeMode;
-  onModeChange(mode: RuntimeMode): void;
+  onModeChange(mode: RuntimeMode): Promise<void> | void;
   onOpenCitation(fileId: string): void;
   onRetry(): void;
   onStop(): void;
@@ -119,12 +119,29 @@ export function AnswerPanel({
   onStop,
 }: AnswerPanelProps) {
   const [copied, setCopied] = useState(false);
+  const [modeError, setModeError] = useState('');
+  const [modeBusy, setModeBusy] = useState(false);
+  const modeChangeInFlight = useRef(false);
   const canStop = answer.phase === 'waiting' || answer.phase === 'streaming';
   const hasAnswer = answer.text.length > 0;
 
   const copyAnswer = async () => {
     await navigator.clipboard.writeText(answer.text);
     setCopied(true);
+  };
+  const changeMode = async (nextMode: RuntimeMode) => {
+    if (modeChangeInFlight.current) return;
+    modeChangeInFlight.current = true;
+    setModeBusy(true);
+    setModeError('');
+    try {
+      await onModeChange(nextMode);
+    } catch (error) {
+      setModeError(error instanceof Error ? error.message : 'The answer runtime could not be changed.');
+    } finally {
+      modeChangeInFlight.current = false;
+      setModeBusy(false);
+    }
   };
 
   return (
@@ -134,8 +151,9 @@ export function AnswerPanel({
           <LumenText variant="meta" weight="medium">AI answer</LumenText>
           <LumenText tone="tertiary" variant="caption">{statusLabel(answer)}</LumenText>
         </div>
-        <RuntimeModeSwitch mode={mode} onChange={onModeChange} />
+        <RuntimeModeSwitch isDisabled={modeBusy} mode={mode} onChange={(nextMode) => void changeMode(nextMode)} />
       </header>
+      {modeError ? <p role="alert" aria-live="assertive" {...stylex.props(styles.answer)}>{modeError}</p> : null}
       {answer.phase !== 'idle' ? (
         <p aria-live="polite" {...stylex.props(styles.answer)}>
           {hasAnswer ? answer.text : answer.phase === 'waiting' ? 'Waiting for the query to settle…' : 'Preparing an answer…'}

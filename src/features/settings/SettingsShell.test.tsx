@@ -22,13 +22,23 @@ afterEach(() => {
 });
 
 describe('SettingsShell', () => {
-  it('exposes all ten pages in one persistent navigation rail', () => {
+  it('exposes all eleven pages in one persistent navigation rail', () => {
     renderShell();
 
     expect(screen.getByRole('navigation', {name: 'Settings'})).toBeVisible();
-    expect(screen.getAllByRole('tab')).toHaveLength(10);
+    expect(screen.getAllByRole('tab')).toHaveLength(11);
     expect(screen.getByRole('heading', {name: 'General'})).toBeVisible();
     expect(screen.getByTestId('settings-content')).toHaveStyle({overflowY: 'auto'});
+  });
+
+  it('opens Session Relief from the settings rail', async () => {
+    const user = userEvent.setup();
+    renderShell();
+
+    await user.click(screen.getByRole('tab', {name: 'Session Relief'}));
+    expect(await screen.findByRole('heading', {name: 'Session Relief'})).toBeVisible();
+    expect(screen.getByRole('button', {name: 'Analyze this session'})).toBeVisible();
+    expect(useSettingsStore.getState().activePage).toBe('session-relief');
   });
 
   it('changes pages with keyboard tab navigation and persists the route', async () => {

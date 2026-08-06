@@ -10,6 +10,7 @@ import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {tokens} from '../../design-system/tokens.stylex';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
+import {searchScopeValues, type SearchScope} from '../../services/search/search.types';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
 import {LauncherStatus} from './LauncherStatus';
 import {useLauncherStore} from './launcher.store';
@@ -103,6 +104,7 @@ export interface CollapsedLauncherProps {
   onVoiceRequest?: () => void;
   intentLocked?: boolean;
   onComputerSubmit?: (task: string) => void;
+  enabledScopes?: readonly SearchScope[];
 }
 
 export function CollapsedLauncher({
@@ -114,6 +116,7 @@ export function CollapsedLauncher({
   onVoiceRequest,
   intentLocked = false,
   onComputerSubmit,
+  enabledScopes = searchScopeValues,
 }: CollapsedLauncherProps) {
   const committedQuery = useQueryStore((state) => state.committed);
   const clearQuery = useQueryStore((state) => state.clear);
@@ -203,7 +206,7 @@ export function CollapsedLauncher({
             Alt&nbsp;&nbsp;Space
           </kbd>
         </div>
-        {expanded && intent === 'search' ? <ScopeRail /> : null}
+        {expanded && intent === 'search' ? <ScopeRail enabledScopes={enabledScopes} /> : null}
         {expanded ? expandedContent : null}
       </div>
     </LumenSurface>

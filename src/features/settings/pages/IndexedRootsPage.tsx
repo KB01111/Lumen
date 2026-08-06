@@ -16,6 +16,7 @@ import {SettingSection} from '../components/SettingSection';
 import {SettingsCallout, SettingsPage} from '../components/SettingsPage';
 import {useSettingsStore} from '../settings.store';
 import {isNativeRuntime, nativeAiService} from '../../../services/ai/native-ai-service';
+import type {SearchService} from '../../../services/search/search-service';
 
 const defaultRootService = createRootSelectionService();
 
@@ -50,11 +51,18 @@ const styles = stylex.create({
   },
 });
 
-export function IndexedRootsPage({rootService = defaultRootService}: {rootService?: RootSelectionService}) {
+export function IndexedRootsPage({
+  rootService = defaultRootService,
+  searchService,
+}: {
+  rootService?: RootSelectionService;
+  searchService?: SearchService;
+}) {
   const roots = useSettingsStore((state) => state.roots);
   const setRoots = useSettingsStore((state) => state.setRoots);
   const setRootsAndAi = useSettingsStore((state) => state.setRootsAndAi);
   const cloudEnrichedRootIds = useSettingsStore((state) => state.ai.cloudEnrichedRootIds);
+  const cloudAnswerConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
   const updateAi = useSettingsStore((state) => state.updateAi);
   const [notice, setNotice] = useState<PageNotice>();
   const [choosing, setChoosing] = useState(false);
@@ -80,7 +88,13 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
     try {
       const status = await nativeAiService.synchronizeRoots(nextRoots
         .filter((root) => !root.paused)
-        .map((root) => ({path: root.path, cloudEnrichment: cloudIds.includes(root.id)})));
+        .map((root) => ({
+          path: root.path,
+          cloudEnrichment: cloudIds.includes(root.id),
+          exclusions: root.exclusions,
+          includeHidden: root.includeHidden,
+          maxFileSizeMb: root.maxFileSizeMb,
+        })));
       setNotice({text: status.message, tone: 'info'});
       return true;
     } catch (error) {
@@ -144,6 +158,7 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
     setIndexBusy(true);
     try {
       const status = await nativeAiService.deleteIndex();
+      searchService?.invalidateIndex?.();
       setNotice({text: status.message, tone: 'info'});
     } catch (error) {
       setNotice({text: `The local index could not be deleted: ${errorMessage(error)}`, tone: 'error'});
@@ -170,6 +185,11 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
         </div>
       </div>
       {notice ? <SettingsCallout tone={notice.tone}>{notice.text}</SettingsCallout> : null}
+      {!cloudAnswerConsent && roots.length > 0 ? (
+        <SettingsCallout>
+          Cloud enrichment is unavailable until provider consent is granted in AgentGateway settings.
+        </SettingsCallout>
+      ) : null}
       <SettingSection title="Indexed search directories" description="Content stays local unless cloud enrichment is enabled explicitly for that root.">
         {roots.length === 0 ? (
           <div {...stylex.props(styles.empty)}>
@@ -182,6 +202,7 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
         ) : roots.map((root) => (
           <IndexedRootRow
             cloudEnrichment={cloudEnrichedRootIds.includes(root.id)}
+            cloudEnrichmentAvailable={cloudAnswerConsent}
             key={root.id}
             root={root}
             onCloudEnrichmentChange={(enabled) => {

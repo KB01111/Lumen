@@ -1,12 +1,14 @@
 use std::{
-    env,
-    io::{BufRead, BufReader, Write},
+    fs::File,
+    io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
-    process::{Child, ChildStdin, Command, Stdio},
+    process::{Child, ChildStdin, Command, Output, Stdio},
     sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tauri::{State, ipc::Channel};
 
 use crate::{
@@ -15,6 +17,13 @@ use crate::{
 };
 
 const MAX_TASK_LENGTH: usize = 4_000;
+const MAX_WORKER_BINARY_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_WORKER_EVENT_LINE_BYTES: usize = 64 * 1024;
+const MAX_WORKER_EVENT_BYTES: usize = 16 * 1024;
+const MAX_WORKER_FAILURE_CHARS: usize = 2_048;
+const MAX_WORKER_CODE_CHARS: usize = 64;
+const HEALTH_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+const STAGED_WORKER_SHA256: &str = env!("LUMEN_COMPUTER_USE_SHA256");
 const SUPPORTED_MODELS: [&str; 5] = [
     "gemini-3.6-flash",
     "gemini-3.5-flash-lite",
@@ -80,6 +89,81 @@ impl ComputerUseEvent {
     }
 }
 
+enum WorkerEventLine {
+    Line(Vec<u8>),
+    Oversized,
+}
+
+fn next_worker_event_line(
+    reader: &mut impl BufRead,
+) -> Result<Option<WorkerEventLine>, std::io::Error> {
+    let mut line = Vec::new();
+    let mut oversized = false;
+    loop {
+        let (take, has_newline) = {
+            let available = reader.fill_buf()?;
+            if available.is_empty() {
+                return Ok((!line.is_empty() || oversized).then_some({
+                    if oversized {
+                        WorkerEventLine::Oversized
+                    } else {
+                        WorkerEventLine::Line(line)
+                    }
+                }));
+            }
+            let newline = available.iter().position(|byte| *byte == b'\n');
+            let take = newline.unwrap_or(available.len());
+            if !oversized {
+                if line.len().saturating_add(take) > MAX_WORKER_EVENT_LINE_BYTES {
+                    oversized = true;
+                } else {
+                    line.extend_from_slice(&available[..take]);
+                }
+            }
+            (take, newline.is_some())
+        };
+        reader.consume(take + usize::from(has_newline));
+        if has_newline {
+            return Ok(Some(if oversized {
+                WorkerEventLine::Oversized
+            } else {
+                WorkerEventLine::Line(line)
+            }));
+        }
+    }
+}
+
+fn sanitized_worker_text(value: String, maximum_characters: usize) -> String {
+    let mut output = String::new();
+    let mut truncated = false;
+    for (characters, character) in value.chars().enumerate() {
+        if characters == maximum_characters {
+            truncated = true;
+            break;
+        }
+        output.push(if character.is_control() {
+            ' '
+        } else {
+            character
+        });
+    }
+    if truncated && maximum_characters > 0 {
+        output.pop();
+        output.push('…');
+    }
+    output.trim().to_owned()
+}
+
+fn sanitize_worker_event(event: ComputerUseEvent) -> ComputerUseEvent {
+    match event {
+        ComputerUseEvent::Failed { message, code } => ComputerUseEvent::Failed {
+            message: sanitized_worker_text(message, MAX_WORKER_FAILURE_CHARS),
+            code: sanitized_worker_text(code, MAX_WORKER_CODE_CHARS),
+        },
+        event => event,
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ComputerUseHealth {
@@ -93,7 +177,11 @@ pub struct ComputerUseHealth {
 #[derive(Clone, Debug)]
 enum WorkerTarget {
     Binary(PathBuf),
-    Python { binary: PathBuf, script: PathBuf },
+    #[cfg(debug_assertions)]
+    Python {
+        binary: PathBuf,
+        script: PathBuf,
+    },
     Missing,
 }
 
@@ -101,14 +189,25 @@ impl WorkerTarget {
     fn mode(&self) -> &'static str {
         match self {
             Self::Binary(_) => "packaged",
+            #[cfg(debug_assertions)]
             Self::Python { .. } => "python",
             Self::Missing => "missing",
+        }
+    }
+
+    fn verify_integrity(&self) -> Result<(), String> {
+        match self {
+            Self::Binary(binary) => verify_worker_binary(binary, STAGED_WORKER_SHA256),
+            #[cfg(debug_assertions)]
+            Self::Python { .. } => Ok(()),
+            Self::Missing => Err("The Computer Use worker is not installed".to_owned()),
         }
     }
 
     fn command(&self) -> Result<Command, String> {
         match self {
             Self::Binary(binary) => Ok(Command::new(binary)),
+            #[cfg(debug_assertions)]
             Self::Python { binary, script } => {
                 let mut command = Command::new(binary);
                 command.arg(script);
@@ -117,6 +216,63 @@ impl WorkerTarget {
             Self::Missing => Err("The Computer Use worker is not installed".to_owned()),
         }
     }
+}
+
+fn sha256_file_bounded(path: &Path) -> Result<String, String> {
+    let metadata = path
+        .metadata()
+        .map_err(|error| format!("Could not inspect the Computer Use worker: {error}"))?;
+    if !metadata.is_file() {
+        return Err("The Computer Use worker is not a file".to_owned());
+    }
+    if metadata.len() > MAX_WORKER_BINARY_BYTES {
+        return Err(format!(
+            "The Computer Use worker exceeds the {} MiB integrity limit",
+            MAX_WORKER_BINARY_BYTES / (1024 * 1024)
+        ));
+    }
+
+    let mut file = File::open(path)
+        .map_err(|error| format!("Could not open the Computer Use worker: {error}"))?;
+    let mut digest = Sha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    let mut total = 0_u64;
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|error| format!("Could not read the Computer Use worker: {error}"))?;
+        if read == 0 {
+            break;
+        }
+        total = total.saturating_add(read as u64);
+        if total > MAX_WORKER_BINARY_BYTES {
+            return Err(format!(
+                "The Computer Use worker exceeds the {} MiB integrity limit",
+                MAX_WORKER_BINARY_BYTES / (1024 * 1024)
+            ));
+        }
+        digest.update(&buffer[..read]);
+    }
+    Ok(digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect())
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn verify_worker_binary(path: &Path, expected_digest: &str) -> Result<(), String> {
+    if !valid_sha256(expected_digest) {
+        return Err("The Computer Use worker has no build-time integrity digest".to_owned());
+    }
+    let actual_digest = sha256_file_bounded(path)?;
+    if !actual_digest.eq_ignore_ascii_case(expected_digest) {
+        return Err("The Computer Use worker failed its integrity check".to_owned());
+    }
+    Ok(())
 }
 
 struct ActiveTask {
@@ -141,12 +297,16 @@ impl Drop for ActiveTask {
     }
 }
 
+#[derive(Clone)]
 pub struct ComputerUseSupervisor {
     target: WorkerTarget,
     active: Arc<Mutex<Option<ActiveTask>>>,
 }
 
+#[cfg(debug_assertions)]
 fn executable_on_path(names: &[&str]) -> Option<PathBuf> {
+    use std::env;
+
     let path = env::var_os("PATH")?;
     env::split_paths(&path)
         .flat_map(|directory| names.iter().map(move |name| directory.join(name)))
@@ -157,11 +317,48 @@ fn supported_model(model: &str) -> bool {
     SUPPORTED_MODELS.contains(&model)
 }
 
+fn run_probe(mut command: Command, timeout: Duration) -> Result<Output, String> {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = crate::child_process::spawn_hidden(&mut command)
+        .map_err(|error| format!("Could not start the Computer Use health probe: {error}"))?;
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                return child.wait_with_output().map_err(|error| {
+                    format!("Could not collect the Computer Use health probe: {error}")
+                });
+            }
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(25));
+            }
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!(
+                    "Computer Use worker health check timed out after {} seconds",
+                    timeout.as_secs()
+                ));
+            }
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!(
+                    "Could not inspect the Computer Use health probe: {error}"
+                ));
+            }
+        }
+    }
+}
+
 fn validate_request(request: &ComputerUseRequest) -> Result<(), String> {
     if request.task.trim().is_empty() {
         return Err("Enter a browser task before starting Computer Use".to_owned());
     }
-    if request.task.len() > MAX_TASK_LENGTH {
+    if request.task.chars().take(MAX_TASK_LENGTH + 1).count() > MAX_TASK_LENGTH {
         return Err(format!(
             "Browser tasks are limited to {MAX_TASK_LENGTH} characters"
         ));
@@ -187,6 +384,7 @@ fn validate_request(request: &ComputerUseRequest) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(debug_assertions)]
 fn python_target(source_worker: &Path) -> Option<WorkerTarget> {
     if !source_worker.is_file() {
         return None;
@@ -204,13 +402,20 @@ fn python_target(source_worker: &Path) -> Option<WorkerTarget> {
 }
 
 impl ComputerUseSupervisor {
-    pub fn detect(packaged: PathBuf, staged: PathBuf, source_worker: PathBuf) -> Self {
+    pub fn detect(packaged: PathBuf, staged: PathBuf, _source_worker: PathBuf) -> Self {
         let target = if packaged.is_file() {
             WorkerTarget::Binary(packaged)
         } else if staged.is_file() {
             WorkerTarget::Binary(staged)
         } else {
-            python_target(&source_worker).unwrap_or(WorkerTarget::Missing)
+            #[cfg(debug_assertions)]
+            {
+                python_target(&_source_worker).unwrap_or(WorkerTarget::Missing)
+            }
+            #[cfg(not(debug_assertions))]
+            {
+                WorkerTarget::Missing
+            }
         };
         Self {
             target,
@@ -221,38 +426,40 @@ impl ComputerUseSupervisor {
     pub fn health(&self) -> ComputerUseHealth {
         let credential_configured = credentials::get("gemini").is_some();
         let mut detail = None;
-        let ready = match self.target.command() {
-            Ok(mut command) => {
-                command.arg("--health").stdin(Stdio::null());
-                #[cfg(windows)]
-                {
-                    use std::os::windows::process::CommandExt;
-                    command.creation_flags(0x0800_0000);
-                }
-                match command.output() {
-                    Ok(output) if output.status.success() => true,
-                    Ok(output) => {
-                        detail = Some(
-                            String::from_utf8_lossy(&output.stderr)
-                                .lines()
-                                .last()
-                                .unwrap_or("Computer Use worker failed its health check")
-                                .chars()
-                                .take(240)
-                                .collect(),
-                        );
-                        false
-                    }
-                    Err(error) => {
-                        detail = Some(format!("Could not start the Computer Use worker: {error}"));
-                        false
-                    }
-                }
-            }
+        let ready = match self.target.verify_integrity() {
             Err(error) => {
                 detail = Some(error);
                 false
             }
+            Ok(()) => match self.target.command() {
+                Ok(mut command) => {
+                    command.arg("--health").stdin(Stdio::null());
+                    match run_probe(command, HEALTH_PROBE_TIMEOUT) {
+                        Ok(output) if output.status.success() => true,
+                        Ok(output) => {
+                            detail = Some(
+                                String::from_utf8_lossy(&output.stderr)
+                                    .lines()
+                                    .last()
+                                    .unwrap_or("Computer Use worker failed its health check")
+                                    .chars()
+                                    .take(240)
+                                    .collect(),
+                            );
+                            false
+                        }
+                        Err(error) => {
+                            detail =
+                                Some(format!("Could not start the Computer Use worker: {error}"));
+                            false
+                        }
+                    }
+                }
+                Err(error) => {
+                    detail = Some(error);
+                    false
+                }
+            },
         };
         ComputerUseHealth {
             state: if ready { "ready" } else { "unavailable" },
@@ -269,6 +476,7 @@ impl ComputerUseSupervisor {
         channel: Channel<ComputerUseEvent>,
     ) -> Result<(), String> {
         validate_request(&request)?;
+        self.target.verify_integrity()?;
         let credential = credentials::get("gemini")
             .ok_or_else(|| "Add a Gemini API key in Computer Use settings first".to_owned())?;
         let mut active = self
@@ -290,13 +498,7 @@ impl ComputerUseSupervisor {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null());
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            command.creation_flags(0x0800_0000);
-        }
-        let mut child = command
-            .spawn()
+        let mut child = crate::child_process::spawn_hidden(&mut command)
             .map_err(|error| format!("Could not start Computer Use: {error}"))?;
         let Some(stdin) = child.stdin.take() else {
             let _ = child.kill();
@@ -331,13 +533,31 @@ impl ComputerUseSupervisor {
 
         let active_state = Arc::clone(&self.active);
         std::thread::spawn(move || {
-            let reader = BufReader::new(stdout);
+            let mut reader = BufReader::new(stdout);
             let mut terminal = false;
-            for line in reader.lines() {
-                let Ok(line) = line else { break };
+            let mut protocol_error = false;
+            loop {
+                let line = match next_worker_event_line(&mut reader) {
+                    Ok(Some(WorkerEventLine::Line(line))) => line,
+                    Ok(Some(WorkerEventLine::Oversized)) => {
+                        protocol_error = true;
+                        break;
+                    }
+                    Ok(None) => break,
+                    Err(_) => break,
+                };
+                if line.len() > MAX_WORKER_EVENT_BYTES {
+                    protocol_error = true;
+                    break;
+                }
+                let Ok(line) = String::from_utf8(line) else {
+                    protocol_error = true;
+                    break;
+                };
                 let Ok(event) = serde_json::from_str::<ComputerUseEvent>(&line) else {
                     continue;
                 };
+                let event = sanitize_worker_event(event);
                 terminal |= event.is_terminal();
                 let _ = channel.send(event);
             }
@@ -352,8 +572,16 @@ impl ComputerUseSupervisor {
             drop(finished);
             if !terminal && owned_task {
                 let _ = channel.send(ComputerUseEvent::Failed {
-                    message: "The Computer Use worker stopped unexpectedly".to_owned(),
-                    code: "worker_stopped".to_owned(),
+                    message: if protocol_error {
+                        "The Computer Use worker emitted an invalid or oversized event".to_owned()
+                    } else {
+                        "The Computer Use worker stopped unexpectedly".to_owned()
+                    },
+                    code: if protocol_error {
+                        "worker_protocol".to_owned()
+                    } else {
+                        "worker_stopped".to_owned()
+                    },
                 });
             }
         });
@@ -392,12 +620,14 @@ impl ComputerUseSupervisor {
             .map_err(|error| format!("Could not answer the Computer Use approval: {error}"))
     }
 
-    pub fn cancel(&self, task_id: u64) -> Result<(), String> {
+    pub fn cancel(&self, task_id: Option<u64>) -> Result<(), String> {
         let mut active = self
             .active
             .lock()
             .map_err(|_| "Computer Use state is unavailable".to_owned())?;
-        if active.as_ref().is_some_and(|task| task.id != task_id) {
+        if task_id
+            .is_some_and(|requested_id| active.as_ref().is_some_and(|task| task.id != requested_id))
+        {
             return Err("The requested Computer Use task is not active".to_owned());
         }
         let Some(mut task) = active.take() else {
@@ -413,8 +643,13 @@ impl ComputerUseSupervisor {
 }
 
 #[tauri::command]
-pub fn computer_use_health(supervisor: State<'_, ComputerUseSupervisor>) -> ComputerUseHealth {
-    supervisor.inner().health()
+pub async fn computer_use_health(
+    supervisor: State<'_, ComputerUseSupervisor>,
+) -> Result<ComputerUseHealth, String> {
+    let supervisor = supervisor.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || supervisor.health())
+        .await
+        .map_err(|error| format!("Could not join the Computer Use health probe: {error}"))
 }
 
 #[tauri::command]
@@ -445,7 +680,7 @@ pub fn respond_computer_use_approval(
 
 #[tauri::command]
 pub fn cancel_computer_use(
-    task_id: u64,
+    task_id: Option<u64>,
     supervisor: State<'_, ComputerUseSupervisor>,
 ) -> Result<(), String> {
     supervisor.inner().cancel(task_id)
@@ -454,6 +689,11 @@ pub fn cancel_computer_use(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        fs,
+        io::Cursor,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn request() -> ComputerUseRequest {
         ComputerUseRequest {
@@ -491,6 +731,16 @@ mod tests {
     }
 
     #[test]
+    fn request_limits_unicode_code_points_not_utf8_bytes() {
+        let mut value = request();
+        value.task = "🧪".repeat(MAX_TASK_LENGTH);
+        assert!(validate_request(&value).is_ok());
+
+        value.task.push('🧪');
+        assert!(validate_request(&value).unwrap_err().contains("limited to"));
+    }
+
+    #[test]
     fn worker_events_parse_camel_case_approval_fields() {
         let event: ComputerUseEvent = serde_json::from_str(
             r#"{"type":"approvalRequired","approvalId":"abc123","explanation":"Confirm"}"#,
@@ -500,5 +750,54 @@ mod tests {
             event,
             ComputerUseEvent::ApprovalRequired { approval_id, .. } if approval_id == "abc123"
         ));
+    }
+
+    #[test]
+    fn worker_protocol_rejects_an_oversized_line_without_buffering_it() {
+        let mut stream = vec![b'x'; MAX_WORKER_EVENT_LINE_BYTES + 1];
+        stream.push(b'\n');
+        let mut reader = Cursor::new(stream);
+        assert!(matches!(
+            next_worker_event_line(&mut reader).unwrap(),
+            Some(WorkerEventLine::Oversized)
+        ));
+    }
+
+    #[test]
+    fn worker_failures_are_sanitized_and_bounded_before_delivery() {
+        let event = sanitize_worker_event(ComputerUseEvent::Failed {
+            message: format!("unsafe\u{0007}{}", "x".repeat(MAX_WORKER_FAILURE_CHARS + 1)),
+            code: "provider\nerror".repeat(MAX_WORKER_CODE_CHARS),
+        });
+        let ComputerUseEvent::Failed { message, code } = event else {
+            panic!("failed events remain failed events");
+        };
+        assert!(message.chars().count() <= MAX_WORKER_FAILURE_CHARS);
+        assert!(code.chars().count() <= MAX_WORKER_CODE_CHARS);
+        assert!(!message.chars().any(char::is_control));
+        assert!(!code.chars().any(char::is_control));
+    }
+
+    #[test]
+    fn worker_integrity_rejects_tampering() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "lumen-computer-use-integrity-{}-{unique}.bin",
+            std::process::id()
+        ));
+        fs::write(&path, b"trusted-worker").unwrap();
+        let expected = sha256_file_bounded(&path).unwrap();
+        assert!(verify_worker_binary(&path, &expected).is_ok());
+
+        fs::write(&path, b"tampered-worker").unwrap();
+        assert!(
+            verify_worker_binary(&path, &expected)
+                .unwrap_err()
+                .contains("failed its integrity check")
+        );
+        fs::remove_file(path).unwrap();
     }
 }

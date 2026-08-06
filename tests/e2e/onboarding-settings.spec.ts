@@ -49,12 +49,18 @@ test('visits every settings page without a pointer and restores search focus', a
   await page.keyboard.press('Control+,');
   await expect(page.getByRole('navigation', {name: 'Settings'})).toBeVisible();
 
-  for (const name of ['General', 'Appearance', 'Indexed roots', 'Search', 'Local AI', 'AgentGateway', 'Activity', 'Privacy', 'Diagnostics']) {
+  for (const name of ['General', 'Appearance', 'Indexed roots', 'Search', 'Local AI', 'AgentGateway', 'Computer Use', 'Activity', 'Session Relief', 'Privacy', 'Diagnostics']) {
     const tab = page.getByRole('tab', {name});
     await tab.focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', {name, exact: true})).toBeVisible();
   }
+
+  await page.getByRole('tab', {name: 'Computer Use', exact: true}).click();
+  await expect(page.getByText('Computer Use requires the native Windows app.', {exact: false})).toBeVisible();
+  await expect(page.getByRole('button', {name: 'Check'})).toBeDisabled();
+  await page.getByRole('tab', {name: 'Session Relief', exact: true}).click();
+  await expect(page.getByRole('button', {name: 'Analyze this session'})).toBeVisible();
 
   await capture(page, testInfo, 'settings-diagnostics');
   await page.keyboard.press('Escape');

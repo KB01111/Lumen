@@ -112,6 +112,7 @@ const galleryWindowService: WindowService = {
   async hide() {},
   async focusInput() {},
   async setShortcut() {},
+  async applyGeneralPreferences() {},
 };
 const nativeGalleryWindowService = createWindowService();
 
