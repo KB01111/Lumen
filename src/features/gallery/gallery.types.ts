@@ -1,4 +1,4 @@
-import type {AppearancePreferences} from '../../design-system/themes.stylex';
+import type {AppearancePreferences} from '../../design-system/theme';
 import type {ActivityMode} from '../activity/activity.types';
 import type {GatewayState, HardwareState, ModelState} from '../gateway/gateway.types';
 import type {SettingsPageId} from '../settings/settings.schema';

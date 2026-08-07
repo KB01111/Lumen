@@ -1,36 +1,24 @@
 import type {ReactNode} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenIcon} from '../icons/LumenIcon';
-import {tokens} from '../tokens.stylex';
+import {cn} from '../../lib/cn';
 import type {FileKind} from './file-kind';
 
-const styles = stylex.create({
-  root: {
-    display: 'inline-grid',
-    flexShrink: 0,
-    placeItems: 'center',
-    color: tokens.colorTextSecondary,
-  },
-  folder: {color: tokens.colorWarning},
-  pdf: {color: tokens.colorError},
-  document: {color: tokens.colorInfo},
-  spreadsheet: {color: tokens.colorSuccess},
-  presentation: {color: tokens.colorWarning},
-  source: {color: tokens.colorAccent},
-  image: {color: tokens.colorSuccess},
-  video: {color: tokens.colorAccent},
-  audio: {color: tokens.colorWarning},
-  archive: {color: tokens.colorTextSecondary},
-  executable: {color: tokens.colorAccent},
-  model: {color: tokens.colorInfo},
-  unknown: {color: tokens.colorTextTertiary},
-  selected: {
-    color: tokens.colorTextPrimary,
-    filter: `drop-shadow(0 0 7px ${tokens.colorFocusSoft})`,
-  },
-});
+const kindClasses: Record<FileKind, string> = {
+  folder: 'text-warning',
+  pdf: 'text-danger',
+  document: 'text-accent',
+  spreadsheet: 'text-success',
+  presentation: 'text-warning',
+  source: 'text-accent',
+  image: 'text-success',
+  video: 'text-accent',
+  audio: 'text-warning',
+  archive: 'text-text-secondary',
+  executable: 'text-accent',
+  model: 'text-accent',
+  unknown: 'text-text-tertiary',
+};
 
 function Sheet({children}: {children: ReactNode}) {
   return (
@@ -143,7 +131,11 @@ export function FileGlyph({
 }: FileGlyphProps) {
   return (
     <span
-      {...stylex.props(styles.root, styles[kind], selected && styles.selected)}
+      className={cn(
+        'inline-grid shrink-0 place-items-center',
+        kindClasses[kind],
+        selected && 'text-text-primary drop-shadow-[0_0_7px_var(--lumen-focus)]',
+      )}
       data-kind={kind}
       data-selected={selected}
       data-testid="file-glyph"

@@ -15,14 +15,15 @@ describe('Lumen primitives', () => {
 
     render(
       <>
-        <LumenButton onPress={onPress}>Search everywhere</LumenButton>
+        <LumenButton onPress={onPress} variant="primary">Continue</LumenButton>
         <LumenIconButton aria-label="Open settings">
           <LumenMark />
         </LumenIconButton>
       </>,
     );
 
-    const action = screen.getByRole('button', {name: 'Search everywhere'});
+    const action = screen.getByRole('button', {name: 'Continue'});
+    expect(action).toHaveAttribute('data-variant', 'primary');
     expect(screen.getByRole('button', {name: 'Open settings'})).toBeVisible();
 
     await user.tab();
@@ -33,7 +34,7 @@ describe('Lumen primitives', () => {
 
   it('keeps material decoration out of the accessibility tree', () => {
     render(
-      <LumenSurface material="mica" aria-label="Search surface">
+      <LumenSurface data-testid="surface" material="mica" aria-label="Search surface">
         <LumenText as="h1" variant="display">
           Find anything
         </LumenText>
@@ -41,6 +42,7 @@ describe('Lumen primitives', () => {
     );
 
     const surface = screen.getByLabelText('Search surface');
+    expect(screen.getByTestId('surface')).toHaveAttribute('data-material', 'mica');
     expect(surface).toHaveAttribute('data-material', 'mica');
     expect(screen.getByRole('heading', {name: 'Find anything'})).toBeVisible();
     expect(surface.querySelectorAll('[aria-hidden="true"]')).toHaveLength(3);

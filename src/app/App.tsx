@@ -5,7 +5,7 @@ import * as stylex from '@stylexjs/stylex';
 import {LumenMark} from '../design-system/icons/LumenMark';
 import {LumenSurface} from '../design-system/primitives/LumenSurface';
 import {LumenText} from '../design-system/primitives/LumenText';
-import type {AppearancePreferences} from '../design-system/themes.stylex';
+import type {AppearancePreferences} from '../design-system/theme';
 import {tokens} from '../design-system/tokens.stylex';
 import {SearchExperience} from '../features/launcher/SearchExperience';
 import {useLauncherStore} from '../features/launcher/launcher.store';

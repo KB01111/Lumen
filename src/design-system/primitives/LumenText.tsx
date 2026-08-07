@@ -1,68 +1,6 @@
 import {createElement, type HTMLAttributes} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
-import {tokens} from '../tokens.stylex';
-
-const styles = stylex.create({
-  base: {
-    margin: 0,
-    color: tokens.colorTextPrimary,
-    fontFamily: tokens.fontFamilyText,
-    textWrap: 'pretty',
-  },
-  display: {
-    fontFamily: tokens.fontFamilyDisplay,
-    fontSize: tokens.fontSizeDisplay,
-    fontWeight: tokens.fontWeightSemibold,
-    letterSpacing: tokens.letterSpacingTight,
-    lineHeight: tokens.lineHeightTight,
-  },
-  title: {
-    fontFamily: tokens.fontFamilyDisplay,
-    fontSize: tokens.fontSizeTitle,
-    fontWeight: tokens.fontWeightSemibold,
-    letterSpacing: tokens.letterSpacingTight,
-    lineHeight: tokens.lineHeightTight,
-  },
-  bodyLarge: {
-    fontSize: tokens.fontSizeBodyLarge,
-    lineHeight: tokens.lineHeightBody,
-  },
-  body: {
-    fontSize: tokens.fontSizeBody,
-    lineHeight: tokens.lineHeightBody,
-  },
-  meta: {
-    fontSize: tokens.fontSizeMeta,
-    lineHeight: tokens.lineHeightBody,
-  },
-  caption: {
-    fontSize: tokens.fontSizeCaption,
-    lineHeight: tokens.lineHeightBody,
-  },
-  primary: {
-    color: tokens.colorTextPrimary,
-  },
-  secondary: {
-    color: tokens.colorTextSecondary,
-  },
-  tertiary: {
-    color: tokens.colorTextTertiary,
-  },
-  accent: {
-    color: tokens.colorAccent,
-  },
-  regular: {
-    fontWeight: tokens.fontWeightRegular,
-  },
-  medium: {
-    fontWeight: tokens.fontWeightMedium,
-  },
-  semibold: {
-    fontWeight: tokens.fontWeightSemibold,
-  },
-});
+import {cn} from '../../lib/cn';
 
 type TextElement = 'span' | 'p' | 'div' | 'h1' | 'h2' | 'h3' | 'label' | 'small';
 export type LumenTextVariant = 'display' | 'title' | 'bodyLarge' | 'body' | 'meta' | 'caption';
@@ -76,6 +14,28 @@ export interface LumenTextProps extends HTMLAttributes<HTMLElement> {
   weight?: LumenTextWeight;
 }
 
+const variantClasses: Record<LumenTextVariant, string> = {
+  display: 'font-display text-[2.375rem] font-[620] leading-[1.15] tracking-[-0.018em]',
+  title: 'font-display text-[1.75rem] font-[620] leading-[1.15] tracking-[-0.018em]',
+  bodyLarge: 'text-[0.9375rem] leading-[1.45]',
+  body: 'text-sm leading-[1.45]',
+  meta: 'text-xs leading-[1.45]',
+  caption: 'text-[0.6875rem] leading-[1.45]',
+};
+
+const toneClasses: Record<LumenTextTone, string> = {
+  primary: 'text-text-primary',
+  secondary: 'text-text-secondary',
+  tertiary: 'text-text-tertiary',
+  accent: 'text-accent',
+};
+
+const weightClasses: Record<LumenTextWeight, string> = {
+  regular: 'font-normal',
+  medium: 'font-[520]',
+  semibold: 'font-[620]',
+};
+
 export function LumenText({
   as = 'span',
   className,
@@ -84,16 +44,15 @@ export function LumenText({
   weight = 'regular',
   ...props
 }: LumenTextProps) {
-  const generatedClassName = stylex.props(
-    styles.base,
-    styles[variant],
-    styles[tone],
-    styles[weight],
-  ).className;
-
   return createElement(as, {
     ...props,
-    className: [generatedClassName, className].filter(Boolean).join(' '),
+    className: cn(
+      'm-0 font-sans tracking-[-0.006em] text-pretty',
+      variantClasses[variant],
+      toneClasses[tone],
+      weightClasses[weight],
+      className,
+    ),
   });
 }
 

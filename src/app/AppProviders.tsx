@@ -1,17 +1,8 @@
-import * as stylex from '@stylexjs/stylex';
 import type {PropsWithChildren, ProfilerOnRenderCallback} from 'react';
 import {Profiler, useEffect, useMemo, useRef, useSyncExternalStore} from 'react';
 import {UNSAFE_PortalProvider} from 'react-aria';
 import {LumenMotionProvider} from '../design-system/MotionProvider';
-import {
-  darkTheme,
-  darkOpaqueMaterialTheme,
-  highContrastTheme,
-  lightTheme,
-  lightOpaqueMaterialTheme,
-  type AppearancePreferences,
-} from '../design-system/themes.stylex';
-import {tokens} from '../design-system/tokens.stylex';
+import type {AppearancePreferences} from '../design-system/theme';
 import {
   captureReactCommit,
   readDiagnosticMetrics,
@@ -19,16 +10,6 @@ import {
   startDiagnosticsObserver,
 } from '../features/diagnostics/diagnostics.metrics';
 import {useAppearanceStore} from '../state/appearance.store';
-
-const styles = stylex.create({
-  root: {
-    width: '100%',
-    height: '100%',
-    color: tokens.colorTextPrimary,
-    fontFamily: tokens.fontFamilyText,
-    backgroundColor: 'transparent',
-  },
-});
 
 function subscribeToMedia(query: string, onChange: () => void) {
   if (typeof window.matchMedia !== 'function') {
@@ -93,7 +74,6 @@ export function AppProviders({
     : resolvedAppearance.mode;
   const reducedMotion = resolvedAppearance.motion === 'reduced' ||
     (resolvedAppearance.motion === 'system' && systemReducedMotion);
-  const opaque = resolvedAppearance.transparency === 'disabled';
   const portalContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -127,18 +107,7 @@ export function AppProviders({
     <LumenMotionProvider reducedMotion={reducedMotion}>
       <div
         ref={portalContainerRef}
-        {...stylex.props(
-          styles.root,
-          highContrast
-            ? highContrastTheme
-            : opaque
-              ? resolvedMode === 'dark'
-                ? darkOpaqueMaterialTheme
-                : lightOpaqueMaterialTheme
-              : resolvedMode === 'dark'
-                ? darkTheme
-                : lightTheme,
-        )}
+        className="h-full w-full bg-transparent font-sans text-text-primary"
         role="application"
         aria-label="Lumen"
         data-theme={resolvedAppearance.mode}
