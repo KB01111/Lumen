@@ -19,6 +19,7 @@ function deferred<T>() {
 class DeferredWindowService implements WindowService {
   readonly calls: WindowMode[] = [];
   hideCalls = 0;
+  private deferredHide: ReturnType<typeof deferred<void>> | null = null;
   private readonly deferredShows: Array<{
     mode: WindowMode;
     operation: ReturnType<typeof deferred<void>>;
@@ -39,7 +40,15 @@ class DeferredWindowService implements WindowService {
     this.deferredShows.filter((entry) => entry.mode === mode)[occurrence]?.operation.reject(error);
   }
 
-  async hide() { this.hideCalls += 1; }
+  deferHide() {
+    this.deferredHide = deferred<void>();
+    return this.deferredHide;
+  }
+
+  async hide() {
+    this.hideCalls += 1;
+    await this.deferredHide?.promise;
+  }
   async focusInput() {}
   async setShortcut() {}
 }
@@ -162,10 +171,16 @@ describe('useLauncherPresentation', () => {
     expect(windowService.hideCalls).toBe(0);
     expect(useLauncherStore.getState().mode).toBe('collapsed');
 
-    renderHook(
+    const second = renderHook(
       () => useLauncherPresentation({hasContent: false, reducedMotion: false, windowService}),
     );
     expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed']);
+
+    act(() => windowService.rejectShow('collapsed', new Error('Current collapse failed'), 1));
+    await act(async () => { await Promise.resolve(); });
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed']);
+    expect(windowService.hideCalls).toBe(1);
+    expect(second.result.current.expanded).toBe(false);
   });
 
   it('keeps a newer collapsed client collapsed when a detached owner collapse fails', async () => {
@@ -199,6 +214,53 @@ describe('useLauncherPresentation', () => {
     expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed']);
     expect(windowService.hideCalls).toBe(1);
     expect(second.result.current.expanded).toBe(false);
+    expect(second.result.current.presentationError).toBe('Current collapse failed');
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'collapsed', visible: false});
+  });
+
+  it('recovers a later expanded intent after fallback hide is rejected', async () => {
+    vi.useFakeTimers();
+    const windowService = new DeferredWindowService();
+    const hideOperation = windowService.deferHide();
+    const first = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: true}},
+    );
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    first.rerender({hasContent: false});
+    await act(async () => vi.advanceTimersByTimeAsync(120));
+    first.unmount();
+
+    const second = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: false}},
+    );
+    act(() => windowService.rejectShow('collapsed', new Error('Detached collapse failed')));
+    await act(async () => { await Promise.resolve(); });
+    act(() => windowService.rejectShow('collapsed', new Error('Current collapse failed'), 1));
+    await act(async () => { await Promise.resolve(); });
+    expect(windowService.hideCalls).toBe(1);
+
+    await act(async () => {
+      hideOperation.reject(new Error('Native hide unavailable'));
+      await Promise.resolve();
+    });
+    expect(second.result.current.presentationError).toBe('Native hide unavailable');
+    expect(second.result.current.expanded).toBe(true);
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: true});
+
+    second.rerender({hasContent: true});
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed', 'expanded']);
+    await act(async () => {
+      windowService.resolveShow('expanded', 1);
+      await Promise.resolve();
+    });
+    expect(second.result.current.expanded).toBe(true);
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: true});
   });
 
   it('hides the workspace before requesting collapsed native bounds', async () => {
