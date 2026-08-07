@@ -17,5 +17,13 @@ test('renders dark, light, and opaque shell variants', async ({page}) => {
   await page.keyboard.press('Control+Shift+L');
   await expect(application).toHaveAttribute('data-theme', 'dark');
   await expect(application).toHaveAttribute('data-transparency', 'disabled');
+
+  await page.goto('/?service=memory');
+  const commandPalette = page.getByLabel('Lumen launcher');
+  await expect(commandPalette).toHaveAttribute('data-upstream', 'einui-glass-command-palette');
+  await expect(commandPalette).toHaveAttribute('data-expanded', 'false');
+  await page.getByRole('searchbox', {name: 'Search files'}).fill('release');
+  await expect(commandPalette).toHaveAttribute('data-expanded', 'true');
+  await expect(commandPalette.locator('[data-einui-slot="workspace"]')).toBeVisible();
 });
 

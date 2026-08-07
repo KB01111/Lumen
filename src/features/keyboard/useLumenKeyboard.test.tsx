@@ -54,7 +54,12 @@ describe('Lumen keyboard coordination', () => {
     render(<SearchExperience service={service} windowService={windowService} />);
 
     await searchFor(service, user, 'alpha', [file('alpha'), file('beta')]);
-    await user.keyboard('{Tab}{Tab}{Enter}');
+    expect(useLauncherStore.getState().mode).toBe('expanded');
+    await user.keyboard('{Tab}');
+    expect(screen.getByRole('tab', {name: 'All'})).toHaveFocus();
+    await user.keyboard('{Tab}');
+    expect(screen.getByRole('row', {name: /alpha\.tsx/i})).toHaveFocus();
+    await user.keyboard('{Enter}');
 
     await waitFor(() => expect(service.openedFiles).toEqual(['alpha']));
     await waitFor(() => expect(windowService.snapshot().visible).toBe(false));

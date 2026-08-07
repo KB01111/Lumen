@@ -130,6 +130,7 @@ export function useLumenKeyboard({
         return;
       }
       event.preventDefault();
+      event.stopPropagation();
       if (event.shiftKey) {
         focusRegion(
           current === 'search'

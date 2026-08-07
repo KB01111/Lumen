@@ -1,98 +1,98 @@
 import {useEffect, useRef, type ReactNode, type RefObject} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
+import {GlassCommandPalette} from '../../components/ui/GlassCommandPalette';
 import {LumenMark} from '../../design-system/icons/LumenMark';
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
-import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
+import {useLumenMotion} from '../../design-system/MotionProvider';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
-import {LumenSurface} from '../../design-system/primitives/LumenSurface';
-import {tokens} from '../../design-system/tokens.stylex';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
+import {cn} from '../../lib/cn';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
 import {LauncherStatus} from './LauncherStatus';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
 import {ScopeRail} from './ScopeRail';
 import {SearchInput} from './SearchInput';
+import {useLauncherPresentation} from './useLauncherPresentation';
 
 const defaultWindowService = createWindowService();
 
-const styles = stylex.create({
-  shell: {
-    width: '100%',
-    height: '54px',
-    minWidth: 0,
-    borderRadius: tokens.radiusLauncher,
-    transitionDuration: tokens.durationExpand,
-    transitionProperty: 'border-radius',
-    transitionTimingFunction: tokens.easingStandard,
-  },
-  expanded: {
-    height: '100%',
-    borderRadius: tokens.radiusLarge,
-  },
-  content: {
-    width: '100%',
-    height: '100%',
-    minHeight: 0,
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  row: {
-    minWidth: 0,
-    minHeight: '52px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.space6,
-    paddingInline: tokens.space6,
-  },
-  markWell: {
-    width: '38px',
-    height: '38px',
-    display: 'grid',
-    flexShrink: 0,
-    placeItems: 'center',
-    color: tokens.colorAccent,
-    backgroundColor: tokens.colorAccentMuted,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-    boxShadow: tokens.shadowInsetTop,
-  },
-  mark: {
-    filter: 'drop-shadow(0 0 10px currentColor)',
-  },
-  divider: {
-    width: '1px',
-    height: '26px',
-    flexShrink: 0,
-    backgroundColor: tokens.colorBorderSubtle,
-  },
-  voice: {
-    flexShrink: 0,
-    color: tokens.colorTextTertiary,
-  },
-  shortcut: {
-    display: 'inline-flex',
-    flexShrink: 0,
-    paddingBlock: tokens.space2,
-    paddingInline: tokens.space5,
-    color: tokens.colorTextSecondary,
-    backgroundColor: tokens.colorMaterialInset,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusSmall,
-    boxShadow: tokens.shadowInsetBottom,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeCaption,
-    lineHeight: tokens.lineHeightTight,
-  },
-  intent: {flexShrink: 0},
-});
+interface LauncherComposerProps {
+  inputRef: RefObject<HTMLInputElement | null>;
+  intentLocked: boolean;
+  onComputerSubmit?: (task: string) => void;
+  onEscapeEmpty(): void;
+  onIntentChange(): void;
+  onVoiceRequest?: () => void;
+}
+
+function LauncherComposer({
+  inputRef,
+  intentLocked,
+  onComputerSubmit,
+  onEscapeEmpty,
+  onIntentChange,
+  onVoiceRequest,
+}: LauncherComposerProps) {
+  const intent = useLauncherStore((state) => state.intent);
+  return (
+    <div className="flex min-w-0 items-center gap-3" data-tauri-drag-region>
+      <span
+        aria-hidden="true"
+        className="grid size-9 shrink-0 place-items-center rounded-[var(--lumen-radius-control)] border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row)] text-accent shadow-[var(--lumen-shadow-control)]"
+      >
+        <LumenMark className="drop-shadow-[0_0_10px_currentColor]" size="large" />
+      </span>
+      <LumenButton
+        aria-label={intent === 'computer' ? 'Switch to file search' : 'Switch to Computer Use'}
+        className="shrink-0"
+        isDisabled={intentLocked}
+        size="small"
+        variant="quiet"
+        onPress={onIntentChange}
+      >
+        <LumenUiIcon name={intent === 'computer' ? 'search' : 'computer'} size="small" />
+        {intent === 'computer' ? 'File search' : 'Computer Use'}
+      </LumenButton>
+      <SearchInput
+        ref={inputRef}
+        intent={intent}
+        onEscapeEmpty={onEscapeEmpty}
+        onSubmit={intentLocked ? undefined : onComputerSubmit}
+      />
+      {onVoiceRequest ? (
+        <LumenButton
+          aria-label="Start voice input"
+          className="shrink-0"
+          size="small"
+          variant="quiet"
+          onPress={onVoiceRequest}
+        >
+          <LumenUiIcon name="voice" size="small" />
+        </LumenButton>
+      ) : null}
+      <kbd className="einui-command-shortcut hidden shrink-0 sm:inline-flex" aria-label="Alt plus Space">
+        Alt&nbsp;&nbsp;Space
+      </kbd>
+    </div>
+  );
+}
+
+function LauncherFooter({
+  searching,
+  statusLabel,
+}: {
+  searching: boolean;
+  statusLabel?: string;
+}) {
+  return (
+    <>
+      <LauncherStatus label={statusLabel} searching={searching} />
+      <span className="text-[color:var(--einui-command-muted-text)]">Local runtime</span>
+    </>
+  );
+}
 
 export interface CollapsedLauncherProps {
   expandedContent?: ReactNode;
@@ -117,34 +117,24 @@ export function CollapsedLauncher({
 }: CollapsedLauncherProps) {
   const committedQuery = useQueryStore((state) => state.committed);
   const clearQuery = useQueryStore((state) => state.clear);
-  const mode = useLauncherStore((state) => state.mode);
-  const show = useLauncherStore((state) => state.show);
   const hide = useLauncherStore((state) => state.hide);
   const intent = useLauncherStore((state) => state.intent);
   const setIntent = useLauncherStore((state) => state.setIntent);
+  const {reducedMotion} = useLumenMotion();
   const fallbackInputRef = useRef<HTMLInputElement>(null);
   const renderStartedAt = useRef(performance.now());
   const inputRef = providedInputRef ?? fallbackInputRef;
-  const expanded = mode === 'expanded';
+  const {expanded, presentationError} = useLauncherPresentation({
+    hasContent: committedQuery.length > 0,
+    reducedMotion,
+    windowService,
+  });
 
   useEffect(() => {
     inputRef.current?.focus();
     void windowService.focusInput();
     measureAfterPaint('launcher-visible', renderStartedAt.current);
   }, [inputRef, windowService]);
-
-  useEffect(() => {
-    if (mode !== 'collapsed' && mode !== 'expanded') {
-      return;
-    }
-    if (committedQuery) {
-      show('expanded');
-      void windowService.show('expanded');
-    } else if (mode === 'expanded') {
-      show('collapsed');
-      void windowService.show('collapsed');
-    }
-  }, [committedQuery, mode, show, windowService]);
 
   const handleEscapeEmpty = () => {
     hide();
@@ -156,56 +146,34 @@ export function CollapsedLauncher({
     setIntent(intent === 'computer' ? 'search' : 'computer');
   };
 
+  const visibleWorkspace = expanded ? expandedContent : null;
+
   return (
-    <LumenSurface
+    <GlassCommandPalette
       aria-label="Lumen launcher"
-      className={stylex.props(styles.shell, expanded && styles.expanded).className}
-      material="mica"
-    >
-      <div {...stylex.props(styles.content)}>
-        <div data-tauri-drag-region {...stylex.props(styles.row)}>
-          <span aria-hidden="true" {...stylex.props(styles.markWell)}>
-            <LumenMark className={stylex.props(styles.mark).className} size="large" />
-          </span>
-          <span aria-hidden="true" {...stylex.props(styles.divider)} />
-          <LumenButton
-            aria-label={intent === 'computer' ? 'Switch to file search' : 'Switch to Computer Use'}
-            className={stylex.props(styles.intent).className}
-            isDisabled={intentLocked}
-            size="small"
-            variant={intent === 'computer' ? 'primary' : 'quiet'}
-            onPress={handleIntentChange}
-          >
-            {intent === 'computer'
-              ? <LumenUiIcon name="computer" size="small" />
-              : <LumenUiIcon name="search" size="small" />}
-            {intent === 'computer' ? 'Agent' : 'Search'}
-          </LumenButton>
-          <SearchInput
-            ref={inputRef}
-            intent={intent}
-            onEscapeEmpty={handleEscapeEmpty}
-            onSubmit={intentLocked ? undefined : onComputerSubmit}
-          />
-          {onVoiceRequest ? (
-            <LumenIconButton
-              aria-label="Start voice input"
-              className={stylex.props(styles.voice).className}
-              size="small"
-              variant="quiet"
-              onPress={onVoiceRequest}
-            >
-              <LumenUiIcon name="voice" size="small" />
-            </LumenIconButton>
-          ) : null}
-          <LauncherStatus label={statusLabel} searching={searching} />
-          <kbd aria-label="Alt plus Space" {...stylex.props(styles.shortcut)}>
-            Alt&nbsp;&nbsp;Space
-          </kbd>
-        </div>
-        {expanded && intent === 'search' ? <ScopeRail /> : null}
-        {expanded ? expandedContent : null}
-      </div>
-    </LumenSurface>
+      className={cn(
+        'transition-[border-radius] duration-[160ms] ease-standard',
+        expanded ? 'rounded-[var(--lumen-radius-surface)]' : 'rounded-[var(--lumen-radius-pill)]',
+      )}
+      composer={(
+        <LauncherComposer
+          inputRef={inputRef}
+          intentLocked={intentLocked}
+          onComputerSubmit={onComputerSubmit}
+          onEscapeEmpty={handleEscapeEmpty}
+          onIntentChange={handleIntentChange}
+          onVoiceRequest={onVoiceRequest}
+        />
+      )}
+      expanded={expanded}
+      scopes={intent === 'search' ? <ScopeRail /> : null}
+      body={visibleWorkspace}
+      footer={(
+        <LauncherFooter
+          searching={searching}
+          statusLabel={presentationError ?? statusLabel}
+        />
+      )}
+    />
   );
 }

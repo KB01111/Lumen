@@ -7,56 +7,11 @@ import {
   type KeyboardEvent,
 } from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
-import {tokens} from '../../design-system/tokens.stylex';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
 import {useQueryStore} from './query.store';
 import type {LauncherIntent} from './launcher.store';
-
-const styles = stylex.create({
-  field: {
-    minWidth: 0,
-    display: 'flex',
-    flex: 1,
-    alignItems: 'center',
-    gap: tokens.space2,
-    marginInline: `calc(${tokens.space2} * -1)`,
-    paddingBlock: tokens.space2,
-    paddingInline: tokens.space2,
-    backgroundColor: 'transparent',
-    borderRadius: tokens.radiusSmall,
-    boxShadow: 'inset 0 -1px 0 transparent',
-    transitionDuration: tokens.durationHover,
-    transitionProperty: 'background-color, box-shadow',
-    transitionTimingFunction: tokens.easingStandard,
-    ':focus-within': {
-      backgroundColor: tokens.colorMaterialInset,
-      boxShadow: `inset 0 -1px 0 ${tokens.colorFocusSoft}`,
-    },
-  },
-  input: {
-    width: '100%',
-    minWidth: 0,
-    padding: 0,
-    color: tokens.colorTextPrimary,
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    caretColor: tokens.colorAccent,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeSearch,
-    fontWeight: tokens.fontWeightRegular,
-    letterSpacing: tokens.letterSpacingTight,
-    lineHeight: tokens.lineHeightTight,
-    outline: 'none',
-  },
-  clear: {
-    flexShrink: 0,
-    color: tokens.colorTextTertiary,
-  },
-});
 
 export interface SearchInputProps {
   intent?: LauncherIntent;
@@ -169,7 +124,11 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     };
 
     return (
-      <div role="search" aria-label={intent === 'computer' ? 'Browser task' : 'File search'} {...stylex.props(styles.field)}>
+      <div
+        aria-label={intent === 'computer' ? 'Browser task' : 'File search'}
+        className="-mx-1 flex min-w-0 flex-1 items-center gap-1 rounded-[var(--lumen-radius-control)] bg-transparent px-1 py-1 shadow-[inset_0_-1px_0_transparent] transition-[background-color,box-shadow] duration-[90ms] ease-standard focus-within:bg-[var(--einui-command-row)] focus-within:shadow-[inset_0_-1px_0_var(--lumen-focus)]"
+        role="search"
+      >
         <input
           ref={inputRef}
           aria-label={intent === 'computer' ? 'Describe a browser task' : 'Search files'}
@@ -180,7 +139,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           placeholder={intent === 'computer' ? 'Ask Lumen to complete a browser task' : 'Search apps, files, and settings'}
           spellCheck={false}
           type="search"
-          {...stylex.props(styles.input)}
+          className="w-full min-w-0 border-0 bg-transparent p-0 font-sans text-[1.0625rem] font-normal leading-tight tracking-tight text-[color:var(--einui-command-text)] caret-accent outline-none placeholder:text-[color:var(--einui-command-muted-text)]"
           onCompositionEnd={handleCompositionEnd}
           onCompositionStart={startComposition}
           onInput={handleInput}
@@ -189,7 +148,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
         <span ref={clearWrapperRef} hidden={!useQueryStore.getState().draft}>
           <LumenIconButton
             aria-label="Clear search"
-            className={stylex.props(styles.clear).className}
+            className="shrink-0 text-[color:var(--einui-command-muted-text)]"
             size="small"
             variant="quiet"
             onPress={clearInput}

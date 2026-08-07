@@ -50,6 +50,7 @@ export const GlassCommandPalette = forwardRef<HTMLDivElement, GlassCommandPalett
           className="einui-command-palette relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[color:var(--einui-command-border)] bg-[var(--einui-command-surface)] text-[color:var(--einui-command-text)] shadow-[var(--einui-command-shadow)] backdrop-blur-3xl"
           data-einui-layer="surface"
           data-material="raised"
+          style={{borderRadius: expanded ? 'var(--lumen-radius-surface)' : 'var(--lumen-radius-pill)'}}
         >
           <span
             aria-hidden="true"

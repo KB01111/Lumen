@@ -15,6 +15,30 @@ afterEach(() => {
 });
 
 describe('CollapsedLauncher', () => {
+  it('keeps one command-palette surface while a query expands the workspace', async () => {
+    const user = userEvent.setup();
+    render(<CollapsedLauncher windowService={new BrowserWindowService()} />);
+
+    const palette = screen.getByLabelText('Lumen launcher');
+    expect(palette).toHaveAttribute('data-upstream', 'einui-glass-command-palette');
+    expect(palette).toHaveAttribute('data-expanded', 'false');
+    expect(palette.querySelector('[data-einui-slot="composer"]')).toBeInTheDocument();
+    expect(palette.querySelector('[data-einui-slot="workspace"]')).not.toBeInTheDocument();
+    expect(palette.querySelector('[data-einui-layer="surface"]')).toHaveStyle({
+      borderRadius: 'var(--lumen-radius-pill)',
+    });
+
+    await user.type(screen.getByRole('searchbox', {name: 'Search files'}), 'release');
+
+    await waitFor(() => expect(palette).toHaveAttribute('data-expanded', 'true'));
+    expect(palette.querySelector('[data-einui-slot="workspace"]')).toBeInTheDocument();
+    expect(palette.querySelector('[data-einui-slot="scopes"]')).toBeInTheDocument();
+    expect(palette.querySelector('[data-einui-slot="footer"]')).toHaveTextContent('Ready');
+    expect(palette.querySelector('[data-einui-layer="surface"]')).toHaveStyle({
+      borderRadius: 'var(--lumen-radius-surface)',
+    });
+  });
+
   it('commits an IME query only after composition ends', async () => {
     const user = userEvent.setup();
     render(<CollapsedLauncher windowService={new BrowserWindowService()} />);
@@ -56,7 +80,7 @@ describe('CollapsedLauncher', () => {
     await user.type(input, 'report');
     await user.keyboard('{Escape}');
     expect(input).toHaveValue('');
-    expect(useLauncherStore.getState().mode).toBe('collapsed');
+    await waitFor(() => expect(useLauncherStore.getState().mode).toBe('collapsed'));
 
     await user.keyboard('{Escape}');
     await waitFor(() => expect(windowService.snapshot().visible).toBe(false));
