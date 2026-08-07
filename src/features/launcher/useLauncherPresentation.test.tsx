@@ -88,6 +88,57 @@ describe('useLauncherPresentation', () => {
     expect(result.current.expanded).toBe(true);
   });
 
+  it('hands an unresolved native expansion to a new collapsed hook instance', async () => {
+    const windowService = new DeferredWindowService();
+    const first = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: false}},
+    );
+
+    first.rerender({hasContent: true});
+    expect(windowService.calls).toEqual(['expanded']);
+    first.unmount();
+
+    const second = renderHook(
+      () => useLauncherPresentation({hasContent: false, reducedMotion: false, windowService}),
+    );
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    expect(windowService.calls).toEqual(['expanded', 'collapsed']);
+
+    await act(async () => {
+      windowService.resolveShow('collapsed');
+      await Promise.resolve();
+    });
+    expect(second.result.current.expanded).toBe(false);
+    expect(useLauncherStore.getState().mode).toBe('collapsed');
+  });
+
+  it('reconciles an unresolved strict-mode expansion after remount changes intent to collapsed', async () => {
+    const windowService = new DeferredWindowService();
+    const {result, rerender} = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: true}, wrapper: StrictMode},
+    );
+
+    expect(windowService.calls).toEqual(['expanded']);
+    rerender({hasContent: false});
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    expect(windowService.calls).toEqual(['expanded', 'collapsed']);
+
+    await act(async () => {
+      windowService.resolveShow('collapsed');
+      await Promise.resolve();
+    });
+    expect(result.current.expanded).toBe(false);
+    expect(useLauncherStore.getState().mode).toBe('collapsed');
+  });
+
   it('hides the workspace before requesting collapsed native bounds', async () => {
     vi.useFakeTimers();
     const windowService = new DeferredWindowService();

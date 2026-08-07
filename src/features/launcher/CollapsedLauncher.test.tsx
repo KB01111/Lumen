@@ -98,9 +98,9 @@ describe('CollapsedLauncher', () => {
     );
 
     expect(screen.getByRole('button', {name: 'Start voice input'})).toBeVisible();
-    expect(
-      await screen.findByRole('tablist', {name: 'Search scopes'}),
-    ).toBeVisible();
+    await waitFor(() => expect(
+      screen.getByRole('tablist', {name: 'Search scopes'}),
+    ).toBeVisible());
     expect(screen.getAllByRole('tab')).toHaveLength(8);
 
     await user.click(screen.getByRole('tab', {name: 'Documents'}));
