@@ -70,7 +70,7 @@ export function PrivacyPage() {
             title="Delete the local index?"
             onConfirm={() => setMessage('Index deletion preview completed. No source files were changed.')}
           >
-            <LumenButton size="small" variant="danger"><LumenUiIcon name="hardware" size="small" /> Delete index</LumenButton>
+            <LumenButton size="small" variant="danger"><LumenUiIcon name="storage" size="small" /> Delete index</LumenButton>
           </ConfirmationDialog>
         </SettingRow>
       </SettingSection>
