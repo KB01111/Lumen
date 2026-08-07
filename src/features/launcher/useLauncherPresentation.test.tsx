@@ -19,6 +19,8 @@ function deferred<T>() {
 class DeferredWindowService implements WindowService {
   readonly calls: WindowMode[] = [];
   hideCalls = 0;
+  nativeMode: WindowMode | 'unknown' = 'collapsed';
+  nativeVisibility: 'hidden' | 'unknown' | 'visible' = 'visible';
   private deferredHide: ReturnType<typeof deferred<void>> | null = null;
   private readonly deferredShows: Array<{
     mode: WindowMode;
@@ -29,7 +31,10 @@ class DeferredWindowService implements WindowService {
     this.calls.push(mode);
     const operation = deferred<void>();
     this.deferredShows.push({mode, operation});
-    return operation.promise;
+    return operation.promise.then(() => {
+      this.nativeMode = mode;
+      this.nativeVisibility = 'visible';
+    });
   }
 
   resolveShow(mode: WindowMode, occurrence = 0) {
@@ -47,7 +52,14 @@ class DeferredWindowService implements WindowService {
 
   async hide() {
     this.hideCalls += 1;
-    await this.deferredHide?.promise;
+    try {
+      await this.deferredHide?.promise;
+      this.nativeVisibility = 'hidden';
+    } catch (error) {
+      this.nativeMode = 'unknown';
+      this.nativeVisibility = 'unknown';
+      throw error;
+    }
   }
   async focusInput() {}
   async setShortcut() {}
@@ -260,6 +272,109 @@ describe('useLauncherPresentation', () => {
       await Promise.resolve();
     });
     expect(second.result.current.expanded).toBe(true);
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: true});
+  });
+
+  it('serializes a newer expanded intent after a stale fallback hide resolves', async () => {
+    vi.useFakeTimers();
+    const windowService = new DeferredWindowService();
+    const hideOperation = windowService.deferHide();
+    const first = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: true}},
+    );
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    first.rerender({hasContent: false});
+    await act(async () => vi.advanceTimersByTimeAsync(120));
+    first.unmount();
+
+    const second = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: false}},
+    );
+    act(() => windowService.rejectShow('collapsed', new Error('Detached collapse failed')));
+    await act(async () => { await Promise.resolve(); });
+    act(() => windowService.rejectShow('collapsed', new Error('Current collapse failed'), 1));
+    await act(async () => { await Promise.resolve(); });
+    expect(windowService.hideCalls).toBe(1);
+
+    second.rerender({hasContent: true});
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed']);
+    expect(second.result.current.presentationError).toBeNull();
+
+    await act(async () => {
+      hideOperation.resolve();
+      await Promise.resolve();
+    });
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed', 'expanded']);
+    expect(second.result.current.presentationError).toBeNull();
+
+    await act(async () => {
+      windowService.resolveShow('expanded', 1);
+      await Promise.resolve();
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed', 'expanded']);
+    expect(windowService.hideCalls).toBe(1);
+    expect(windowService).toMatchObject({nativeMode: 'expanded', nativeVisibility: 'visible'});
+    expect(second.result.current).toMatchObject({expanded: true, presentationError: null});
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: true});
+  });
+
+  it('serializes a new expanded client after a stale fallback hide rejects', async () => {
+    vi.useFakeTimers();
+    const windowService = new DeferredWindowService();
+    const hideOperation = windowService.deferHide();
+    const first = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: true}},
+    );
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    first.rerender({hasContent: false});
+    await act(async () => vi.advanceTimersByTimeAsync(120));
+    first.unmount();
+
+    const stale = renderHook(
+      () => useLauncherPresentation({hasContent: false, reducedMotion: false, windowService}),
+    );
+    act(() => windowService.rejectShow('collapsed', new Error('Detached collapse failed')));
+    await act(async () => { await Promise.resolve(); });
+    act(() => windowService.rejectShow('collapsed', new Error('Current collapse failed'), 1));
+    await act(async () => { await Promise.resolve(); });
+    expect(windowService.hideCalls).toBe(1);
+
+    stale.unmount();
+    const current = renderHook(
+      () => useLauncherPresentation({hasContent: true, reducedMotion: false, windowService}),
+    );
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed']);
+
+    await act(async () => {
+      hideOperation.reject(new Error('Native hide unavailable'));
+      await Promise.resolve();
+    });
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed', 'expanded']);
+    expect(current.result.current.presentationError).toBeNull();
+
+    await act(async () => {
+      windowService.resolveShow('expanded', 1);
+      await Promise.resolve();
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed', 'expanded']);
+    expect(windowService.hideCalls).toBe(1);
+    expect(windowService).toMatchObject({nativeMode: 'expanded', nativeVisibility: 'visible'});
+    expect(current.result.current).toMatchObject({expanded: true, presentationError: null});
     expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: true});
   });
 

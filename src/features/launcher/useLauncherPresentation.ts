@@ -62,6 +62,11 @@ class WindowPresentationCoordinator {
     this.reconcile();
   }
 
+  private needsReconciliation() {
+    return this.nativeMode !== this.desiredMode ||
+      (this.desiredMode === 'expanded' && this.nativeVisibility !== 'visible');
+  }
+
   private reconcile() {
     if (this.reconciling || this.suspended) return;
     this.reconciling = true;
@@ -69,8 +74,7 @@ class WindowPresentationCoordinator {
       try {
         while (true) {
           const requestedMode = this.desiredMode;
-          const needsShow = this.nativeVisibility !== 'visible' && requestedMode === 'expanded';
-          if (this.nativeMode === requestedMode && !needsShow) {
+          if (!this.needsReconciliation()) {
             if (requestedMode === 'expanded' && this.activeClient?.hasContent()) {
               this.activeClient.onNativeExpanded();
             }
@@ -115,8 +119,13 @@ class WindowPresentationCoordinator {
                   this.activeClient.onCollapseHideFailure(hideError);
                 }
               }
-              this.suspended = true;
-              break;
+              const ownsFallback = issuedClient === this.activeClient &&
+                issuedGeneration === this.generation;
+              if (!this.activeClient || ownsFallback) {
+                this.suspended = true;
+                break;
+              }
+              continue;
             } else {
               this.nativeMode = 'collapsed';
               this.nativeVisibility = 'visible';
@@ -136,7 +145,7 @@ class WindowPresentationCoordinator {
         }
       } finally {
         this.reconciling = false;
-        if (!this.suspended && this.nativeMode !== this.desiredMode) this.reconcile();
+        if (!this.suspended && this.needsReconciliation()) this.reconcile();
       }
     })();
   }
