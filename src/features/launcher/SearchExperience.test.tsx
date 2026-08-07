@@ -1,0 +1,146 @@
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {afterEach, describe, expect, it} from 'vitest';
+
+import {MemoryAnswerService} from '../../services/answer/memory-answer-service';
+import {BrowserWindowService} from '../../platform/window/browser-window-service';
+import {MemorySearchService} from '../../services/search/memory-search-service';
+import {usePreviewStore} from '../launcher/preview.store';
+import {useLauncherStore} from './launcher.store';
+import {useQueryStore} from './query.store';
+import {useScopeStore} from './scope.store';
+import {useSelectionStore} from './selection.store';
+import {SearchExperience} from './SearchExperience';
+
+afterEach(() => {
+  useLauncherStore.getState().reset();
+  usePreviewStore.getState().reset();
+  useQueryStore.getState().reset();
+  useScopeStore.getState().reset();
+  useSelectionStore.getState().reset();
+});
+
+describe('SearchExperience answer submission', () => {
+  it('searches while typing without starting an answer stream', async () => {
+    const user = userEvent.setup();
+    const service = new MemorySearchService();
+    const answers = new MemoryAnswerService();
+    render(
+      <SearchExperience
+        answerService={answers}
+        service={service}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    await user.type(screen.getByRole('searchbox', {name: 'Search files'}), 'release');
+
+    await waitFor(() => expect(
+      service.requests.some(({request}) => request.query === 'release'),
+    ).toBe(true));
+    expect(answers.requests).toHaveLength(0);
+  });
+
+  it('submits one answer request only for plain Enter in the composer', async () => {
+    const user = userEvent.setup();
+    const service = new MemorySearchService();
+    const answers = new MemoryAnswerService();
+    render(
+      <SearchExperience
+        answerService={answers}
+        service={service}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    const input = screen.getByRole('searchbox', {name: 'Search files'});
+    await user.type(input, 'summarize the release');
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(answers.requests).toHaveLength(1));
+    expect(answers.requests[0]?.request).toMatchObject({
+      query: 'summarize the release',
+      mode: 'auto',
+      cloudConsent: false,
+    });
+  });
+
+  it('does not submit an answer while IME composition is active', async () => {
+    const service = new MemorySearchService();
+    const answers = new MemoryAnswerService();
+    render(
+      <SearchExperience
+        answerService={answers}
+        service={service}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    const input = screen.getByRole('searchbox', {name: 'Search files'});
+    fireEvent.compositionStart(input);
+    fireEvent.input(input, {target: {value: 'ルーメン'}});
+    fireEvent.keyDown(input, {key: 'Enter', isComposing: true});
+
+    expect(answers.requests).toHaveLength(0);
+    expect(useQueryStore.getState().submitted).toBe('');
+  });
+
+  it('cancels the prior stream when the composer retries the same submission', async () => {
+    const user = userEvent.setup();
+    const service = new MemorySearchService();
+    const answers = new MemoryAnswerService();
+    render(
+      <SearchExperience
+        answerService={answers}
+        service={service}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    const input = screen.getByRole('searchbox', {name: 'Search files'});
+    await user.type(input, 'retry the release');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(answers.requests).toHaveLength(1));
+    const firstSignal = answers.requests[0]?.signal;
+
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(answers.requests).toHaveLength(2));
+    expect(firstSignal?.aborted).toBe(true);
+    expect(answers.requests[1]?.request.query).toBe('retry the release');
+  });
+
+  it('opens the focused result instead of submitting an answer', async () => {
+    const user = userEvent.setup();
+    const service = new MemorySearchService();
+    const answers = new MemoryAnswerService();
+    render(
+      <SearchExperience
+        answerService={answers}
+        service={service}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    const input = screen.getByRole('searchbox', {name: 'Search files'});
+    await user.type(input, 'release');
+    await waitFor(() => expect(
+      service.requests.some(({request}) => request.query === 'release'),
+    ).toBe(true));
+    await act(() => service.resolve('release', [{
+      id: 'release',
+      name: 'release.md',
+      path: 'C:\\Projects\\Lumen\\release.md',
+      kind: 'document',
+      match: {source: 'filename', fragment: 'release'},
+      metadata: {extension: 'md'},
+      availability: 'available',
+    }]));
+    await screen.findByRole('row', {name: /release\.md/i});
+
+    await user.keyboard('{Tab}{Tab}{Enter}');
+
+    await waitFor(() => expect(service.openedFiles).toEqual(['release']));
+    expect(answers.requests).toHaveLength(0);
+  });
+});

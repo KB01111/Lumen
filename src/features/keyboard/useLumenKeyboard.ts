@@ -210,6 +210,9 @@ export function useLumenKeyboard({
       }
 
       const targetRegion = regionForTarget(event.target);
+      if (event.key === 'Enter' && !event.ctrlKey && !event.altKey && targetRegion === 'search') {
+        return;
+      }
       if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') &&
         targetRegion !== 'scope' && targetRegion !== 'preview') {
         event.preventDefault();

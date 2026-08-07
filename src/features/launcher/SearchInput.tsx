@@ -69,6 +69,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     const setDraft = useQueryStore((state) => state.setDraft);
     const startComposition = useQueryStore((state) => state.startComposition);
     const endComposition = useQueryStore((state) => state.endComposition);
+    const submit = useQueryStore((state) => state.submit);
     const clear = useQueryStore((state) => state.clear);
     const inputRef = useRef<HTMLInputElement>(null);
     const clearWrapperRef = useRef<HTMLSpanElement>(null);
@@ -126,6 +127,16 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
         cancelPendingCommit();
         setDraft(task);
         onSubmit?.(task);
+        return;
+      }
+      if (event.key === 'Enter' && intent === 'search' &&
+        !event.nativeEvent.isComposing && !useQueryStore.getState().isComposing) {
+        event.preventDefault();
+        event.stopPropagation();
+        const query = inputRef.current?.value ?? '';
+        cancelPendingCommit();
+        setDraft(query);
+        submit();
         return;
       }
       if (event.key !== 'Escape') {

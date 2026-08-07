@@ -61,35 +61,6 @@ export interface SearchExperienceProps {
   onOpenSettings?: () => void;
 }
 
-function useSettledAnswerQuery(onSupersede: () => void) {
-  const [request, setRequest] = useState({query: '', revision: 0});
-
-  useEffect(() => {
-    let pending = 0;
-    const settle = (query: string) => {
-      window.clearTimeout(pending);
-      onSupersede();
-      if (!query.trim()) {
-        setRequest((current) => current.query
-          ? {query: '', revision: current.revision + 1}
-          : current);
-        return;
-      }
-      pending = window.setTimeout(() => {
-        setRequest((current) => ({query, revision: current.revision + 1}));
-      }, 350);
-    };
-    settle(useQueryStore.getState().committed);
-    const unsubscribe = useQueryStore.subscribe((state) => state.committed, settle);
-    return () => {
-      window.clearTimeout(pending);
-      unsubscribe();
-    };
-  }, [onSupersede]);
-
-  return request;
-}
-
 export function SearchExperience({
   service,
   answerService = unavailableAnswerService,
@@ -105,18 +76,16 @@ export function SearchExperience({
   const computerUseSettings = useSettingsStore((state) => state.computerUse);
   const setActiveSettingsPage = useSettingsStore((state) => state.setActivePage);
   const committedQuery = useQueryStore((state) => state.committed);
-  const answerStopRef = useRef<() => void>(() => undefined);
-  const supersedeAnswer = useCallback(() => answerStopRef.current(), []);
-  const answerRequest = useSettledAnswerQuery(supersedeAnswer);
+  const submittedQuery = useQueryStore((state) => state.submitted);
+  const submissionRevision = useQueryStore((state) => state.submissionRevision);
   const answer = useAnswerController(answerService, {
     delayMs: 0,
     mode: runtimeMode,
     cloudConsent: cloudAnswerConsent,
-    query: intent === 'search' ? answerRequest.query : '',
-    restartKey: answerRequest.revision,
+    query: intent === 'search' ? submittedQuery : '',
+    restartKey: submissionRevision,
   });
   const computerUse = useComputerUseController(computerUseService, computerUseSettings);
-  answerStopRef.current = answer.stop;
   const activeScope = useScopeStore((state) => state.activeScope);
   const activeFilters = useScopeStore((state) => state.activeFilters);
   const clearFilters = useScopeStore((state) => state.clearFilters);

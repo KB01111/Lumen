@@ -54,7 +54,7 @@ describe('Lumen keyboard coordination', () => {
     render(<SearchExperience service={service} windowService={windowService} />);
 
     await searchFor(service, user, 'alpha', [file('alpha'), file('beta')]);
-    await user.keyboard('{Enter}');
+    await user.keyboard('{Tab}{Tab}{Enter}');
 
     await waitFor(() => expect(service.openedFiles).toEqual(['alpha']));
     await waitFor(() => expect(windowService.snapshot().visible).toBe(false));

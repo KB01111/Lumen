@@ -4,6 +4,8 @@ import {subscribeWithSelector} from 'zustand/middleware';
 interface QueryData {
   draft: string;
   committed: string;
+  submitted: string;
+  submissionRevision: number;
   isComposing: boolean;
 }
 
@@ -12,6 +14,7 @@ interface QueryActions {
   startComposition(): void;
   endComposition(): void;
   commit(): void;
+  submit(): void;
   clear(): void;
   reset(): void;
 }
@@ -21,6 +24,8 @@ export type QueryStore = QueryData & QueryActions;
 const initialQueryData: QueryData = {
   draft: '',
   committed: '',
+  submitted: '',
+  submissionRevision: 0,
   isComposing: false,
 };
 
@@ -36,7 +41,22 @@ export const useQueryStore = create<QueryStore>()(
       set({isComposing: false, committed: draft});
     },
     commit: () => set({committed: get().draft}),
-    clear: () => set({draft: '', committed: '', isComposing: false}),
+    submit: () => {
+      const submitted = get().draft.trim();
+      if (!submitted || get().isComposing) {
+        return;
+      }
+      set((state) => ({
+        submitted,
+        submissionRevision: state.submissionRevision + 1,
+      }));
+    },
+    clear: () => set({
+      draft: '',
+      committed: '',
+      submitted: '',
+      isComposing: false,
+    }),
     reset: () => set(initialQueryData),
   })),
 );
