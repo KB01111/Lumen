@@ -7,8 +7,10 @@ import {useLauncherStore} from './launcher.store';
 type PresentationMode = 'collapsed' | 'expanded';
 
 interface PresentationClient {
+  canRestoreCollapseFailure(): boolean;
   hasContent(): boolean;
   onCollapseFailure(error: unknown): void;
+  onCollapseFallback(error: unknown): void;
   onExpansionFailure(error: unknown): void;
   onNativeExpanded(): void;
 }
@@ -25,61 +27,93 @@ function errorMessage(error: unknown) {
 class WindowPresentationCoordinator {
   private activeClient: PresentationClient | null = null;
   private desiredMode: PresentationMode = 'collapsed';
+  private generation = 0;
   private nativeMode: PresentationMode = 'collapsed';
+  private nativeVisible = true;
   private reconciling = false;
+  private suspended = false;
 
   constructor(private readonly windowService: WindowService) {}
 
   attach(client: PresentationClient) {
     this.activeClient = client;
+    this.generation += 1;
+    this.suspended = false;
+    this.reconcile();
   }
 
   detach(client: PresentationClient) {
     if (this.activeClient !== client) return;
     this.activeClient = null;
     this.desiredMode = 'collapsed';
+    this.generation += 1;
     this.reconcile();
   }
 
   setDesiredMode(client: PresentationClient, mode: PresentationMode) {
     if (this.activeClient !== client) return;
     this.desiredMode = mode;
+    this.generation += 1;
+    this.suspended = false;
     this.reconcile();
   }
 
   private reconcile() {
-    if (this.reconciling) return;
+    if (this.reconciling || this.suspended) return;
     this.reconciling = true;
     void (async () => {
       while (true) {
         const requestedMode = this.desiredMode;
-        if (this.nativeMode === requestedMode) {
+        const needsShow = !this.nativeVisible && requestedMode === 'expanded';
+        if (this.nativeMode === requestedMode && !needsShow) {
           if (requestedMode === 'expanded' && this.activeClient?.hasContent()) {
             this.activeClient.onNativeExpanded();
           }
           break;
         }
 
+        const issuedClient = this.activeClient;
+        const issuedGeneration = this.generation;
         try {
           await this.windowService.show(requestedMode);
         } catch (error) {
           if (requestedMode === 'collapsed') {
             // A failed collapse retains the previous expanded native bounds.
             this.nativeMode = 'expanded';
-            if (this.activeClient) {
+            this.nativeVisible = true;
+            const ownsFailure = issuedClient === this.activeClient &&
+              issuedGeneration === this.generation;
+            if (!this.activeClient) {
+              this.suspended = true;
+              break;
+            }
+            if (!ownsFailure) {
+              // A later client/intent owns recovery; make one serialized attempt.
+              continue;
+            }
+            if (this.activeClient.canRestoreCollapseFailure()) {
               this.desiredMode = 'expanded';
+              this.generation += 1;
               this.activeClient.onCollapseFailure(error);
               continue;
             }
+            this.activeClient.onCollapseFallback(error);
+            await this.windowService.hide();
+            this.nativeVisible = false;
+            this.suspended = true;
+            break;
           } else {
             this.nativeMode = 'collapsed';
+            this.nativeVisible = true;
             this.desiredMode = 'collapsed';
+            this.generation += 1;
             this.activeClient?.onExpansionFailure(error);
           }
           break;
         }
 
         this.nativeMode = requestedMode;
+        this.nativeVisible = true;
         if (requestedMode === 'expanded' && this.desiredMode === 'expanded' &&
           this.activeClient?.hasContent()) {
           this.activeClient.onNativeExpanded();
@@ -87,7 +121,7 @@ class WindowPresentationCoordinator {
       }
 
       this.reconciling = false;
-      if (this.nativeMode !== this.desiredMode) this.reconcile();
+      if (!this.suspended && this.nativeMode !== this.desiredMode) this.reconcile();
     })();
   }
 }
@@ -118,6 +152,7 @@ export function useLauncherPresentation({
   const [presentationError, setPresentationError] = useState<string | null>(null);
   const attached = useRef(false);
   const expandedRef = useRef(false);
+  const canRestoreCollapseFailure = useRef(false);
   const hasContentRef = useRef(hasContent);
   const collapseTimer = useRef(0);
   const clientRef = useRef<PresentationClient | null>(null);
@@ -133,6 +168,7 @@ export function useLauncherPresentation({
 
   if (!clientRef.current) {
     clientRef.current = {
+      canRestoreCollapseFailure: () => canRestoreCollapseFailure.current,
       hasContent: () => hasContentRef.current,
       onCollapseFailure: (error) => {
         if (!attached.current) return;
@@ -146,6 +182,9 @@ export function useLauncherPresentation({
         useLauncherStore.getState().setMode('collapsed');
         hideExpandedWorkspace();
         setPresentationError(errorMessage(error));
+      },
+      onCollapseFallback: (error) => {
+        if (attached.current) setPresentationError(errorMessage(error));
       },
       onNativeExpanded: () => {
         if (!attached.current || !hasContentRef.current) return;
@@ -180,6 +219,7 @@ export function useLauncherPresentation({
     const hadVisibleWorkspace = expandedRef.current;
     hideExpandedWorkspace();
     const requestCollapse = () => {
+      canRestoreCollapseFailure.current = hadVisibleWorkspace;
       useLauncherStore.getState().setMode('collapsed');
       coordinator.setDesiredMode(client, 'collapsed');
     };

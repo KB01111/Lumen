@@ -18,6 +18,7 @@ function deferred<T>() {
 
 class DeferredWindowService implements WindowService {
   readonly calls: WindowMode[] = [];
+  hideCalls = 0;
   private readonly deferredShows: Array<{
     mode: WindowMode;
     operation: ReturnType<typeof deferred<void>>;
@@ -38,7 +39,7 @@ class DeferredWindowService implements WindowService {
     this.deferredShows.filter((entry) => entry.mode === mode)[occurrence]?.operation.reject(error);
   }
 
-  async hide() {}
+  async hide() { this.hideCalls += 1; }
   async focusInput() {}
   async setShortcut() {}
 }
@@ -137,6 +138,67 @@ describe('useLauncherPresentation', () => {
     });
     expect(result.current.expanded).toBe(false);
     expect(useLauncherStore.getState().mode).toBe('collapsed');
+  });
+
+  it('does not retry a persistently rejected detached collapse until a client attaches', async () => {
+    vi.useFakeTimers();
+    const windowService = new DeferredWindowService();
+    const first = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: true}},
+    );
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    first.rerender({hasContent: false});
+    await act(async () => vi.advanceTimersByTimeAsync(120));
+    first.unmount();
+    act(() => windowService.rejectShow('collapsed', new Error('Detached collapse failed')));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(windowService.calls).toEqual(['expanded', 'collapsed']);
+    expect(windowService.hideCalls).toBe(0);
+    expect(useLauncherStore.getState().mode).toBe('collapsed');
+
+    renderHook(
+      () => useLauncherPresentation({hasContent: false, reducedMotion: false, windowService}),
+    );
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed']);
+  });
+
+  it('keeps a newer collapsed client collapsed when a detached owner collapse fails', async () => {
+    vi.useFakeTimers();
+    const windowService = new DeferredWindowService();
+    const first = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: true}},
+    );
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    first.rerender({hasContent: false});
+    await act(async () => vi.advanceTimersByTimeAsync(120));
+    first.unmount();
+
+    const second = renderHook(
+      () => useLauncherPresentation({hasContent: false, reducedMotion: false, windowService}),
+    );
+    act(() => windowService.rejectShow('collapsed', new Error('Stale collapse failed')));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed']);
+    expect(second.result.current.expanded).toBe(false);
+    expect(useLauncherStore.getState().mode).toBe('collapsed');
+
+    act(() => windowService.rejectShow('collapsed', new Error('Current collapse failed'), 1));
+    await act(async () => { await Promise.resolve(); });
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed']);
+    expect(windowService.hideCalls).toBe(1);
+    expect(second.result.current.expanded).toBe(false);
   });
 
   it('hides the workspace before requesting collapsed native bounds', async () => {
