@@ -1,8 +1,18 @@
+import * as stylex from '@stylexjs/stylex';
 import type {PropsWithChildren, ProfilerOnRenderCallback} from 'react';
 import {Profiler, useEffect, useMemo, useRef, useSyncExternalStore} from 'react';
 import {UNSAFE_PortalProvider} from 'react-aria';
 import {LumenMotionProvider} from '../design-system/MotionProvider';
 import type {AppearancePreferences} from '../design-system/theme';
+import {
+  darkOpaqueMaterialTheme,
+  darkTheme,
+  highContrastTheme,
+  lightOpaqueMaterialTheme,
+  lightTheme,
+  reducedEffectsTheme,
+  reducedMotionTheme,
+} from '../design-system/themes.stylex';
 import {
   captureReactCommit,
   readDiagnosticMetrics,
@@ -74,6 +84,21 @@ export function AppProviders({
     : resolvedAppearance.mode;
   const reducedMotion = resolvedAppearance.motion === 'reduced' ||
     (resolvedAppearance.motion === 'system' && systemReducedMotion);
+  const opaque = resolvedAppearance.transparency === 'disabled';
+  // Temporary coexistence bridge for feature screens that still consume StyleX tokens.
+  const legacyStyleXThemeClassName = stylex.props(
+    highContrast
+      ? highContrastTheme
+      : opaque
+        ? resolvedMode === 'dark'
+          ? darkOpaqueMaterialTheme
+          : lightOpaqueMaterialTheme
+        : resolvedMode === 'dark'
+          ? darkTheme
+          : lightTheme,
+    !highContrast && resolvedAppearance.effects === 'reduced' && reducedEffectsTheme,
+    !highContrast && reducedMotion && reducedMotionTheme,
+  ).className;
   const portalContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -107,7 +132,7 @@ export function AppProviders({
     <LumenMotionProvider reducedMotion={reducedMotion}>
       <div
         ref={portalContainerRef}
-        className="h-full w-full bg-transparent font-sans text-text-primary"
+        className={`h-full w-full bg-transparent font-sans text-text-primary ${legacyStyleXThemeClassName ?? ''}`}
         role="application"
         aria-label="Lumen"
         data-theme={resolvedAppearance.mode}
