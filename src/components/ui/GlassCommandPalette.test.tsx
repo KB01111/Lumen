@@ -126,12 +126,26 @@ describe('GlassCommandPalette', () => {
   });
 
   it('pairs high-contrast highlight rows with the Windows highlight foreground', () => {
-    expect(paletteStyles).toContain(`
+    const ordinaryRowRule = `
+[data-contrast='high'] .einui-command-row {
+  color: CanvasText;
+}`;
+    const ordinaryRowNestedRule = `
+[data-contrast='high'] .einui-command-row * {
+  color: inherit;
+}`;
+    const activeRowRule = `
 [data-contrast='high'] .einui-command-row:hover,
 [data-contrast='high'] .einui-command-row[aria-selected='true'] {
   background: Highlight;
   color: HighlightText;
-}`);
+}`;
+
+    expect(paletteStyles).toContain('--einui-command-row: Canvas;');
+    expect(paletteStyles).toContain(ordinaryRowRule);
+    expect(paletteStyles).toContain(ordinaryRowNestedRule);
+    expect(paletteStyles).toContain(activeRowRule);
+    expect(paletteStyles.indexOf(ordinaryRowRule)).toBeLessThan(paletteStyles.indexOf(activeRowRule));
     expect(paletteStyles).toContain(`
 [data-contrast='high'] .einui-command-row:hover *,
 [data-contrast='high'] .einui-command-row[aria-selected='true'] * {

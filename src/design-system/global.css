@@ -389,6 +389,14 @@ input[type='search']::-webkit-search-cancel-button {
   --einui-command-shadow: none;
 }
 
+[data-contrast='high'] .einui-command-row {
+  color: CanvasText;
+}
+
+[data-contrast='high'] .einui-command-row * {
+  color: inherit;
+}
+
 [data-contrast='high'] .einui-command-row:hover,
 [data-contrast='high'] .einui-command-row[aria-selected='true'] {
   background: Highlight;
