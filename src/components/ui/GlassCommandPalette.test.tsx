@@ -1,3 +1,4 @@
+import {createRef} from 'react';
 import {render, screen} from '@testing-library/react';
 import {describe, expect, expectTypeOf, it, vi} from 'vitest';
 
@@ -24,7 +25,7 @@ describe('GlassCommandPalette', () => {
     expect(addEventListener).not.toHaveBeenCalledWith('keydown', expect.any(Function));
   });
 
-  it('preserves the frozen EinUI surface, glow, and specular markers', () => {
+  it('preserves the frozen ordered EinUI exterior, surface, and specular topology', () => {
     const {container} = render(
       <GlassCommandPalette
         composer={<input aria-label="Ask or search" />}
@@ -33,14 +34,29 @@ describe('GlassCommandPalette', () => {
     );
 
     const palette = container.firstElementChild;
+    const directLayers = Array.from(palette?.children ?? []);
+    const surface = directLayers[2];
 
     expect(palette).toHaveAttribute('data-upstream', 'einui-glass-command-palette');
-    expect(palette).toHaveClass('einui-command-palette', 'rounded-2xl', 'backdrop-blur-3xl');
-    expect(palette?.querySelector('.einui-command-glow')).toHaveAttribute('aria-hidden', 'true');
-    expect(palette?.querySelector('.einui-command-specular')).toHaveAttribute('aria-hidden', 'true');
+    expect(palette).toHaveClass('einui-command-palette-wrapper', 'overflow-visible');
+    expect(directLayers.map((layer) => layer.getAttribute('data-einui-layer')))
+      .toEqual(['exterior-colour-glow', 'exterior-white-glow', 'surface']);
+    expect(directLayers.slice(0, 2)).toHaveLength(2);
+    for (const layer of directLayers.slice(0, 2)) {
+      expect(layer).toHaveAttribute('aria-hidden', 'true');
+      expect(layer).toHaveAttribute('data-palette-decoration', 'exterior');
+    }
+    expect(surface).toHaveClass('einui-command-palette', 'overflow-hidden', 'rounded-2xl', 'backdrop-blur-3xl');
+    expect(surface).toHaveAttribute('data-material', 'raised');
+    expect(Array.from(surface?.children ?? []).slice(0, 2).map((layer) => layer.getAttribute('data-einui-layer')))
+      .toEqual(['specular-top', 'specular-corner']);
+    for (const layer of Array.from(surface?.children ?? []).slice(0, 2)) {
+      expect(layer).toHaveAttribute('aria-hidden', 'true');
+      expect(layer).toHaveAttribute('data-palette-decoration', 'surface');
+    }
   });
 
-  it('orders caller slots and omits workspace regions while collapsed', () => {
+  it('adds owned chrome around slots and omits workspace regions while collapsed', () => {
     const {container, rerender} = render(
       <GlassCommandPalette
         body={<div data-slot="body">Live results</div>}
@@ -51,8 +67,12 @@ describe('GlassCommandPalette', () => {
       />,
     );
 
-    expect(Array.from(container.querySelectorAll('[data-slot]')).map((node) => node.getAttribute('data-slot')))
-      .toEqual(['composer', 'scopes', 'body', 'footer']);
+    expect(Array.from(container.querySelectorAll('[data-einui-slot]')).map((node) => node.getAttribute('data-einui-slot')))
+      .toEqual(['composer', 'workspace', 'scopes', 'body', 'footer']);
+    expect(container.querySelector('[data-einui-slot="composer"]')).toHaveClass('einui-command-composer');
+    expect(container.querySelector('[data-einui-slot="workspace"]')).toHaveClass('einui-command-workspace');
+    expect(container.querySelector('[data-einui-slot="body"]')).toHaveClass('einui-command-body');
+    expect(container.querySelector('[data-einui-slot="footer"]')).toHaveClass('einui-command-footer');
 
     rerender(
       <GlassCommandPalette
@@ -67,6 +87,41 @@ describe('GlassCommandPalette', () => {
     expect(screen.queryByText('Live results')).not.toBeInTheDocument();
     expect(screen.queryByText('Private')).not.toBeInTheDocument();
     expect(screen.queryByText('Files')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-einui-slot="workspace"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-einui-slot="footer"]')).not.toBeInTheDocument();
+  });
+
+  it('forwards its root ref and native div attributes without taking ownership of behavior', () => {
+    const ref = createRef<HTMLDivElement>();
+
+    render(
+      <GlassCommandPalette
+        ref={ref}
+        composer={<input aria-label="Ask or search" />}
+        expanded={false}
+        id="lumen-command-palette"
+        title="Command palette"
+      />,
+    );
+
+    expect(ref.current).toHaveAttribute('id', 'lumen-command-palette');
+    expect(ref.current).toHaveAttribute('title', 'Command palette');
+    expect(ref.current).toHaveAttribute('data-expanded', 'false');
+  });
+
+  it('retains defined falsey caller slots', () => {
+    const {container} = render(
+      <GlassCommandPalette
+        body={<div>Live results</div>}
+        composer={<input aria-label="Ask or search" />}
+        expanded
+        footer={0}
+        scopes={0}
+      />,
+    );
+
+    expect(container.querySelector('[data-einui-slot="scopes"]')).toHaveTextContent('0');
+    expect(container.querySelector('[data-einui-slot="footer"]')).toHaveTextContent('0');
   });
 
   it('keeps command and demo concerns outside the component contract', () => {
