@@ -2,6 +2,7 @@ import {createRef} from 'react';
 import {render, screen} from '@testing-library/react';
 import {describe, expect, expectTypeOf, it, vi} from 'vitest';
 
+import paletteStyles from '../../design-system/global.css?raw';
 import {
   GlassCommandPalette,
   type GlassCommandPaletteProps,
@@ -122,6 +123,27 @@ describe('GlassCommandPalette', () => {
 
     expect(container.querySelector('[data-einui-slot="scopes"]')).toHaveTextContent('0');
     expect(container.querySelector('[data-einui-slot="footer"]')).toHaveTextContent('0');
+  });
+
+  it('pairs high-contrast highlight rows with the Windows highlight foreground', () => {
+    expect(paletteStyles).toContain(`
+[data-contrast='high'] .einui-command-row:hover,
+[data-contrast='high'] .einui-command-row[aria-selected='true'] {
+  background: Highlight;
+  color: HighlightText;
+}`);
+    expect(paletteStyles).toContain(`
+[data-contrast='high'] .einui-command-row:hover *,
+[data-contrast='high'] .einui-command-row[aria-selected='true'] * {
+  color: inherit;
+}`);
+  });
+
+  it('uses a dedicated upstream-faithful 10 percent shortcut fill', () => {
+    expect(paletteStyles).toContain('--einui-command-shortcut: rgba(255, 255, 255, 0.1);');
+    expect(paletteStyles).toContain('background: var(--einui-command-shortcut);');
+    expect(paletteStyles).toContain("[data-contrast='high'] .einui-command-palette-wrapper {");
+    expect(paletteStyles).toContain('--einui-command-shortcut: Canvas;');
   });
 
   it('keeps command and demo concerns outside the component contract', () => {
