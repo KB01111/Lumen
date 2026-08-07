@@ -1,3 +1,86 @@
+@import "tailwindcss";
+
+@custom-variant theme-dark (&:where([data-resolved-theme="dark"], [data-resolved-theme="dark"] *));
+@custom-variant high-contrast (&:where([data-contrast="high"], [data-contrast="high"] *));
+@custom-variant reduced-motion (&:where([data-reduced-motion="true"], [data-reduced-motion="true"] *));
+@custom-variant opaque (&:where([data-transparency="disabled"], [data-transparency="disabled"] *));
+
+@theme inline {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  --color-canvas: var(--lumen-canvas);
+  --color-surface-glass: var(--lumen-surface-glass);
+  --color-surface-raised: var(--lumen-surface-raised);
+  --color-surface-inset: var(--lumen-surface-inset);
+  --color-text-primary: var(--lumen-text-primary);
+  --color-text-secondary: var(--lumen-text-secondary);
+  --color-text-tertiary: var(--lumen-text-tertiary);
+  --color-text-inverse: var(--lumen-text-inverse);
+  --color-accent: var(--lumen-accent);
+  --color-focus: var(--lumen-focus);
+  --color-border-subtle: var(--lumen-border-subtle);
+  --color-border-strong: var(--lumen-border-strong);
+  --color-border-specular: var(--lumen-border-specular);
+  --color-success: var(--lumen-success);
+  --color-warning: var(--lumen-warning);
+  --color-danger: var(--lumen-danger);
+  --radius-pill: var(--lumen-radius-pill);
+  --radius-surface: var(--lumen-radius-surface);
+  --radius-control: var(--lumen-radius-control);
+  --shadow-surface: var(--lumen-shadow-surface);
+  --shadow-control: var(--lumen-shadow-control);
+  --ease-standard: cubic-bezier(.2, .8, .2, 1);
+  --ease-exit: cubic-bezier(.4, 0, 1, 1);
+}
+
+:root {
+  --lumen-canvas: #edf0f2;
+  --lumen-surface-glass: rgba(247, 249, 250, 0.78);
+  --lumen-surface-raised: rgba(255, 255, 255, 0.88);
+  --lumen-surface-inset: rgba(214, 220, 224, 0.58);
+  --lumen-text-primary: rgba(22, 25, 28, 0.94);
+  --lumen-text-secondary: rgba(43, 47, 51, 0.7);
+  --lumen-text-tertiary: rgba(71, 76, 81, 0.52);
+  --lumen-text-inverse: #f9fafb;
+  --lumen-accent: #087fc3;
+  --lumen-focus: #087dc1;
+  --lumen-border-subtle: rgba(37, 43, 48, 0.12);
+  --lumen-border-strong: rgba(37, 43, 48, 0.2);
+  --lumen-border-specular: rgba(255, 255, 255, 0.88);
+  --lumen-success: #16784a;
+  --lumen-warning: #8b5d09;
+  --lumen-danger: #bd3434;
+  --lumen-radius-pill: 999px;
+  --lumen-radius-surface: 18px;
+  --lumen-radius-control: 12px;
+  --lumen-shadow-surface: 0 24px 68px rgba(32, 37, 42, 0.22), 0 6px 20px rgba(32, 37, 42, 0.12);
+  --lumen-shadow-control: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 1px 4px rgba(31, 36, 40, 0.12);
+}
+
+[data-resolved-theme="dark"] {
+  --lumen-canvas: #16181a;
+  --lumen-surface-glass: rgba(34, 37, 40, 0.78);
+  --lumen-surface-raised: rgba(48, 51, 55, 0.82);
+  --lumen-surface-inset: rgba(10, 12, 14, 0.56);
+  --lumen-text-primary: rgba(249, 250, 251, 0.96);
+  --lumen-text-secondary: rgba(222, 225, 228, 0.74);
+  --lumen-text-tertiary: rgba(199, 204, 208, 0.54);
+  --lumen-text-inverse: #16181a;
+  --lumen-accent: #7dc9ff;
+  --lumen-focus: #8fd3ff;
+  --lumen-border-subtle: rgba(240, 243, 245, 0.12);
+  --lumen-border-strong: rgba(240, 243, 245, 0.22);
+  --lumen-border-specular: rgba(255, 255, 255, 0.36);
+  --lumen-success: #7bdca9;
+  --lumen-warning: #f0c879;
+  --lumen-danger: #ff9b9b;
+  --lumen-radius-pill: 999px;
+  --lumen-radius-surface: 18px;
+  --lumen-radius-control: 12px;
+  --lumen-shadow-surface: 0 26px 72px rgba(0, 0, 0, 0.42), 0 7px 24px rgba(0, 0, 0, 0.24);
+  --lumen-shadow-control: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
 @layer reset, base, stylex;
 
 @layer reset {
