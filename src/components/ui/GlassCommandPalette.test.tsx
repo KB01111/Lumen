@@ -1,5 +1,5 @@
 import {createRef} from 'react';
-import {render, screen} from '@testing-library/react';
+import {render, screen, waitFor} from '@testing-library/react';
 import {describe, expect, expectTypeOf, it, vi} from 'vitest';
 
 import paletteStyles from '../../design-system/global.css?raw';
@@ -9,7 +9,7 @@ import {
 } from './GlassCommandPalette';
 
 describe('GlassCommandPalette', () => {
-  it('renders caller-owned regions without installing a browser shortcut', () => {
+  it('renders caller-owned regions without installing a browser shortcut', async () => {
     const addEventListener = vi.spyOn(window, 'addEventListener');
 
     render(
@@ -22,7 +22,7 @@ describe('GlassCommandPalette', () => {
     );
 
     expect(screen.getByRole('textbox', {name: 'Ask or search'})).toBeVisible();
-    expect(screen.getByText('Live results')).toBeVisible();
+    await waitFor(() => expect(screen.getByText('Live results')).toBeVisible());
     expect(addEventListener).not.toHaveBeenCalledWith('keydown', expect.any(Function));
   });
 
@@ -123,6 +123,52 @@ describe('GlassCommandPalette', () => {
 
     expect(container.querySelector('[data-einui-slot="scopes"]')).toHaveTextContent('0');
     expect(container.querySelector('[data-einui-slot="footer"]')).toHaveTextContent('0');
+  });
+
+  it('marks the owned surface and workspace with the launcher motion contract', () => {
+    const {container, rerender} = render(
+      <GlassCommandPalette
+        body={<div>Live results</div>}
+        composer={<input aria-label="Ask or search" />}
+        expanded={false}
+      />,
+    );
+
+    const surface = container.querySelector('[data-einui-layer="surface"]');
+    expect(surface).toHaveAttribute('data-launcher-motion', 'surface');
+    expect(surface).toHaveStyle({
+      transition: 'border-radius 120ms cubic-bezier(0.4, 0, 1, 1)',
+    });
+
+    rerender(
+      <GlassCommandPalette
+        body={<div>Live results</div>}
+        composer={<input aria-label="Ask or search" />}
+        expanded
+      />,
+    );
+
+    const workspace = container.querySelector('[data-launcher-motion="workspace"]');
+    expect(surface).toHaveStyle({
+      transition: 'border-radius 160ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+    });
+    expect(workspace).toHaveAttribute('data-motion-duration', '190ms');
+    expect(workspace).toHaveAttribute('data-motion-offset', '-6px');
+    expect(workspace).toHaveClass('overflow-hidden');
+
+    rerender(
+      <GlassCommandPalette
+        body={<div>Live results</div>}
+        composer={<input aria-label="Ask or search" />}
+        expanded
+        reducedMotion
+      />,
+    );
+
+    expect(container.querySelector('[data-launcher-motion="workspace"]'))
+      .toHaveAttribute('data-motion-duration', '80ms');
+    expect(container.querySelector('[data-launcher-motion="workspace"]'))
+      .toHaveAttribute('data-motion-offset', '0px');
   });
 
   it('pairs high-contrast highlight rows with the Windows highlight foreground', () => {

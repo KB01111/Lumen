@@ -1,3 +1,4 @@
+import {StrictMode} from 'react';
 import {act, renderHook, waitFor} from '@testing-library/react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
@@ -17,21 +18,24 @@ function deferred<T>() {
 
 class DeferredWindowService implements WindowService {
   readonly calls: WindowMode[] = [];
-  private readonly deferredShows = new Map<WindowMode, ReturnType<typeof deferred<void>>>();
+  private readonly deferredShows: Array<{
+    mode: WindowMode;
+    operation: ReturnType<typeof deferred<void>>;
+  }> = [];
 
   show(mode: WindowMode) {
     this.calls.push(mode);
     const operation = deferred<void>();
-    this.deferredShows.set(mode, operation);
+    this.deferredShows.push({mode, operation});
     return operation.promise;
   }
 
-  resolveShow(mode: WindowMode) {
-    this.deferredShows.get(mode)?.resolve();
+  resolveShow(mode: WindowMode, occurrence = 0) {
+    this.deferredShows.filter((entry) => entry.mode === mode)[occurrence]?.operation.resolve();
   }
 
-  rejectShow(mode: WindowMode, error: Error) {
-    this.deferredShows.get(mode)?.reject(error);
+  rejectShow(mode: WindowMode, error: Error, occurrence = 0) {
+    this.deferredShows.filter((entry) => entry.mode === mode)[occurrence]?.operation.reject(error);
   }
 
   async hide() {}
@@ -65,6 +69,23 @@ describe('useLauncherPresentation', () => {
 
     expect(result.current.expanded).toBe(true);
     expect(useLauncherStore.getState().mode).toBe('expanded');
+  });
+
+  it('reconciles native expansion after the development strict-mode remount', async () => {
+    const windowService = new DeferredWindowService();
+    const {result, rerender} = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: false}, wrapper: StrictMode},
+    );
+
+    rerender({hasContent: true});
+    expect(windowService.calls).toEqual(['expanded']);
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+
+    expect(result.current.expanded).toBe(true);
   });
 
   it('hides the workspace before requesting collapsed native bounds', async () => {
@@ -131,13 +152,94 @@ describe('useLauncherPresentation', () => {
     rerender({hasContent: false});
     rerender({hasContent: true});
     await act(async () => {
-      windowService.resolveShow('expanded');
+      windowService.resolveShow('expanded', 1);
       await Promise.resolve();
     });
     await act(async () => vi.advanceTimersByTimeAsync(120));
 
     expect(result.current.expanded).toBe(true);
-    expect(windowService.calls).toEqual(['expanded', 'expanded']);
+    expect(windowService.calls).toEqual(['expanded']);
+  });
+
+  it('reconciles a clear that arrives while native expansion is pending back to collapsed bounds', async () => {
+    const windowService = new DeferredWindowService();
+    const {result, rerender} = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: false}},
+    );
+
+    rerender({hasContent: true});
+    rerender({hasContent: false});
+    expect(result.current.expanded).toBe(false);
+    expect(windowService.calls).toEqual(['expanded']);
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    expect(windowService.calls).toEqual(['expanded', 'collapsed']);
+
+    await act(async () => {
+      windowService.resolveShow('collapsed');
+      await Promise.resolve();
+    });
+    expect(useLauncherStore.getState().mode).toBe('collapsed');
+    expect(result.current.expanded).toBe(false);
+  });
+
+  it('serializes collapse followed by expansion so the final native mode is expanded', async () => {
+    vi.useFakeTimers();
+    const windowService = new DeferredWindowService();
+    const {result, rerender} = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: true}},
+    );
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    rerender({hasContent: false});
+    await act(async () => vi.advanceTimersByTimeAsync(120));
+    rerender({hasContent: true});
+    expect(windowService.calls).toEqual(['expanded', 'collapsed']);
+
+    await act(async () => {
+      windowService.resolveShow('collapsed');
+      await Promise.resolve();
+    });
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'expanded']);
+
+    await act(async () => {
+      windowService.resolveShow('expanded', 1);
+      await Promise.resolve();
+    });
+    expect(result.current.expanded).toBe(true);
+    expect(useLauncherStore.getState().mode).toBe('expanded');
+  });
+
+  it('restores a visible expanded workspace when native collapse is rejected', async () => {
+    vi.useFakeTimers();
+    const windowService = new DeferredWindowService();
+    const {result, rerender} = renderHook(
+      ({hasContent}) => useLauncherPresentation({hasContent, reducedMotion: false, windowService}),
+      {initialProps: {hasContent: true}},
+    );
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    rerender({hasContent: false});
+    await act(async () => vi.advanceTimersByTimeAsync(120));
+    act(() => windowService.rejectShow('collapsed', new Error('Native collapse unavailable')));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.presentationError).toBe('Native collapse unavailable');
+    expect(result.current.expanded).toBe(true);
+    expect(useLauncherStore.getState().mode).toBe('expanded');
   });
 
   it('reports failed native presentation without retaining an expanded workspace', async () => {

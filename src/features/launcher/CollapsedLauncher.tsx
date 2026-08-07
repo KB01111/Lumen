@@ -7,7 +7,6 @@ import {useLumenMotion} from '../../design-system/MotionProvider';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
-import {cn} from '../../lib/cn';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
 import {LauncherStatus} from './LauncherStatus';
 import {useLauncherStore} from './launcher.store';
@@ -151,10 +150,6 @@ export function CollapsedLauncher({
   return (
     <GlassCommandPalette
       aria-label="Lumen launcher"
-      className={cn(
-        'transition-[border-radius] duration-[160ms] ease-standard',
-        expanded ? 'rounded-[var(--lumen-radius-surface)]' : 'rounded-[var(--lumen-radius-pill)]',
-      )}
       composer={(
         <LauncherComposer
           inputRef={inputRef}
@@ -174,6 +169,7 @@ export function CollapsedLauncher({
           statusLabel={presentationError ?? statusLabel}
         />
       )}
+      reducedMotion={reducedMotion}
     />
   );
 }

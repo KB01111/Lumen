@@ -1,5 +1,8 @@
 import {forwardRef, type HTMLAttributes, type ReactNode} from 'react';
 
+import {motion} from 'motion/react';
+
+import {motionTokens} from '../../design-system/motion';
 import {cn} from '../../lib/cn';
 
 export interface GlassCommandPaletteProps extends HTMLAttributes<HTMLDivElement> {
@@ -7,6 +10,7 @@ export interface GlassCommandPaletteProps extends HTMLAttributes<HTMLDivElement>
   composer: ReactNode;
   expanded: boolean;
   footer?: ReactNode;
+  reducedMotion?: boolean;
   scopes?: ReactNode;
 }
 
@@ -18,11 +22,19 @@ export const GlassCommandPalette = forwardRef<HTMLDivElement, GlassCommandPalett
       composer,
       expanded,
       footer,
+      reducedMotion = false,
       scopes,
       ...props
     },
     ref,
   ) {
+    const surfaceDuration = expanded
+      ? motionTokens.duration.launcherOpen
+      : motionTokens.duration.launcherClose;
+    const workspaceDuration = reducedMotion
+      ? motionTokens.reduced.opacityDuration
+      : motionTokens.duration.launcherExpansion;
+    const workspaceOffset = reducedMotion ? 0 : -motionTokens.launcher.bodyOffset;
     return (
       <div
         {...props}
@@ -49,8 +61,12 @@ export const GlassCommandPalette = forwardRef<HTMLDivElement, GlassCommandPalett
         <div
           className="einui-command-palette relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[color:var(--einui-command-border)] bg-[var(--einui-command-surface)] text-[color:var(--einui-command-text)] shadow-[var(--einui-command-shadow)] backdrop-blur-3xl"
           data-einui-layer="surface"
+          data-launcher-motion="surface"
           data-material="raised"
-          style={{borderRadius: expanded ? 'var(--lumen-radius-surface)' : 'var(--lumen-radius-pill)'}}
+          style={{
+            borderRadius: expanded ? 'var(--lumen-radius-surface)' : 'var(--lumen-radius-pill)',
+            transition: `border-radius ${surfaceDuration * 1000}ms cubic-bezier(${(expanded ? motionTokens.easing.standard : motionTokens.easing.exit).join(', ')})`,
+          }}
         >
           <span
             aria-hidden="true"
@@ -70,8 +86,18 @@ export const GlassCommandPalette = forwardRef<HTMLDivElement, GlassCommandPalett
             </div>
             {expanded ? (
               <div className="einui-command-workspace" data-einui-slot="workspace">
-                {scopes !== undefined && scopes !== null ? <div className="einui-command-scopes" data-einui-slot="scopes">{scopes}</div> : null}
-                <div className="einui-command-body" data-einui-slot="body">{body}</div>
+                <motion.div
+                  animate={{opacity: 1, y: 0}}
+                  className="min-h-0 flex-1 overflow-hidden"
+                  data-launcher-motion="workspace"
+                  data-motion-duration={`${workspaceDuration * 1000}ms`}
+                  data-motion-offset={`${workspaceOffset}px`}
+                  initial={reducedMotion ? {opacity: 0} : {opacity: 0, y: workspaceOffset}}
+                  transition={{duration: workspaceDuration, ease: motionTokens.easing.standard}}
+                >
+                  {scopes !== undefined && scopes !== null ? <div className="einui-command-scopes" data-einui-slot="scopes">{scopes}</div> : null}
+                  <div className="einui-command-body" data-einui-slot="body">{body}</div>
+                </motion.div>
               </div>
             ) : null}
             {expanded && footer !== undefined && footer !== null ? (
