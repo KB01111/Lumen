@@ -38,11 +38,11 @@ const styles = stylex.create({
 function ActivityIcon({mode}: {mode: ActivityMode}) {
   switch (mode) {
     case 'indexing': return <IndexedRootIcon size={27} />;
-    case 'slow': return <LumenUiIcon name="hardware" size="large" />;
+    case 'slow': return <LumenUiIcon name="speed" size="large" />;
     case 'gaming': return <GamingPauseIcon size={27} />;
     case 'fullscreen': return <LumenUiIcon name="pause" size="large" />;
     case 'cinema': return <CinemaIcon size={27} />;
-    case 'idle': return <LumenUiIcon name="refresh" size="large" />;
+    case 'idle': return <LumenUiIcon name="clock" size="large" />;
     case 'battery': return <LumenUiIcon name="error" size="large" />;
     case 'user': return <LumenUiIcon name="play" size="large" />;
   }
@@ -66,7 +66,7 @@ export function ActivityStatus({mode}: {mode: ActivityMode}) {
       <div {...stylex.props(styles.text)}>
         <div {...stylex.props(styles.title)}>
           <LumenText as="h2" variant="bodyLarge" weight="semibold">{presentation.label}</LumenText>
-          {mode === 'indexing' ? <LumenUiIcon name="refresh" size="small" /> : null}
+          {mode === 'indexing' ? <LumenUiIcon name="clock" size="small" /> : null}
         </div>
         <LumenText tone="secondary">{presentation.description}</LumenText>
         <LumenText tone="tertiary" variant="meta">{presentation.recommendation}</LumenText>

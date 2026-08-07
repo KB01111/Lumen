@@ -93,7 +93,7 @@ export function ContextActions({
         variant="quiet"
         onPress={onDetails}
       >
-        <LumenUiIcon name="document" size="small" />
+        <LumenUiIcon name="info" size="small" />
         <span {...stylex.props(styles.actionLabel)}>Details</span>
       </LumenButton>
     </div>

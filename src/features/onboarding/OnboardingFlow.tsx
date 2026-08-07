@@ -109,7 +109,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="This phase uses simple local filename search while the production index is still to come."
-          icon={<LumenUiIcon className="size-12" name="hardware" />}
+          icon={<LumenUiIcon className="size-12" name="storage" />}
           support="Future indexing will run quietly and expose clear progress and pause states."
           title="A calm background index"
         />
@@ -127,7 +127,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Exact filename and folder search remains available without any model."
-          icon={<LumenUiIcon className="size-12" name="search" />}
+          icon={<LumenUiIcon className="size-12" name="bolt" />}
           support="Semantic search and reranking enhance the result set; they never gate it."
           title="Fast even without AI"
         />

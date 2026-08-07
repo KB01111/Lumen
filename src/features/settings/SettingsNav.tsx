@@ -56,15 +56,15 @@ export interface SettingsPageDefinition {
 
 export const settingsPages: readonly SettingsPageDefinition[] = [
   {id: 'general', label: 'General', description: 'Startup, shortcut, and window behavior', icon: <LumenUiIcon className="size-[18px]" name="settings" />},
-  {id: 'appearance', label: 'Appearance', description: 'Material, theme, density, and motion', icon: <LumenUiIcon className="size-[18px]" name="settings" />},
+  {id: 'appearance', label: 'Appearance', description: 'Material, theme, density, and motion', icon: <LumenUiIcon className="size-[18px]" name="colorTheme" />},
   {id: 'indexed-roots', label: 'Indexed roots', description: 'Folders and exclusion policies', icon: <LumenUiIcon className="size-[18px]" name="folder" />},
   {id: 'search', label: 'Search', description: 'Scopes and ranking priorities', icon: <LumenUiIcon className="size-[18px]" name="search" />},
   {id: 'local-ai', label: 'Local AI', description: 'Hardware and model readiness', icon: <LumenUiIcon className="size-[18px]" name="hardware" />},
   {id: 'agent-gateway', label: 'AgentGateway', description: 'Providers, routes, MCP, and consent', icon: <LumenUiIcon className="size-[18px]" name="connect" />},
   {id: 'computer-use', label: 'Computer Use', description: 'Gemini browser agent, consent, and approvals', icon: <LumenUiIcon className="size-[18px]" name="computer" />},
-  {id: 'activity', label: 'Activity', description: 'Indexing and quiet-mode policies', icon: <LumenUiIcon className="size-[18px]" name="hardware" />},
+  {id: 'activity', label: 'Activity', description: 'Indexing and quiet-mode policies', icon: <LumenUiIcon className="size-[18px]" name="speed" />},
   {id: 'privacy', label: 'Privacy', description: 'Local data and destructive actions', icon: <LumenUiIcon className="size-[18px]" name="privacy" />},
-  {id: 'diagnostics', label: 'Diagnostics', description: 'Runtime status and performance evidence', icon: <LumenUiIcon className="size-[18px]" name="bug" />},
+  {id: 'diagnostics', label: 'Diagnostics', description: 'Runtime status and performance evidence', icon: <LumenUiIcon className="size-[18px]" name="pulse" />},
 ];
 
 export function SettingsNav() {
