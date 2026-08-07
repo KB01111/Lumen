@@ -1,6 +1,5 @@
 import type {ReactNode} from 'react';
 
-import {CaretDownIcon, CheckIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 import {
   Button,
@@ -24,6 +23,7 @@ import {
 } from 'react-aria-components';
 
 import {tokens} from '../../../design-system/tokens.stylex';
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 
 const styles = stylex.create({
   switch: {
@@ -209,7 +209,7 @@ export function LumenSelect<T extends string>({options, value, onChange, ...prop
       <Label {...stylex.props(styles.sliderLabel)}>{props['aria-label']}</Label>
       <Button className={({isFocusVisible}) => stylex.props(styles.selectButton, isFocusVisible && styles.focused).className ?? ''}>
         <SelectValue />
-        <CaretDownIcon aria-hidden="true" size={14} />
+        <LumenUiIcon className="rotate-90" name="next" size="small" />
       </Button>
       <Popover {...stylex.props(styles.popover)}>
         <ListBox items={options}>
@@ -223,7 +223,7 @@ export function LumenSelect<T extends string>({options, value, onChange, ...prop
                 isSelected && styles.optionSelected,
               ).className ?? ''}
             >
-              {({isSelected}) => <>{option.label}{isSelected ? <CheckIcon aria-hidden="true" size={14} /> : null}</>}
+              {({isSelected}) => <>{option.label}{isSelected ? <LumenUiIcon name="approval" size="small" /> : null}</>}
             </ListBoxItem>
           )}
         </ListBox>
@@ -269,7 +269,7 @@ export function LumenCheckbox({children, ...props}: CheckboxProps & {children: R
       {({isFocusVisible, isSelected}) => (
         <>
           <span {...stylex.props(styles.checkboxBox, isSelected && styles.checkboxSelected, isFocusVisible && styles.checkboxFocused)}>
-            {isSelected ? <CheckIcon aria-hidden="true" size={12} weight="bold" /> : null}
+            {isSelected ? <LumenUiIcon name="approval" size="small" /> : null}
           </span>
           {children}
         </>

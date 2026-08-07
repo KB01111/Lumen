@@ -1,6 +1,6 @@
-import {TrashIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -42,7 +42,7 @@ export function ApplicationOverrideRow({override, onChange, onRemove}: {
         onChange={(policy) => onChange({...override, policy})}
       />
       <LumenIconButton aria-label={`Remove ${override.application}`} size="small" variant="quiet" onPress={onRemove}>
-        <TrashIcon aria-hidden="true" size={14} />
+        <LumenUiIcon name="delete" size="small" />
       </LumenIconButton>
     </div>
   );

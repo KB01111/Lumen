@@ -1,8 +1,8 @@
 import {useState} from 'react';
 
-import {FolderOpenIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -46,7 +46,7 @@ export function RootSelectionScene({root, service, onRoot}: RootSelectionScenePr
   return (
     <OnboardingScene
       description="Start with one development directory you know well."
-      icon={<FolderOpenIcon size={48} weight="duotone" />}
+      icon={<LumenUiIcon className="size-12" name="folderOpen" />}
       support="You can add, pause, exclude, or remove roots later."
       title="Choose one place to start"
     >

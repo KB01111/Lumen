@@ -1,8 +1,8 @@
 import {useCallback, useEffect, useState} from 'react';
 
-import {BrowserIcon, CloudCheckIcon, KeyIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {tokens} from '../../../design-system/tokens.stylex';
@@ -120,7 +120,7 @@ export function ComputerUsePage() {
           status={<StatusBadge tone={health?.state === 'ready' ? 'success' : 'warning'}>{health?.state ?? 'Checking'}</StatusBadge>}
         >
           <LumenButton size="small" variant="quiet" onPress={() => void refresh()}>
-            <BrowserIcon aria-hidden="true" size={15} /> Check
+            <LumenUiIcon name="computer" size="small" /> Check
           </LumenButton>
         </SettingRow>
         <SettingRow label="Gemini model" description="Only models exposed by the pinned Computer Use Preview adapter are selectable.">
@@ -141,7 +141,7 @@ export function ComputerUsePage() {
       {native ? (
         <SettingSection title="Gemini credential" description="The secret is written directly to Windows Credential Manager and never returned to React.">
           <div {...stylex.props(styles.credential)}>
-            <KeyIcon aria-hidden="true" size={20} {...stylex.props(styles.icon)} />
+            <LumenUiIcon name="key" size="medium" {...stylex.props(styles.icon)} />
             <div {...stylex.props(styles.text)}>
               <LumenText weight="medium">Gemini API key</LumenText>
               <LumenText tone="tertiary" variant="meta">
@@ -158,7 +158,7 @@ export function ComputerUsePage() {
       ) : null}
       <SettingSection title="Cloud consent" description="Consent is device-local and can be revoked at any time.">
         <div {...stylex.props(styles.credential)}>
-          <CloudCheckIcon aria-hidden="true" size={20} {...stylex.props(styles.icon)} />
+          <LumenUiIcon name="success" size="medium" {...stylex.props(styles.icon)} />
           <div {...stylex.props(styles.text)}>
             <LumenText weight="medium">Browser task requests</LumenText>
             <LumenText tone="tertiary" variant="meta">The task, page URL, and screenshots are sent to Gemini. Passwords and payment details may be visible if you navigate to them.</LumenText>

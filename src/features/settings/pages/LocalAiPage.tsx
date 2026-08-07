@@ -1,10 +1,10 @@
 import {useCallback, useEffect, useState} from 'react';
 
-import {ArrowClockwiseIcon, CpuIcon, DownloadSimpleIcon, GraphicsCardIcon, WarningCircleIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 import {ProgressBar} from 'react-aria-components';
 
 import {LocalAiIcon, NpuIcon} from '../../../design-system/icons/lumen-icons';
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {tokens} from '../../../design-system/tokens.stylex';
@@ -50,9 +50,9 @@ const styles = stylex.create({
 
 const hardwareCopy: Record<HardwareState, {label: string; description: string; icon: React.ReactNode; tone: 'success' | 'info' | 'warning'}> = {
   npu: {label: 'Copilot+ NPU detected', description: 'The future on-device provider can prefer the neural processor.', icon: <NpuIcon size={28} />, tone: 'success'},
-  gpu: {label: 'GPU detected', description: 'A compatible graphics path is available for a future local provider.', icon: <GraphicsCardIcon size={28} />, tone: 'success'},
-  cpu: {label: 'CPU fallback', description: 'Local inference can remain available at a lower throughput.', icon: <CpuIcon size={28} />, tone: 'info'},
-  unavailable: {label: 'Provider unavailable', description: 'No production local inference runtime is connected in phase one.', icon: <WarningCircleIcon size={28} />, tone: 'warning'},
+  gpu: {label: 'GPU detected', description: 'A compatible graphics path is available for a future local provider.', icon: <LumenUiIcon name="hardware" size="large" />, tone: 'success'},
+  cpu: {label: 'CPU fallback', description: 'Local inference can remain available at a lower throughput.', icon: <LumenUiIcon name="hardware" size="large" />, tone: 'info'},
+  unavailable: {label: 'Provider unavailable', description: 'No production local inference runtime is connected in phase one.', icon: <LumenUiIcon name="error" size="large" />, tone: 'warning'},
 };
 
 const modelCopy: Record<ModelState, {label: string; description: string; tone: 'success' | 'info' | 'warning' | 'error'}> = {
@@ -144,12 +144,12 @@ export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' 
             {view.state === 'downloading' ? <ModelProgress value={view.progress} /> : null}
             {view.state === 'missing' ? (
               <LumenButton size="small" onPress={() => setLocalAi({state: 'downloading', progress: 8})}>
-                <DownloadSimpleIcon aria-hidden="true" size={15} /> Download preview
+                <LumenUiIcon name="download" size="small" /> Download preview
               </LumenButton>
             ) : null}
             {view.state === 'failed' ? <LumenButton size="small" onPress={() => setLocalAi({state: 'loading'})}>Retry preview</LumenButton> : null}
             {['loading', 'ready', 'fallback-active'].includes(view.state) ? <LocalAiIcon size={22} /> : null}
-            {nativeHealth ? <LumenButton aria-label="Refresh local runtime" size="small" variant="quiet" onPress={() => void refreshNative()}><ArrowClockwiseIcon aria-hidden="true" size={15} /> Refresh</LumenButton> : null}
+            {nativeHealth ? <LumenButton aria-label="Refresh local runtime" size="small" variant="quiet" onPress={() => void refreshNative()}><LumenUiIcon name="refresh" size="small" /> Refresh</LumenButton> : null}
           </div>
         </SettingRow>
         <SettingRow label="Provider" description={nativeHealth?.baseUrl ?? 'No native runtime detected.'}>

@@ -1,20 +1,9 @@
 import type {ReactNode} from 'react';
 
-import {
-  CpuIcon,
-  BrowserIcon,
-  FolderSimpleIcon,
-  GaugeIcon,
-  GearSixIcon,
-  MagnifyingGlassIcon,
-  PaintBrushIcon,
-  PlugsConnectedIcon,
-  PulseIcon,
-  ShieldCheckIcon,
-} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 import {Tab, TabList} from 'react-aria-components';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {tokens} from '../../design-system/tokens.stylex';
 import type {SettingsPageId} from './settings.schema';
 
@@ -66,16 +55,16 @@ export interface SettingsPageDefinition {
 }
 
 export const settingsPages: readonly SettingsPageDefinition[] = [
-  {id: 'general', label: 'General', description: 'Startup, shortcut, and window behavior', icon: <GearSixIcon size={18} />},
-  {id: 'appearance', label: 'Appearance', description: 'Material, theme, density, and motion', icon: <PaintBrushIcon size={18} />},
-  {id: 'indexed-roots', label: 'Indexed roots', description: 'Folders and exclusion policies', icon: <FolderSimpleIcon size={18} />},
-  {id: 'search', label: 'Search', description: 'Scopes and ranking priorities', icon: <MagnifyingGlassIcon size={18} />},
-  {id: 'local-ai', label: 'Local AI', description: 'Hardware and model readiness', icon: <CpuIcon size={18} />},
-  {id: 'agent-gateway', label: 'AgentGateway', description: 'Providers, routes, MCP, and consent', icon: <PlugsConnectedIcon size={18} />},
-  {id: 'computer-use', label: 'Computer Use', description: 'Gemini browser agent, consent, and approvals', icon: <BrowserIcon size={18} />},
-  {id: 'activity', label: 'Activity', description: 'Indexing and quiet-mode policies', icon: <GaugeIcon size={18} />},
-  {id: 'privacy', label: 'Privacy', description: 'Local data and destructive actions', icon: <ShieldCheckIcon size={18} />},
-  {id: 'diagnostics', label: 'Diagnostics', description: 'Runtime status and performance evidence', icon: <PulseIcon size={18} />},
+  {id: 'general', label: 'General', description: 'Startup, shortcut, and window behavior', icon: <LumenUiIcon className="size-[18px]" name="settings" />},
+  {id: 'appearance', label: 'Appearance', description: 'Material, theme, density, and motion', icon: <LumenUiIcon className="size-[18px]" name="settings" />},
+  {id: 'indexed-roots', label: 'Indexed roots', description: 'Folders and exclusion policies', icon: <LumenUiIcon className="size-[18px]" name="folder" />},
+  {id: 'search', label: 'Search', description: 'Scopes and ranking priorities', icon: <LumenUiIcon className="size-[18px]" name="search" />},
+  {id: 'local-ai', label: 'Local AI', description: 'Hardware and model readiness', icon: <LumenUiIcon className="size-[18px]" name="hardware" />},
+  {id: 'agent-gateway', label: 'AgentGateway', description: 'Providers, routes, MCP, and consent', icon: <LumenUiIcon className="size-[18px]" name="connect" />},
+  {id: 'computer-use', label: 'Computer Use', description: 'Gemini browser agent, consent, and approvals', icon: <LumenUiIcon className="size-[18px]" name="computer" />},
+  {id: 'activity', label: 'Activity', description: 'Indexing and quiet-mode policies', icon: <LumenUiIcon className="size-[18px]" name="hardware" />},
+  {id: 'privacy', label: 'Privacy', description: 'Local data and destructive actions', icon: <LumenUiIcon className="size-[18px]" name="privacy" />},
+  {id: 'diagnostics', label: 'Diagnostics', description: 'Runtime status and performance evidence', icon: <LumenUiIcon className="size-[18px]" name="bug" />},
 ];
 
 export function SettingsNav() {

@@ -1,6 +1,6 @@
-import {KeyboardIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
 import {OnboardingScene} from './OnboardingScene';
@@ -25,7 +25,7 @@ export function ShortcutScene({shortcut}: {shortcut: string}) {
   return (
     <OnboardingScene
       description="Lumen is always one chord away, from any screen."
-      icon={<KeyboardIcon size={48} weight="duotone" />}
+      icon={<LumenUiIcon className="size-12" name="keyboard" />}
       support="You can record a different global shortcut in General settings."
       title="Make search a reflex"
     >

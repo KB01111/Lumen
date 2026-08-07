@@ -1,8 +1,8 @@
 import {useEffect, useState} from 'react';
 
-import {FolderOpenIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {tokens} from '../../../design-system/tokens.stylex';
@@ -164,7 +164,7 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
             Delete index
           </LumenButton>
           <LumenButton aria-label="Add root" isDisabled={choosing} size="small" variant="primary" onPress={addRoot}>
-            <FolderOpenIcon aria-hidden="true" size={16} />
+            <LumenUiIcon name="folderOpen" size="small" />
             {choosing ? 'Choosing…' : 'Add root'}
           </LumenButton>
         </div>
@@ -173,7 +173,7 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
       <SettingSection title="Indexed search directories" description="Content stays local unless cloud enrichment is enabled explicitly for that root.">
         {roots.length === 0 ? (
           <div {...stylex.props(styles.empty)}>
-            <span aria-hidden="true" {...stylex.props(styles.emptyIcon)}><FolderOpenIcon size={26} weight="duotone" /></span>
+            <span aria-hidden="true" {...stylex.props(styles.emptyIcon)}><LumenUiIcon name="folderOpen" size="large" /></span>
             <div>
               <LumenText as="p" weight="semibold">Choose a focused folder to begin</LumenText>
               <LumenText as="p" tone="tertiary" variant="meta">Project folders keep the development adapter quick and predictable.</LumenText>

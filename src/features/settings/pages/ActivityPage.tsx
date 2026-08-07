@@ -1,8 +1,8 @@
 import {useState} from 'react';
 
-import {GameControllerIcon, PlusIcon, XIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenIconButton} from '../../../design-system/primitives/LumenIconButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
@@ -134,7 +134,7 @@ export function ActivityPage() {
               }
             }}
           />
-          <LumenButton aria-label="Add application override" size="small" onPress={addOverride}><PlusIcon aria-hidden="true" size={14} /> Add</LumenButton>
+          <LumenButton aria-label="Add application override" size="small" onPress={addOverride}><LumenUiIcon name="add" size="small" /> Add</LumenButton>
         </div>
         {activity.overrides.map((override) => (
           <ApplicationOverrideRow
@@ -148,7 +148,7 @@ export function ActivityPage() {
       <SettingSection title="User-defined games" description="Add executables that Windows or a future detector may not classify.">
         <div {...stylex.props(styles.addRow)}>
           <LumenTextField aria-label="User-defined game" placeholder="Example: game.exe" value={gameName} onChange={setGameName} />
-          <LumenButton aria-label="Add user-defined game" size="small" onPress={addGame}><GameControllerIcon aria-hidden="true" size={15} /> Add game</LumenButton>
+          <LumenButton aria-label="Add user-defined game" size="small" onPress={addGame}><LumenUiIcon name="tools" size="small" /> Add game</LumenButton>
         </div>
         {activity.userGames.length ? (
           <div {...stylex.props(styles.chips)}>
@@ -156,7 +156,7 @@ export function ActivityPage() {
               <span key={game} {...stylex.props(styles.chip)}>
                 {game}
                 <LumenIconButton aria-label={`Remove game ${game}`} size="small" variant="quiet" onPress={() => void updateActivity({userGames: activity.userGames.filter((item) => item !== game)})}>
-                  <XIcon aria-hidden="true" size={11} />
+                  <LumenUiIcon name="close" size="small" />
                 </LumenIconButton>
               </span>
             ))}

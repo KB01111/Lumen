@@ -1,9 +1,9 @@
 import {useEffect, useRef, type ReactNode, type RefObject} from 'react';
 
-import {BrowserIcon, MagnifyingGlassIcon, MicrophoneIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
 import {LumenMark} from '../../design-system/icons/LumenMark';
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
@@ -177,8 +177,8 @@ export function CollapsedLauncher({
             onPress={handleIntentChange}
           >
             {intent === 'computer'
-              ? <BrowserIcon aria-hidden="true" size={15} />
-              : <MagnifyingGlassIcon aria-hidden="true" size={15} />}
+              ? <LumenUiIcon name="computer" size="small" />
+              : <LumenUiIcon name="search" size="small" />}
             {intent === 'computer' ? 'Agent' : 'Search'}
           </LumenButton>
           <SearchInput
@@ -195,7 +195,7 @@ export function CollapsedLauncher({
               variant="quiet"
               onPress={onVoiceRequest}
             >
-              <MicrophoneIcon aria-hidden="true" size={15} />
+              <LumenUiIcon name="voice" size="small" />
             </LumenIconButton>
           ) : null}
           <LauncherStatus label={statusLabel} searching={searching} />

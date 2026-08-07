@@ -1,8 +1,8 @@
 import {useState} from 'react';
 
-import {ArrowClockwiseIcon, CopyIcon, StopIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -161,15 +161,15 @@ export function AnswerPanel({
         <div {...stylex.props(styles.actions)}>
           {canStop ? (
             <LumenButton aria-label="Stop answer" size="small" variant="quiet" onPress={onStop}>
-              <StopIcon aria-hidden="true" size={14} /> Stop
+              <LumenUiIcon name="stop" size="small" /> Stop
             </LumenButton>
           ) : (
             <LumenButton aria-label="Retry answer" size="small" variant="quiet" onPress={onRetry}>
-              <ArrowClockwiseIcon aria-hidden="true" size={14} /> Retry
+              <LumenUiIcon name="retry" size="small" /> Retry
             </LumenButton>
           )}
           <LumenButton aria-label="Copy answer" isDisabled={!hasAnswer} size="small" variant="quiet" onPress={() => void copyAnswer()}>
-            <CopyIcon aria-hidden="true" size={14} /> {copied ? 'Copied' : 'Copy'}
+            <LumenUiIcon name="copy" size="small" /> {copied ? 'Copied' : 'Copy'}
           </LumenButton>
         </div>
       </footer>

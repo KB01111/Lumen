@@ -1,9 +1,9 @@
 import {useCallback, useEffect, useState} from 'react';
 
-import {BugIcon, CloudCheckIcon, PlugsConnectedIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
 import {McpIcon} from '../../../design-system/icons/lumen-icons';
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {tokens} from '../../../design-system/tokens.stylex';
@@ -148,7 +148,7 @@ export function AgentGatewayPage() {
       {native ? (
         <SettingSection title="Provider credential" description="The value is written directly to Windows Credential Manager and never returned to React.">
           <div {...stylex.props(styles.mcpRow)}>
-            <CloudCheckIcon aria-hidden="true" size={20} {...stylex.props(styles.mcpIcon)} />
+            <LumenUiIcon name="success" size="medium" {...stylex.props(styles.mcpIcon)} />
             <LumenTextField aria-label="OpenAI API key" type="password" placeholder="sk-…" value={credential} onChange={setCredential} />
             <div {...stylex.props(styles.actions)}>
               <LumenButton size="small" variant="primary" onPress={() => void saveCredential()}>Save</LumenButton>
@@ -159,7 +159,7 @@ export function AgentGatewayPage() {
       ) : null}
       <SettingSection title="Cloud consent" description="Cloud routes stay unavailable until this device records explicit consent.">
         <div {...stylex.props(styles.mcpRow)}>
-          <CloudCheckIcon aria-hidden="true" size={20} {...stylex.props(styles.mcpIcon)} />
+          <LumenUiIcon name="success" size="medium" {...stylex.props(styles.mcpIcon)} />
           <div {...stylex.props(styles.mcpText)}>
             <LumenText weight="medium">Provider requests</LumenText>
             <LumenText tone="tertiary" variant="meta">Search queries, filenames, and relevant indexed excerpts may leave this device after consent.</LumenText>
@@ -185,7 +185,7 @@ export function AgentGatewayPage() {
       {native ? (
         <SettingSection title="Durable enrichment queue" description="Rivet Actors owns idempotent OCR and transcription job leases when its Windows engine is healthy.">
           <div {...stylex.props(styles.mcpRow)}>
-            <PlugsConnectedIcon aria-hidden="true" size={20} {...stylex.props(styles.mcpIcon)} />
+            <LumenUiIcon name="connect" size="medium" {...stylex.props(styles.mcpIcon)} />
             <div {...stylex.props(styles.mcpText)}>
               <LumenText weight="medium">Rivet worker</LumenText>
               <LumenText tone="tertiary" variant="meta">{enrichment?.detail ?? (enrichment?.paused ? 'Queue paused' : 'Loopback-only worker')}</LumenText>
@@ -216,12 +216,12 @@ export function AgentGatewayPage() {
       </SettingSection>
       <SettingSection title="Sanitized diagnostics">
         <div {...stylex.props(styles.mcpRow)}>
-          <BugIcon aria-hidden="true" size={20} {...stylex.props(styles.mcpIcon)} />
+          <LumenUiIcon name="bug" size="medium" {...stylex.props(styles.mcpIcon)} />
           <div {...stylex.props(styles.mcpText)}>
             <LumenText weight="medium">Gateway support snapshot</LumenText>
             <LumenText tone="tertiary" variant="meta">Routes and states only. Secrets, prompts, and local paths are omitted.</LumenText>
           </div>
-          <LumenButton size="small" variant="quiet"><PlugsConnectedIcon aria-hidden="true" size={15} /> Preview</LumenButton>
+          <LumenButton size="small" variant="quiet"><LumenUiIcon name="connect" size="small" /> Preview</LumenButton>
         </div>
       </SettingSection>
     </SettingsPage>

@@ -1,9 +1,9 @@
-import {XIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 import {AnimatePresence, motion} from 'motion/react';
 
 import {motionTokens} from '../../design-system/motion';
 import {useLumenMotion} from '../../design-system/MotionProvider';
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -81,7 +81,7 @@ export function FilterChips({filters, onClear, onRemove}: FilterChipsProps) {
                   onPress={() => onRemove(filter)}
                 >
                   {filter.label}
-                  <XIcon aria-hidden="true" size={12} weight="bold" />
+                  <LumenUiIcon name="close" size="small" />
                 </LumenButton>
               </motion.span>
             ))}

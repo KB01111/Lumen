@@ -1,8 +1,8 @@
 import {useState} from 'react';
 
-import {FolderSimpleIcon, PauseIcon, PlayIcon, TrashIcon, XIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenIconButton} from '../../../design-system/primitives/LumenIconButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
@@ -109,7 +109,7 @@ export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichme
   return (
     <article aria-label={`Indexed root ${root.path}`} {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.top)}>
-        <span aria-hidden="true" {...stylex.props(styles.glyph)}><FolderSimpleIcon size={21} weight="duotone" /></span>
+        <span aria-hidden="true" {...stylex.props(styles.glyph)}><LumenUiIcon name="folder" size="medium" /></span>
         <div {...stylex.props(styles.path)}>
           <LumenText className={stylex.props(styles.truncate).className} weight="medium">{root.path}</LumenText>
           <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
@@ -121,7 +121,7 @@ export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichme
             variant="quiet"
             onPress={togglePaused}
           >
-            {root.paused ? <PlayIcon aria-hidden="true" size={15} /> : <PauseIcon aria-hidden="true" size={15} />}
+            {root.paused ? <LumenUiIcon name="play" size="small" /> : <LumenUiIcon name="pause" size="small" />}
           </LumenIconButton>
           <ConfirmationDialog
             confirmLabel="Remove root permanently"
@@ -130,7 +130,7 @@ export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichme
             onConfirm={onRemove}
           >
             <LumenIconButton aria-label={`Remove ${root.path}`} size="small" variant="quiet">
-              <TrashIcon aria-hidden="true" size={15} />
+              <LumenUiIcon name="delete" size="small" />
             </LumenIconButton>
           </ConfirmationDialog>
         </div>
@@ -189,7 +189,7 @@ export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichme
                   variant="quiet"
                   onPress={() => onChange({...root, exclusions: root.exclusions.filter((item) => item !== exclusion)})}
                 >
-                  <XIcon aria-hidden="true" size={11} />
+                  <LumenUiIcon name="close" size="small" />
                 </LumenIconButton>
               </span>
             ))}

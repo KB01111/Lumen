@@ -7,9 +7,9 @@ import {
   type KeyboardEvent,
 } from 'react';
 
-import {XIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {tokens} from '../../design-system/tokens.stylex';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
@@ -183,7 +183,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             variant="quiet"
             onPress={clearInput}
           >
-            <XIcon aria-hidden="true" size={15} weight="bold" />
+            <LumenUiIcon name="close" size="small" />
           </LumenIconButton>
         </span>
       </div>

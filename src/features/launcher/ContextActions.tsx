@@ -1,10 +1,6 @@
-import {
-  ArrowSquareOutIcon,
-  FolderOpenIcon,
-  InfoIcon,
-} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -76,7 +72,7 @@ export function ContextActions({
         variant="quiet"
         onPress={onOpen}
       >
-        <ArrowSquareOutIcon aria-hidden="true" size={15} />
+        <LumenUiIcon name="forward" size="small" />
         <span {...stylex.props(styles.actionLabel)}>{isOpening ? 'Opening' : 'Open'}</span>
         <kbd aria-hidden="true" {...stylex.props(styles.shortcut)}>↵</kbd>
       </LumenButton>
@@ -87,7 +83,7 @@ export function ContextActions({
         variant="quiet"
         onPress={onOpenContainingFolder}
       >
-        <FolderOpenIcon aria-hidden="true" size={15} />
+        <LumenUiIcon name="folderOpen" size="small" />
         <span {...stylex.props(styles.actionLabel)}>Folder</span>
       </LumenButton>
       <LumenButton
@@ -97,7 +93,7 @@ export function ContextActions({
         variant="quiet"
         onPress={onDetails}
       >
-        <InfoIcon aria-hidden="true" size={15} />
+        <LumenUiIcon name="document" size="small" />
         <span {...stylex.props(styles.actionLabel)}>Details</span>
       </LumenButton>
     </div>

@@ -1,14 +1,7 @@
-import {
-  BatteryWarningIcon,
-  ClockIcon,
-  GaugeIcon,
-  HourglassMediumIcon,
-  PauseCircleIcon,
-  PlayCircleIcon,
-} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
 import {CinemaIcon, GamingPauseIcon, IndexedRootIcon} from '../../design-system/icons/lumen-icons';
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
 import {activityPresentations, type ActivityMode} from './activity.types';
@@ -45,13 +38,13 @@ const styles = stylex.create({
 function ActivityIcon({mode}: {mode: ActivityMode}) {
   switch (mode) {
     case 'indexing': return <IndexedRootIcon size={27} />;
-    case 'slow': return <GaugeIcon aria-hidden="true" size={27} />;
+    case 'slow': return <LumenUiIcon name="hardware" size="large" />;
     case 'gaming': return <GamingPauseIcon size={27} />;
-    case 'fullscreen': return <PauseCircleIcon aria-hidden="true" size={27} />;
+    case 'fullscreen': return <LumenUiIcon name="pause" size="large" />;
     case 'cinema': return <CinemaIcon size={27} />;
-    case 'idle': return <HourglassMediumIcon aria-hidden="true" size={27} />;
-    case 'battery': return <BatteryWarningIcon aria-hidden="true" size={27} />;
-    case 'user': return <PlayCircleIcon aria-hidden="true" size={27} />;
+    case 'idle': return <LumenUiIcon name="refresh" size="large" />;
+    case 'battery': return <LumenUiIcon name="error" size="large" />;
+    case 'user': return <LumenUiIcon name="play" size="large" />;
   }
 }
 
@@ -73,7 +66,7 @@ export function ActivityStatus({mode}: {mode: ActivityMode}) {
       <div {...stylex.props(styles.text)}>
         <div {...stylex.props(styles.title)}>
           <LumenText as="h2" variant="bodyLarge" weight="semibold">{presentation.label}</LumenText>
-          {mode === 'indexing' ? <ClockIcon aria-hidden="true" size={14} /> : null}
+          {mode === 'indexing' ? <LumenUiIcon name="refresh" size="small" /> : null}
         </div>
         <LumenText tone="secondary">{presentation.description}</LumenText>
         <LumenText tone="tertiary" variant="meta">{presentation.recommendation}</LumenText>

@@ -1,7 +1,7 @@
-import {ArrowClockwiseIcon, CheckCircleIcon, WarningCircleIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
 import {GatewayIcon} from '../../design-system/icons/lumen-icons';
+import {LumenUiIcon, type LumenUiIconName} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -43,13 +43,13 @@ const stateCopy: Record<GatewayState, {label: string; description: string; tone:
 
 export function GatewayStatusPanel({state, onRestart}: {state: GatewayState; onRestart(): void}) {
   const copy = stateCopy[state];
-  const StateIcon = copy.tone === 'success' ? CheckCircleIcon : copy.tone === 'warning' ? WarningCircleIcon : ArrowClockwiseIcon;
+  const stateIcon: LumenUiIconName = copy.tone === 'success' ? 'success' : copy.tone === 'warning' ? 'error' : 'refresh';
   return (
     <section data-testid={`gateway-${state}`} aria-label="AgentGateway status" {...stylex.props(styles.panel)}>
       <span aria-hidden="true" {...stylex.props(styles.icon)}><GatewayIcon size={26} /></span>
       <div {...stylex.props(styles.text)}>
         <div {...stylex.props(styles.stateLine)}>
-          <StateIcon aria-hidden="true" size={16} />
+          <LumenUiIcon name={stateIcon} size="small" />
           <LumenText weight="semibold">{copy.label}</LumenText>
         </div>
         <LumenText tone="tertiary" variant="meta">{copy.description}</LumenText>

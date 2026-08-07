@@ -1,6 +1,6 @@
-import {CaretLeftIcon, CaretRightIcon, GridFourIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -52,10 +52,10 @@ export function ScenarioControls({matrix, scale, scenarioId, onMatrix, onNavigat
     <header aria-label="Gallery controls" {...stylex.props(styles.controls)}>
       <div {...stylex.props(styles.arrows)}>
         <LumenButton aria-label="Previous scenario" size="small" variant="quiet" onPress={() => onNavigate(-1)}>
-          <CaretLeftIcon aria-hidden="true" size={16} />
+          <LumenUiIcon name="previous" size="small" />
         </LumenButton>
         <LumenButton aria-label="Next scenario" size="small" variant="quiet" onPress={() => onNavigate(1)}>
-          <CaretRightIcon aria-hidden="true" size={16} />
+          <LumenUiIcon name="next" size="small" />
         </LumenButton>
       </div>
       <select
@@ -69,7 +69,7 @@ export function ScenarioControls({matrix, scale, scenarioId, onMatrix, onNavigat
         ))}
       </select>
       <LumenButton aria-label="Toggle scenario matrix" size="small" variant={matrix ? 'primary' : 'quiet'} onPress={onMatrix}>
-        <GridFourIcon aria-hidden="true" size={16} /> Matrix
+        <LumenUiIcon name="grid" size="small" /> Matrix
       </LumenButton>
       <LumenText className={stylex.props(styles.hint).className} tone="tertiary" variant="caption">
         {scale}% · [ ] scenario · T theme · D scale

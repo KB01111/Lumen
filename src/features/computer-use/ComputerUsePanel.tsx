@@ -1,6 +1,6 @@
-import {BrowserIcon, CheckCircleIcon, GearSixIcon, StopIcon, XIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -149,7 +149,7 @@ export function ComputerUsePanel({
     <section aria-label="Computer Use workspace" {...stylex.props(styles.root)}>
       <header {...stylex.props(styles.header)}>
         <div {...stylex.props(styles.title)}>
-          <BrowserIcon aria-hidden="true" size={20} {...stylex.props(styles.icon)} />
+          <LumenUiIcon name="computer" size="medium" {...stylex.props(styles.icon)} />
           <LumenText weight="semibold">Computer Use</LumenText>
           <LumenText tone="tertiary" variant="meta">Gemini · browser only</LumenText>
         </div>
@@ -186,10 +186,10 @@ export function ComputerUsePanel({
             <LumenText tone="secondary">{controller.approval.explanation}</LumenText>
             <div {...stylex.props(styles.actions)}>
               <LumenButton variant="primary" onPress={() => void controller.approve()}>
-                <CheckCircleIcon aria-hidden="true" size={16} /> Approve once
+                <LumenUiIcon name="success" size="small" /> Approve once
               </LumenButton>
               <LumenButton variant="quiet" onPress={() => void controller.deny()}>
-                <XIcon aria-hidden="true" size={16} /> Deny and stop
+                <LumenUiIcon name="close" size="small" /> Deny and stop
               </LumenButton>
             </div>
           </div>
@@ -228,16 +228,16 @@ export function ComputerUsePanel({
         <div {...stylex.props(styles.actions)}>
           {!setupReady && !active ? (
             <LumenButton size="small" variant="quiet" onPress={onOpenSettings}>
-              <GearSixIcon aria-hidden="true" size={15} /> Open settings
+              <LumenUiIcon name="settings" size="small" /> Open settings
             </LumenButton>
           ) : null}
           {active ? (
             <LumenButton size="small" variant="quiet" onPress={controller.stop}>
-              <StopIcon aria-hidden="true" size={15} /> Stop
+              <LumenUiIcon name="stop" size="small" /> Stop
             </LumenButton>
           ) : (
             <LumenButton isDisabled={!setupReady || !draftTask.trim()} size="small" variant="primary" onPress={onStart}>
-              <BrowserIcon aria-hidden="true" size={15} /> Run in Edge
+              <LumenUiIcon name="computer" size="small" /> Run in Edge
             </LumenButton>
           )}
         </div>

@@ -1,7 +1,6 @@
 import {useState} from 'react';
 
-import {DatabaseIcon, ExportIcon, ShieldCheckIcon, TrashIcon} from '@phosphor-icons/react';
-
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {useAppearanceStore} from '../../../state/appearance.store';
@@ -39,12 +38,12 @@ export function PrivacyPage() {
   return (
     <SettingsPage>
       <SettingsCallout>
-        <ShieldCheckIcon aria-hidden="true" size={16} /> Lumen search data stays on this PC. Cloud provider consent is separate and off by default.
+        <LumenUiIcon name="privacy" size="small" /> Lumen search data stays on this PC. Cloud provider consent is separate and off by default.
       </SettingsCallout>
       {message ? <SettingsCallout>{message}</SettingsCallout> : null}
       <SettingSection title="Local data">
         <SettingRow label="Local-only search" description="Filenames, previews, history, and development adapter results remain local." status={<StatusBadge tone="success">On device</StatusBadge>}>
-          <ShieldCheckIcon aria-hidden="true" size={20} />
+          <LumenUiIcon name="privacy" size="medium" />
         </SettingRow>
         <SettingRow label="Indexed root summary" description="Only folders you explicitly chose can be traversed.">
           <LumenText tone="secondary" variant="meta">{rootSummary(roots.map((root) => root.path))}</LumenText>
@@ -60,7 +59,7 @@ export function PrivacyPage() {
             }}
           >
             <LumenButton aria-label="Clear search history" isDisabled={privacy.historyEntries === 0} size="small" variant="quiet">
-              <TrashIcon aria-hidden="true" size={14} /> Clear
+              <LumenUiIcon name="delete" size="small" /> Clear
             </LumenButton>
           </ConfirmationDialog>
         </SettingRow>
@@ -71,7 +70,7 @@ export function PrivacyPage() {
             title="Delete the local index?"
             onConfirm={() => setMessage('Index deletion preview completed. No source files were changed.')}
           >
-            <LumenButton size="small" variant="danger"><DatabaseIcon aria-hidden="true" size={14} /> Delete index</LumenButton>
+            <LumenButton size="small" variant="danger"><LumenUiIcon name="hardware" size="small" /> Delete index</LumenButton>
           </ConfirmationDialog>
         </SettingRow>
       </SettingSection>
@@ -98,7 +97,7 @@ export function PrivacyPage() {
               setMessage(`${payload.filename} is prepared in memory for review.`);
             }}
           >
-            <LumenButton size="small"><ExportIcon aria-hidden="true" size={14} /> Export</LumenButton>
+            <LumenButton size="small"><LumenUiIcon name="download" size="small" /> Export</LumenButton>
           </ConfirmationDialog>
         </SettingRow>
       </SettingSection>

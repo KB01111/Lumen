@@ -1,17 +1,10 @@
 import {useEffect, useRef, type KeyboardEvent} from 'react';
 
-import {
-  CpuIcon,
-  DatabaseIcon,
-  GameControllerIcon,
-  LightningIcon,
-  MagnifyingGlassIcon,
-  ShieldCheckIcon,
-} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 import {AnimatePresence, motion} from 'motion/react';
 
 import {useLumenMotion} from '../../design-system/MotionProvider';
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
@@ -98,7 +91,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Find the file you mean before the thought is gone."
-          icon={<MagnifyingGlassIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="search" />}
           support="Lumen is a keyboard-first search instrument built for Windows 11."
           title="Everything, within reach"
         />
@@ -107,7 +100,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Your filenames, previews, and search history stay on this PC."
-          icon={<ShieldCheckIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="privacy" />}
           support="Cloud providers are optional, explicit, and off until you choose otherwise."
           title="Local by design"
         />
@@ -116,7 +109,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="This phase uses simple local filename search while the production index is still to come."
-          icon={<DatabaseIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="hardware" />}
           support="Future indexing will run quietly and expose clear progress and pause states."
           title="A calm background index"
         />
@@ -125,7 +118,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Local AI providers will later add meaning without sending private files away."
-          icon={<CpuIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="hardware" />}
           support="NPU, GPU, CPU, and fallback status will always be visible—not implied."
           title="Intelligence stays optional"
         />
@@ -134,7 +127,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Exact filename and folder search remains available without any model."
-          icon={<LightningIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="search" />}
           support="Semantic search and reranking enhance the result set; they never gate it."
           title="Fast even without AI"
         />
@@ -143,7 +136,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Lumen can pause heavy work for games, fullscreen apps, video, and battery life."
-          icon={<GameControllerIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="tools" />}
           support="Search stays available while background activity adapts to the moment."
           title="Quiet when focus matters"
         />

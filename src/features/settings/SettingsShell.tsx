@@ -1,11 +1,11 @@
 import {useEffect, useRef, type ReactNode} from 'react';
 
-import {XIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 import {AnimatePresence, motion} from 'motion/react';
 import {TabPanel, Tabs} from 'react-aria-components';
 
 import {useLumenMotion} from '../../design-system/MotionProvider';
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
@@ -156,7 +156,7 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
           <LumenText tone="tertiary" variant="meta">Settings</LumenText>
         </div>
         <LumenIconButton aria-label="Close settings" size="small" variant="quiet" onPress={onClose}>
-          <XIcon aria-hidden="true" size={16} />
+          <LumenUiIcon name="close" size="small" />
         </LumenIconButton>
       </header>
       <Tabs

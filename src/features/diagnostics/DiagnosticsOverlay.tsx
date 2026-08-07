@@ -1,8 +1,8 @@
 import {useEffect} from 'react';
 
-import {ArrowClockwiseIcon, XIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {tokens} from '../../design-system/tokens.stylex';
@@ -73,10 +73,10 @@ export function DiagnosticsOverlay() {
         <LumenText weight="semibold">Performance</LumenText>
         <div {...stylex.props(styles.actions)}>
           <LumenIconButton aria-label="Refresh diagnostics" size="small" variant="quiet" onPress={refresh}>
-            <ArrowClockwiseIcon aria-hidden="true" size={14} />
+            <LumenUiIcon name="refresh" size="small" />
           </LumenIconButton>
           <LumenIconButton aria-label="Close diagnostics" size="small" variant="quiet" onPress={() => setOverlay(false)}>
-            <XIcon aria-hidden="true" size={14} />
+            <LumenUiIcon name="close" size="small" />
           </LumenIconButton>
         </div>
       </div>

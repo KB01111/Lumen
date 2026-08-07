@@ -1,11 +1,11 @@
 import {useEffect, useRef, type RefObject} from 'react';
 import {Dialog, Modal, ModalOverlay} from 'react-aria-components';
 
-import {XIcon} from '@phosphor-icons/react';
 import * as stylex from '@stylexjs/stylex';
 import {AnimatePresence, motion} from 'motion/react';
 
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {motionTokens} from '../../design-system/motion';
@@ -221,7 +221,7 @@ function PreviewFrame({
         </div>
         {onClose ? (
           <LumenIconButton aria-label="Close details" size="small" onPress={onClose}>
-            <XIcon aria-hidden="true" size={16} weight="bold" />
+            <LumenUiIcon name="close" size="small" />
           </LumenIconButton>
         ) : null}
       </header>
