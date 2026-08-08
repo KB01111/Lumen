@@ -1,4 +1,10 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "../app";
+@source "../components";
+@source "../design-system";
+@source "../features";
+@source "../platform";
+@source "../services";
 
 @custom-variant theme-dark (&:where([data-resolved-theme="dark"], [data-resolved-theme="dark"] *));
 @custom-variant high-contrast (&:where([data-contrast="high"], [data-contrast="high"] *));
@@ -84,7 +90,7 @@
   --lumen-shadow-control: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
-@layer reset, base, stylex;
+@layer reset, base;
 
 @layer reset {
   *,

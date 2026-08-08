@@ -12,6 +12,11 @@ export const galleryScenarios: readonly GalleryScenario[] = [
   {id: 'preview-loading', label: 'Preview · loading', description: 'Cancellable preview request in progress.', category: 'Preview', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'report', resultSet: 'standard', selectedIndex: 0, preview: 'loading'}}},
   {id: 'preview-complete', label: 'Preview · complete', description: 'Safe Markdown preview and metadata.', category: 'Preview', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'report', resultSet: 'standard', selectedIndex: 1, preview: 'complete'}}},
   {id: 'preview-failed', label: 'Preview · failed', description: 'Recoverable passive preview error.', category: 'Preview', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'report', resultSet: 'standard', selectedIndex: 0, preview: 'failed'}}},
+  {id: 'ai-waiting', label: 'AI waiting', description: 'AI work starts only after explicit composer submission.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'summarize report', resultSet: 'standard', answer: 'waiting'}}},
+  {id: 'ai-streaming', label: 'AI streaming', description: 'One stable answer region receives incremental text.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'summarize report', resultSet: 'standard', answer: 'streaming'}}},
+  {id: 'ai-complete', label: 'AI complete', description: 'Completed answer preserves local results and citations.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'summarize report', resultSet: 'standard', answer: 'complete'}}},
+  {id: 'ai-failure-local-results', label: 'AI failure with local results', description: 'A provider-neutral answer error does not replace usable local files.', category: 'Resilience', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'summarize report', resultSet: 'standard', answer: 'failed'}}},
+  {id: 'empty-local-with-answer', label: 'Empty local answer retained', description: 'A completed answer remains visible when the local collection is empty.', category: 'Resilience', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'nothing-here', resultSet: 'empty', answer: 'complete'}}},
   {id: 'empty-results', label: 'Empty results', description: 'Valid root with no filename matches.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'nothing-here', resultSet: 'empty'}}},
   {id: 'no-indexed-root', label: 'No indexed root', description: 'Honest setup state without fixture results.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'report', resultSet: 'empty', noRoot: true}}},
   ...(['indexing', 'slow', 'gaming', 'fullscreen', 'cinema', 'idle', 'battery', 'user'] as const).map((mode) => ({
@@ -55,6 +60,8 @@ export const galleryScenarios: readonly GalleryScenario[] = [
   {id: 'settings-general', label: 'Settings · General', description: 'Full settings shell and fixed navigation rail.', category: 'Management', surface: {kind: 'settings-shell', page: 'general'}},
   {id: 'settings-agent-gateway', label: 'Settings · AgentGateway', description: 'Routes, permissions, consent, and diagnostics.', category: 'Management', surface: {kind: 'settings-shell', page: 'agent-gateway'}},
   {id: 'onboarding-welcome', label: 'Onboarding · welcome', description: 'First of eight concise first-run scenes.', category: 'Management', surface: {kind: 'onboarding', step: 0}},
+  {id: 'computer-use-approval', label: 'Computer Use approval', description: 'A sensitive browser action remains paused for one-time approval.', category: 'Computer Use', surface: {kind: 'computer-use', state: 'approval'}},
+  {id: 'constrained-work-area', label: 'Constrained work area', description: 'Short and narrow bounds preserve the composer and internal scrolling.', category: 'Resilience', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'report', resultSet: 'standard', answer: 'streaming', constrained: true}}},
 ];
 
 export const galleryScenarioById = new Map(galleryScenarios.map((scenario) => [scenario.id, scenario]));

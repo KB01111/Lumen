@@ -1,16 +1,6 @@
-import * as stylex from '@stylexjs/stylex';
 import {render, screen} from '@testing-library/react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
-import {
-  darkOpaqueMaterialTheme,
-  darkTheme,
-  highContrastTheme,
-  lightOpaqueMaterialTheme,
-  lightTheme,
-  reducedEffectsTheme,
-  reducedMotionTheme,
-} from '../design-system/themes.stylex';
 import type {AppearancePreferences} from '../design-system/theme';
 import {AppProviders} from './AppProviders';
 
@@ -43,47 +33,40 @@ function renderAppearance(
   return screen.getByRole('application', {name: 'Lumen'});
 }
 
-function expectThemeBridge(root: HTMLElement, bridgeClassName: string | undefined) {
-  expect(bridgeClassName).not.toBeUndefined();
+function expectApplicationRoot(root: HTMLElement) {
   expect(root).toHaveClass('h-full', 'w-full', 'bg-transparent', 'font-sans', 'text-text-primary');
-  expect(root.className.split(' ')).toEqual(
-    expect.arrayContaining(bridgeClassName?.split(' ') ?? []),
-  );
 }
 
-describe('AppProviders appearance bridge', () => {
+describe('AppProviders appearance contract', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('keeps the light StyleX contract when system appearance resolves light', () => {
+  it('resolves the system appearance as light', () => {
     mockMediaPreferences({'(prefers-color-scheme: dark)': false});
 
     const root = renderAppearance(fullMotion);
 
     expect(root).toHaveAttribute('data-resolved-theme', 'light');
-    expectThemeBridge(root, stylex.props(lightTheme).className);
+    expectApplicationRoot(root);
   });
 
-  it('keeps the opaque StyleX contract alongside the Tailwind appearance data', () => {
-    const root = renderAppearance({
-      ...fullMotion,
-      mode: 'dark',
-      transparency: 'disabled',
-    });
+  it('exposes opaque appearance through data attributes', () => {
+    const root = renderAppearance({...fullMotion, mode: 'dark', transparency: 'disabled'});
 
+    expect(root).toHaveAttribute('data-resolved-theme', 'dark');
     expect(root).toHaveAttribute('data-transparency', 'disabled');
-    expectThemeBridge(root, stylex.props(darkOpaqueMaterialTheme).className);
+    expectApplicationRoot(root);
   });
 
-  it('keeps the high-contrast StyleX contract for forced colors', () => {
+  it('exposes forced high contrast through data attributes', () => {
     mockMediaPreferences({'(forced-colors: active)': true});
 
     const root = renderAppearance({...fullMotion, mode: 'dark'});
 
     expect(root).toHaveAttribute('data-contrast', 'high');
-    expectThemeBridge(root, stylex.props(highContrastTheme).className);
+    expectApplicationRoot(root);
   });
 
-  it('composes reduced effect and motion StyleX contracts with the resolved theme', () => {
+  it('exposes reduced effects and motion through data attributes', () => {
     const root = renderAppearance({
       effects: 'reduced',
       mode: 'dark',
@@ -93,21 +76,6 @@ describe('AppProviders appearance bridge', () => {
 
     expect(root).toHaveAttribute('data-effects', 'reduced');
     expect(root).toHaveAttribute('data-reduced-motion', 'true');
-    expectThemeBridge(root, stylex.props(
-      darkTheme,
-      reducedEffectsTheme,
-      reducedMotionTheme,
-    ).className);
-  });
-
-  it('keeps the light opaque contract when a light appearance disables transparency', () => {
-    const root = renderAppearance({
-      ...fullMotion,
-      mode: 'light',
-      transparency: 'disabled',
-    });
-
-    expect(root).toHaveAttribute('data-resolved-theme', 'light');
-    expectThemeBridge(root, stylex.props(lightOpaqueMaterialTheme).className);
+    expectApplicationRoot(root);
   });
 });

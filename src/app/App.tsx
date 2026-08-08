@@ -1,12 +1,9 @@
 import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenMark} from '../design-system/icons/LumenMark';
 import {LumenSurface} from '../design-system/primitives/LumenSurface';
 import {LumenText} from '../design-system/primitives/LumenText';
 import type {AppearancePreferences} from '../design-system/theme';
-import {tokens} from '../design-system/tokens.stylex';
 import {SearchExperience} from '../features/launcher/SearchExperience';
 import {useLauncherStore} from '../features/launcher/launcher.store';
 import {useQueryStore} from '../features/launcher/query.store';
@@ -21,98 +18,6 @@ import {isNativeRuntime, nativeAiService} from '../services/ai/native-ai-service
 import {DevelopmentFileSearchService} from '../services/search/development-file-search-service';
 import {DevelopmentSearchService} from '../services/search/development-search-service';
 import {AppProviders} from './AppProviders';
-
-const styles = stylex.create({
-  stage: {
-    width: '100%',
-    height: '100%',
-    display: 'grid',
-    alignItems: 'stretch',
-    padding: tokens.space3,
-    backgroundColor: 'transparent',
-  },
-  shell: {
-    width: '100%',
-    height: '100%',
-    borderRadius: tokens.radiusLauncher,
-  },
-  launcher: {
-    minWidth: 0,
-    minHeight: '52px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.space6,
-    paddingInline: tokens.space6,
-  },
-  markWell: {
-    width: '38px',
-    height: '38px',
-    display: 'grid',
-    flexShrink: 0,
-    placeItems: 'center',
-    color: tokens.colorAccent,
-    backgroundColor: tokens.colorAccentMuted,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-    boxShadow: tokens.shadowInsetTop,
-  },
-  mark: {
-    filter: 'drop-shadow(0 0 10px currentColor)',
-  },
-  divider: {
-    width: '1px',
-    height: '26px',
-    flexShrink: 0,
-    backgroundColor: tokens.colorBorderSubtle,
-  },
-  prompt: {
-    minWidth: 0,
-    display: 'flex',
-    flex: 1,
-    alignItems: 'baseline',
-    gap: tokens.space4,
-    overflow: 'hidden',
-  },
-  promptText: {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  status: {
-    display: 'inline-flex',
-    flexShrink: 0,
-    alignItems: 'center',
-    gap: tokens.space3,
-    color: tokens.colorTextTertiary,
-  },
-  statusDot: {
-    width: '6px',
-    height: '6px',
-    borderRadius: tokens.radiusRound,
-    backgroundColor: tokens.colorSuccess,
-    boxShadow: `0 0 9px ${tokens.colorSuccess}`,
-  },
-  shortcut: {
-    display: 'inline-flex',
-    flexShrink: 0,
-    alignItems: 'center',
-    gap: tokens.space2,
-    paddingBlock: tokens.space2,
-    paddingInline: tokens.space5,
-    color: tokens.colorTextSecondary,
-    backgroundColor: tokens.colorMaterialInset,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusSmall,
-    boxShadow: tokens.shadowInsetBottom,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeCaption,
-    lineHeight: tokens.lineHeightTight,
-  },
-});
 
 const foundationAppearances: AppearancePreferences[] = [
   {mode: 'dark', transparency: 'native', effects: 'full', motion: 'full'},
@@ -310,26 +215,26 @@ export function App() {
       )}
       forceHighContrast={galleryPresentation?.forceHighContrast}
     >
-      <main {...stylex.props(styles.stage)}>
+      <main className="grid h-full w-full items-stretch bg-transparent p-1.5">
         {galleryPreview && VisualStateGallery ? (
           <Suspense fallback={null}><VisualStateGallery /></Suspense>
         ) : foundationPreview ? (
           <LumenSurface
             aria-label="Lumen launcher"
-            className={stylex.props(styles.shell).className}
+            className="h-full w-full rounded-pill"
             material="mica"
           >
-            <div data-tauri-drag-region {...stylex.props(styles.launcher)}>
-              <span aria-hidden="true" {...stylex.props(styles.markWell)}>
+            <div className="flex min-h-[52px] min-w-0 items-center gap-3 px-3" data-tauri-drag-region>
+              <span aria-hidden="true" className="grid size-[38px] shrink-0 place-items-center rounded-control border border-border-subtle bg-accent/10 text-accent shadow-control">
                 <LumenMark
-                  className={stylex.props(styles.mark).className}
+                  className="drop-shadow-[0_0_10px_currentColor]"
                   size="large"
                 />
               </span>
-              <span aria-hidden="true" {...stylex.props(styles.divider)} />
-              <div {...stylex.props(styles.prompt)}>
+              <span aria-hidden="true" className="h-[26px] w-px shrink-0 bg-border-subtle" />
+              <div className="flex min-w-0 flex-1 items-baseline gap-2 overflow-hidden">
                 <LumenText
-                  className={stylex.props(styles.promptText).className}
+                  className="truncate"
                   tone="secondary"
                   variant="bodyLarge"
                 >
@@ -339,13 +244,13 @@ export function App() {
                   Local
                 </LumenText>
               </div>
-              <span aria-label="Local search ready" {...stylex.props(styles.status)}>
-                <span aria-hidden="true" {...stylex.props(styles.statusDot)} />
+              <span aria-label="Local search ready" className="inline-flex shrink-0 items-center gap-1.5 text-text-tertiary">
+                <span aria-hidden="true" className="size-1.5 rounded-pill bg-success shadow-[0_0_9px_var(--lumen-success)]" />
                 <LumenText tone="tertiary" variant="caption">
                   Ready
                 </LumenText>
               </span>
-              <kbd aria-label="Alt plus Space" {...stylex.props(styles.shortcut)}>
+              <kbd aria-label="Alt plus Space" className="inline-flex shrink-0 items-center rounded-control border border-border-subtle bg-surface-inset px-2.5 py-1 font-sans text-xs leading-tight text-text-secondary shadow-control">
                 Alt&nbsp;&nbsp;Space
               </kbd>
             </div>
