@@ -44,3 +44,27 @@ test('settings remain usable at 200-percent text size', async ({page}) => {
   await expect(page.getByRole('tab', {name: 'AgentGateway'})).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
+
+test('the constrained work area keeps the composer and footer fixed around internal regions', async ({page}) => {
+  await page.setViewportSize({width: 720, height: 540});
+  for (const scale of scales) {
+    await page.goto(`/?gallery=1&scenario=constrained-work-area&capture=1&scale=${scale}`);
+
+    await expect(page.getByRole('region', {name: 'Lumen visual state gallery'})).toBeAttached();
+    await expect(page.getByRole('searchbox', {name: 'Search files'})).toBeVisible();
+    await expect(page.getByText('Local runtime', {exact: true})).toBeVisible();
+    await expect(page.getByRole('grid', {name: 'Search results'})).toBeVisible();
+    await expect(page.getByRole('region', {name: 'File preview'})).toBeHidden();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+
+    const resultViewport = page.getByRole('grid', {name: 'Search results'}).locator('..');
+    const internalOverflow = await resultViewport.evaluate(
+      (element) => getComputedStyle(element).overflowY,
+    );
+    expect(['auto', 'scroll']).toContain(internalOverflow);
+  }
+
+  const modeControl = page.getByRole('button', {name: 'Switch to Computer Use'});
+  await expect(modeControl).toHaveCSS('max-width', '180px');
+  await expect(page.getByLabel('Alt plus Space')).toBeHidden();
+});

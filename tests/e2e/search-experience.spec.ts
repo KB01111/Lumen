@@ -76,6 +76,17 @@ test('keeps local results available when the browser answer route fails', async 
   );
 });
 
+test('keeps a stable answer region alongside local results after explicit submission', async ({page}) => {
+  await page.goto('/?onboarded=1&service=memory');
+  const search = page.getByRole('searchbox', {name: 'Search files'});
+  await search.fill('report');
+  await expect(page.getByRole('grid', {name: 'Search results'})).toBeVisible();
+
+  await search.press('Enter');
+  await expect(page.getByTestId('answer-region')).toHaveCount(1);
+  await expect(page.getByRole('grid', {name: 'Search results'})).toBeVisible();
+});
+
 test('handles Unicode and very long filenames without horizontal overflow', async ({page}) => {
   await page.goto('/?service=memory');
   const query = `årsrapport-${'väldigt-lång-'.repeat(12)}終`;

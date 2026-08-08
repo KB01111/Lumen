@@ -45,14 +45,16 @@ function LauncherComposer({
       </span>
       <LumenButton
         aria-label={intent === 'computer' ? 'Switch to file search' : 'Switch to Computer Use'}
-        className="shrink-0"
+        className="max-w-[180px] min-w-8 shrink-0"
         isDisabled={intentLocked}
         size="small"
         variant="quiet"
         onPress={onIntentChange}
       >
         <LumenUiIcon name={intent === 'computer' ? 'search' : 'computer'} size="small" />
-        {intent === 'computer' ? 'File search' : 'Computer Use'}
+        <span className="min-w-0 truncate">
+          {intent === 'computer' ? 'File search' : 'Computer Use'}
+        </span>
       </LumenButton>
       <SearchInput
         ref={inputRef}
@@ -71,7 +73,7 @@ function LauncherComposer({
           <LumenUiIcon name="voice" size="small" />
         </LumenButton>
       ) : null}
-      <kbd className="einui-command-shortcut hidden shrink-0 sm:inline-flex" aria-label="Alt plus Space">
+      <kbd className="einui-command-shortcut shrink-0" aria-label="Alt plus Space">
         Alt&nbsp;&nbsp;Space
       </kbd>
     </div>

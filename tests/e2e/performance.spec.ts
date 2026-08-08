@@ -198,3 +198,23 @@ test('hover, idle work, animation count, and browser heap remain bounded', async
   expect(idleCpuPercent).toBeLessThan(2);
   expect(heapMegabytes).toBeLessThan(100);
 });
+
+test('the static palette keeps one answer region and exposes diagnostics instrumentation', async ({page}) => {
+  await page.setViewportSize({width: 800, height: 540});
+  await page.goto('/?gallery=1&scenario=ai-streaming&capture=1');
+
+  await expect(page.getByTestId('answer-region')).toHaveCount(1);
+  await expect(page.getByRole('button', {name: 'Stop answer'})).toBeVisible();
+  await page.waitForTimeout(250);
+  await page.waitForFunction(
+    () => document.getAnimations().every((animation) => animation.playState !== 'running'),
+  );
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(
+    () => document.getAnimations().filter((animation) => animation.playState === 'running').length,
+  )).toBe(0);
+
+  const metrics = await readMetrics(page);
+  expect(Array.isArray(metrics.timings)).toBe(true);
+  expect(Array.isArray(metrics.reactCommits)).toBe(true);
+});

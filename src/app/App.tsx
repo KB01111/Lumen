@@ -215,7 +215,7 @@ export function App() {
       )}
       forceHighContrast={galleryPresentation?.forceHighContrast}
     >
-      <main className="grid h-full w-full items-stretch bg-transparent p-1.5">
+      <main className="grid h-full w-full items-stretch overflow-x-clip bg-transparent p-1.5">
         {galleryPreview && VisualStateGallery ? (
           <Suspense fallback={null}><VisualStateGallery /></Suspense>
         ) : foundationPreview ? (

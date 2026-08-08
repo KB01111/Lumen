@@ -41,3 +41,17 @@ test('renders management and activity surfaces from the same scenario registry',
   await page.goto('/?gallery=1&scenario=onboarding-welcome&capture=1');
   await expect(page.getByRole('heading', {name: 'Everything, within reach'})).toBeVisible();
 });
+
+test('publishes the constrained launcher state with inner scrolling priorities', async ({page}) => {
+  await page.setViewportSize({width: 720, height: 540});
+  await page.goto('/?gallery=1&scenario=constrained-work-area&capture=1&scale=200');
+
+  await expect(page.getByRole('region', {name: 'Lumen visual state gallery'})).toHaveAttribute(
+    'data-gallery-scenario',
+    'constrained-work-area',
+  );
+  await expect(page.getByRole('searchbox', {name: 'Search files'})).toBeVisible();
+  await expect(page.getByRole('grid', {name: 'Search results'})).toBeVisible();
+  await expect(page.getByRole('region', {name: 'File preview'})).toBeHidden();
+  await expect(page.getByTestId('answer-region')).toHaveCount(1);
+});

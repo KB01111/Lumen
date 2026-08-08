@@ -40,7 +40,7 @@ export const GlassCommandPalette = forwardRef<HTMLDivElement, GlassCommandPalett
         {...props}
         ref={ref}
         className={cn(
-          'einui-command-palette-wrapper relative isolate flex size-full min-w-0 flex-col overflow-visible',
+          'einui-command-palette-wrapper @container relative isolate flex size-full min-w-0 flex-col overflow-visible',
           className,
         )}
         data-expanded={expanded}
@@ -88,7 +88,7 @@ export const GlassCommandPalette = forwardRef<HTMLDivElement, GlassCommandPalett
               <div className="einui-command-workspace" data-einui-slot="workspace">
                 <motion.div
                   animate={{opacity: 1, y: 0}}
-                  className="min-h-0 flex-1 overflow-hidden"
+                  className="flex min-h-0 flex-1 flex-col overflow-hidden"
                   data-launcher-motion="workspace"
                   data-motion-duration={`${workspaceDuration * 1000}ms`}
                   data-motion-offset={`${workspaceOffset}px`}

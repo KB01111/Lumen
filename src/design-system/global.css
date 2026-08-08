@@ -301,6 +301,7 @@ input[type='search']::-webkit-search-cancel-button {
   --einui-command-row-selected: rgba(255, 255, 255, 0.15);
   --einui-command-shortcut: rgba(255, 255, 255, 0.1);
   --einui-command-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  container-type: inline-size;
 }
 
 .einui-command-exterior-glow,
@@ -349,20 +350,26 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 .einui-command-composer > * {
-  flex: 1;
   min-width: 0;
 }
 
 .einui-command-workspace {
+  display: flex;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0.5rem 0;
 }
 
 .einui-command-scopes,
 .einui-command-body {
   min-width: 0;
+}
+
+.einui-command-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
 }
 
 .einui-command-row {
@@ -410,6 +417,12 @@ input[type='search']::-webkit-search-cancel-button {
   justify-content: space-between;
   line-height: 1rem;
   padding: 0.625rem 1rem;
+}
+
+@container (max-width: 600px) {
+  .einui-command-shortcut {
+    display: none;
+  }
 }
 
 [data-transparency='disabled'] .einui-command-palette-wrapper {

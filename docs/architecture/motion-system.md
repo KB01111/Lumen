@@ -2,6 +2,8 @@
 
 Lumen uses motion to preserve spatial continuity and confirm actions. It does not animate for decoration. Native window geometry changes only when the product crosses a mode boundary (`collapsed`, `expanded`, `onboarding`, `settings`, or `gallery`); continuous interaction stays inside the already-sized window.
 
+For the launcher, native and web ordering is explicit: Rust/window services allocate expanded bounds before the inner workspace becomes visible; on collapse, the inner workspace dismisses before the native window returns to pill bounds. AI generation begins only after an explicit composer submission, and streamed deltas update one stable answer region rather than reconstructing the surface.
+
 ## Timing tokens
 
 | Token | Duration | Use |

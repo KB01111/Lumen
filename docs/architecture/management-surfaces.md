@@ -1,6 +1,6 @@
 # Management surfaces
 
-Lumen's first-run and settings experiences are part of the same native React surface as the launcher. They use the shared StyleX tokens, material primitives, motion provider, and React Aria controls; no web-only settings shell or second component library is involved.
+Lumen's first-run and settings experiences are part of the same native React surface as the launcher. They use Tailwind CSS-first semantic tokens, material primitives, the motion provider, and React Aria controls; no web-only settings shell or second component library is involved.
 
 ## Ownership
 
@@ -11,7 +11,7 @@ Lumen's first-run and settings experiences are part of the same native React sur
 - `src/features/settings/settings.store.ts` owns management preferences and the last active settings page.
 - `src/features/activity/activity.store.ts`, `src/features/local-ai/local-ai.store.ts`, `src/features/gateway/gateway.store.ts`, and `src/features/diagnostics/diagnostics.store.ts` own their bounded phase-one state machines.
 
-React Aria Components provides the tabs, switches, selects, sliders, dialogs, and focus semantics. Those controls are styled directly with Lumen primitives rather than wrapped by a second interaction abstraction. Overlay portals are mounted inside the themed application root so confirmation dialogs inherit the active appearance.
+React Aria Components provides the tabs, switches, selects, sliders, dialogs, focus semantics, collection roles, and focus restoration. Those controls are styled directly with Lumen primitives rather than wrapped by a second interaction abstraction. Overlay portals are mounted inside the themed application root so confirmation dialogs inherit the active appearance.
 
 ## Phase-one boundaries
 
