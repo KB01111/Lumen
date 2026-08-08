@@ -32,7 +32,7 @@ function stateTitle(controller: PreviewController) {
 function PreviewError({error}: {error: SearchError | null}) {
   const title = error?.code === 'permission-denied' ? 'Permission required' : 'Preview unavailable';
   return (
-    <div role="alert" className="grid min-h-70 place-items-center content-center gap-3 bg-[var(--lumen-surface-inset)] p-6 text-center" data-preview-surface="opaque">
+    <div role="alert" className="grid min-h-70 place-items-center content-center gap-3 bg-canvas high-contrast:bg-[Canvas] p-6 text-center" data-preview-surface="opaque">
       <span aria-hidden="true" className="grid size-10 place-items-center rounded-full bg-[color-mix(in_srgb,var(--lumen-danger)_18%,transparent)] font-display text-xl text-danger">!</span>
       <span className="font-sans text-[0.9375rem] font-semibold text-[color:var(--einui-command-text)]">{title}</span>
       <span className="font-sans text-sm text-text-secondary">{error?.message ?? 'This file cannot be previewed.'}</span>
@@ -44,7 +44,7 @@ function PreviewState({controller, reducedMotion}: {controller: PreviewControlle
   if (controller.lifecycle === 'loading') return <PreviewSkeleton reducedMotion={reducedMotion} />;
   if (controller.lifecycle === 'error') return <PreviewError error={controller.error} />;
   if (controller.preview) return <PreviewContent preview={controller.preview} />;
-  return <div className="grid min-h-70 place-items-center content-center gap-3 bg-[var(--lumen-surface-inset)] p-6 text-center" data-preview-surface="opaque"><span className="font-sans text-[0.9375rem] text-text-secondary">Select a result to preview</span><span className="font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">Alt + Enter opens file details</span></div>;
+  return <div className="grid min-h-70 place-items-center content-center gap-3 bg-canvas high-contrast:bg-[Canvas] p-6 text-center" data-preview-surface="opaque"><span className="font-sans text-[0.9375rem] text-text-secondary">Select a result to preview</span><span className="font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">Alt + Enter opens file details</span></div>;
 }
 
 function PreviewFrame({
@@ -114,7 +114,7 @@ export function PreviewPane({
       className="lumen-preview-overlay fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm"
       onOpenChange={onOpenChange}
     >
-      <Modal className="lumen-preview-modal max-h-[min(620px,calc(100vh-32px))] w-[min(620px,calc(100vw-32px))] overflow-hidden rounded-surface border border-[color:var(--einui-command-divider)] bg-[var(--lumen-surface-raised)] shadow-surface outline-none" data-preview-surface="opaque">
+      <Modal className="lumen-preview-modal max-h-[min(620px,calc(100vh-32px))] w-[min(620px,calc(100vw-32px))] overflow-hidden rounded-surface border border-[color:var(--einui-command-divider)] bg-canvas high-contrast:bg-[Canvas] shadow-surface outline-none" data-preview-surface="opaque">
         <Dialog aria-label="File details" className="max-h-inherit outline-none">
           <PreviewFrame controller={controller} mode={mode} reducedMotion={reducedMotion} onClose={() => onOpenChange?.(false)} />
         </Dialog>

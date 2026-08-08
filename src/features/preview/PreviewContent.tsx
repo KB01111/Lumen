@@ -66,7 +66,7 @@ function previewBody(preview: FilePreview) {
 export function PreviewContent({preview}: {preview: FilePreview}) {
   const metadata = Object.entries(preview.metadata);
   return (
-    <div className="grid min-h-70 min-w-0 content-start gap-6 bg-[var(--lumen-surface-inset)] p-4" data-preview-surface="opaque" data-testid={`preview-${preview.kind}`}>
+    <div className="grid min-h-70 min-w-0 content-start gap-6 bg-canvas high-contrast:bg-[Canvas] p-4" data-preview-surface="opaque" data-testid={`preview-${preview.kind}`}>
       {previewBody(preview)}
       {metadata.length ? (
         <dl className="grid grid-cols-[minmax(84px,auto)_minmax(0,1fr)] gap-2 border-t border-[color:var(--einui-command-divider)] pt-3 font-sans text-sm">

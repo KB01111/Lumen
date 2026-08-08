@@ -21,6 +21,38 @@ afterEach(() => {
 });
 
 describe('SearchExperience answer submission', () => {
+  it('keeps the real streaming answer region mounted when local search fails', async () => {
+    const user = userEvent.setup();
+    const service = new MemorySearchService();
+    const answers = new MemoryAnswerService();
+    render(
+      <SearchExperience
+        answerService={answers}
+        service={service}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    const input = screen.getByRole('searchbox', {name: 'Search files'});
+    await user.type(input, 'release');
+    await waitFor(() => expect(
+      service.requests.some(({request}) => request.query === 'release'),
+    ).toBe(true));
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(answers.requests).toHaveLength(1));
+    await act(() => answers.emit('release', {type: 'delta', text: 'Streaming answer.'}));
+
+    const answerRegion = await screen.findByTestId('answer-region');
+    await act(() => service.reject('release', {
+      code: 'search-failed', message: 'Local search is unavailable.', recoverable: true,
+    }));
+
+    await waitFor(() => expect(screen.getByRole('grid', {name: 'Search results'}))
+      .toHaveTextContent('Local search is unavailable.'));
+    expect(screen.getByTestId('answer-region')).toBe(answerRegion);
+    expect(answerRegion).toHaveTextContent('Streaming answer.');
+  });
+
   it('searches while typing without starting an answer stream', async () => {
     const user = userEvent.setup();
     const service = new MemorySearchService();

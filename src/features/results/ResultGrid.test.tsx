@@ -23,39 +23,6 @@ function file(id: string, overrides: Partial<SearchResult> = {}): SearchResult {
 }
 
 describe('ResultGrid', () => {
-  it('keeps a completed answer visible when the local search surface reports an error', () => {
-    render(
-      <>
-        <ResultGrid
-          emptyLabel="The local search service is unavailable."
-          results={[]}
-          selectedId={null}
-        />
-        <output data-testid="answer-region">Completed answer stays visible.</output>
-      </>,
-    );
-
-    expect(screen.getByText('The local search service is unavailable.')).toBeInTheDocument();
-    expect(screen.getByTestId('answer-region')).toHaveTextContent(
-      'Completed answer stays visible.',
-    );
-  });
-
-  it('keeps an available result usable when the answer surface reports an error', () => {
-    render(
-      <>
-        <ResultGrid results={[file('usable')]} selectedId="usable" />
-        <output data-testid="answer-region" role="alert">Answer unavailable.</output>
-      </>,
-    );
-
-    expect(screen.getByRole('row', {name: /usable\.tsx/i})).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    expect(screen.getByRole('alert')).toHaveTextContent('Answer unavailable.');
-  });
-
   it('keeps the selected file when a result is inserted above it', () => {
     const {rerender} = render(
       <ResultGrid results={[file('a'), file('b')]} selectedId="b" />,
