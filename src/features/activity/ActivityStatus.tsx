@@ -1,39 +1,7 @@
-import * as stylex from '@stylexjs/stylex';
-
 import {CinemaIcon, GamingPauseIcon, IndexedRootIcon} from '../../design-system/icons/lumen-icons';
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import {activityPresentations, type ActivityMode} from './activity.types';
-
-const styles = stylex.create({
-  status: {
-    display: 'grid',
-    gridTemplateColumns: 'auto minmax(0, 1fr)',
-    alignItems: 'center',
-    gap: tokens.space8,
-    padding: tokens.space10,
-    backgroundColor: tokens.colorMaterialInset,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusLarge,
-    boxShadow: tokens.shadowInsetTop,
-  },
-  icon: {
-    width: '50px',
-    height: '50px',
-    display: 'grid',
-    placeItems: 'center',
-    color: tokens.colorAccent,
-    backgroundColor: tokens.colorAccentMuted,
-    borderRadius: tokens.radiusLarge,
-  },
-  warning: {color: tokens.colorWarning, backgroundColor: tokens.colorWarningMuted},
-  neutral: {color: tokens.colorTextSecondary, backgroundColor: tokens.colorMaterialRaised},
-  text: {display: 'grid', gap: tokens.space2},
-  title: {display: 'flex', alignItems: 'center', gap: tokens.space4},
-});
 
 function ActivityIcon({mode}: {mode: ActivityMode}) {
   switch (mode) {
@@ -53,18 +21,15 @@ export function ActivityStatus({mode}: {mode: ActivityMode}) {
   return (
     <section
       aria-label={`${presentation.label}. ${presentation.description}`}
+      className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-5 rounded-surface border border-border-subtle bg-surface-inset p-6"
       data-testid={`activity-${mode}`}
-      {...stylex.props(styles.status)}
+      role="status"
     >
-      <span aria-hidden="true" {...stylex.props(
-        styles.icon,
-        presentation.tone === 'warning' && styles.warning,
-        presentation.tone === 'neutral' && styles.neutral,
-      )}>
+      <span aria-hidden="true" className={['grid size-12 place-items-center rounded-control bg-accent/10 text-accent', presentation.tone === 'warning' ? 'bg-warning/10 text-warning' : '', presentation.tone === 'neutral' ? 'bg-surface-raised text-text-secondary' : ''].filter(Boolean).join(' ')}>
         <ActivityIcon mode={mode} />
       </span>
-      <div {...stylex.props(styles.text)}>
-        <div {...stylex.props(styles.title)}>
+      <div className="grid min-w-0 gap-1">
+        <div className="flex items-center gap-2">
           <LumenText as="h2" variant="bodyLarge" weight="semibold">{presentation.label}</LumenText>
           {mode === 'indexing' ? <LumenUiIcon name="clock" size="small" /> : null}
         </div>

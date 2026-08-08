@@ -1,28 +1,8 @@
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import {LumenSelect} from '../settings/components/SettingsControls';
 import {StatusBadge} from '../settings/components/StatusBadge';
 import type {ProviderRoute} from './gateway.types';
-
-const styles = stylex.create({
-  route: {
-    minHeight: '72px',
-    display: 'grid',
-    gridTemplateColumns: 'minmax(108px, 0.7fr) minmax(150px, 1fr) auto',
-    alignItems: 'center',
-    gap: tokens.space6,
-    padding: tokens.space8,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-    ':last-child': {borderBottomWidth: 0},
-  },
-  alias: {display: 'grid', gap: tokens.space2},
-  controls: {display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: tokens.space4},
-});
 
 const providers = [
   {id: 'local-cpu', label: 'CPU local preview'},
@@ -38,8 +18,8 @@ export function ProviderRouteList({routes, onChange, onTest}: {
   return (
     <div>
       {routes.map((route) => (
-        <div key={route.id} {...stylex.props(styles.route)}>
-          <div {...stylex.props(styles.alias)}>
+        <div key={route.id} className="grid min-h-[72px] grid-cols-[minmax(108px,.7fr)_minmax(150px,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
+          <div className="grid min-w-0 gap-1">
             <LumenText weight="medium">{route.alias}</LumenText>
             <StatusBadge tone={route.status === 'ready' ? 'success' : route.status === 'degraded' ? 'warning' : 'neutral'}>
               {route.status === 'ready' ? 'Ready' : route.status === 'degraded' ? 'Fallback' : 'Unavailable'}
@@ -51,7 +31,7 @@ export function ProviderRouteList({routes, onChange, onTest}: {
             value={route.providerId as (typeof providers)[number]['id']}
             onChange={(providerId) => onChange(route.id, providerId)}
           />
-          <div {...stylex.props(styles.controls)}>
+          <div className="flex items-center justify-end gap-3">
             <LumenButton
               aria-label={route.id === 'fast' ? 'Test local provider' : `Test ${route.alias}`}
               size="small"

@@ -58,6 +58,17 @@ describe('diagnostics privacy', () => {
     expect(screen.getByRole('button', {name: 'Refresh diagnostics'})).toBeVisible();
   });
 
+  it('lets the development-only overlay be dismissed without changing diagnostics state', async () => {
+    const user = userEvent.setup();
+    useDiagnosticsStore.getState().setOverlay(true);
+    renderPage(<DiagnosticsOverlay />);
+
+    await user.click(screen.getByRole('button', {name: 'Close diagnostics'}));
+
+    expect(screen.queryByRole('complementary', {name: 'Performance diagnostics'})).not.toBeInTheDocument();
+    expect(useDiagnosticsStore.getState().overlayOpen).toBe(false);
+  });
+
   it('shows complete runtime fields on the Diagnostics page', () => {
     renderPage(<DiagnosticsPage />);
 

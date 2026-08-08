@@ -1,8 +1,9 @@
-import {render, screen} from '@testing-library/react';
+import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it} from 'vitest';
 
 import {AppProviders} from '../../app/AppProviders';
+import {LauncherStatus} from '../launcher/LauncherStatus';
 import {AgentGatewayPage} from '../settings/pages/AgentGatewayPage';
 import {LocalAiPage} from '../settings/pages/LocalAiPage';
 import {useSettingsStore} from '../settings/settings.store';
@@ -44,8 +45,10 @@ describe('AgentGateway states and controls', () => {
     'renders gateway state %s',
     (state) => {
       useGatewayStore.setState({gatewayState: state});
-      renderPage(<AgentGatewayPage />);
+      renderPage(<><LauncherStatus label="8 local results" /><AgentGatewayPage /></>);
       expect(screen.getByTestId(`gateway-${state}`)).toHaveTextContent(/./);
+      expect(within(screen.getByTestId(`gateway-${state}`)).getByRole('status')).toBeVisible();
+      expect(screen.getByText('8 local results')).toBeVisible();
     },
   );
 

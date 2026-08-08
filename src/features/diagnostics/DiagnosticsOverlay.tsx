@@ -1,48 +1,10 @@
 import {useEffect} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import {DiagnosticItem} from './DiagnosticItem';
 import {useDiagnosticsStore} from './diagnostics.store';
-
-const styles = stylex.create({
-  overlay: {
-    position: 'fixed',
-    top: tokens.space8,
-    right: tokens.space8,
-    zIndex: 50,
-    width: 'min(340px, calc(100vw - 32px))',
-    maxHeight: 'calc(100vh - 32px)',
-    overflowY: 'auto',
-    color: tokens.colorTextPrimary,
-    backgroundColor: tokens.colorCanvasElevated,
-    borderColor: tokens.colorBorderStrong,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusLarge,
-    boxShadow: tokens.shadowAmbient,
-  },
-  header: {
-    position: 'sticky',
-    top: 0,
-    zIndex: 1,
-    minHeight: '46px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space6,
-    paddingInline: tokens.space6,
-    backgroundColor: tokens.colorCanvasElevated,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-  },
-  actions: {display: 'flex', alignItems: 'center', gap: tokens.space2},
-});
 
 export function DiagnosticsOverlay() {
   const open = useDiagnosticsStore((state) => state.overlayOpen);
@@ -68,10 +30,10 @@ export function DiagnosticsOverlay() {
   const latestSelection = [...snapshot.timings].reverse().find((sample) => sample.name === 'selection-paint');
 
   return (
-    <aside aria-label="Performance diagnostics" {...stylex.props(styles.overlay)}>
-      <div {...stylex.props(styles.header)}>
+    <aside aria-label="Performance diagnostics" className="fixed top-4 right-4 z-50 max-h-[calc(100vh-32px)] w-[min(340px,calc(100vw-32px))] overflow-y-auto rounded-surface border border-border-strong bg-surface-raised text-text-primary shadow-surface">
+      <div className="sticky top-0 z-10 flex min-h-[46px] items-center justify-between gap-4 border-b border-border-subtle bg-surface-raised px-5">
         <LumenText weight="semibold">Performance</LumenText>
-        <div {...stylex.props(styles.actions)}>
+        <div className="flex items-center gap-1">
           <LumenIconButton aria-label="Refresh diagnostics" size="small" variant="quiet" onPress={refresh}>
             <LumenUiIcon name="refresh" size="small" />
           </LumenIconButton>

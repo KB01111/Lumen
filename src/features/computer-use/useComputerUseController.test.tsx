@@ -1,18 +1,49 @@
-import {act, renderHook, waitFor} from '@testing-library/react';
+import {act, render, renderHook, screen, waitFor} from '@testing-library/react';
 import {describe, expect, it} from 'vitest';
 
+import {AppProviders} from '../../app/AppProviders';
 import type {ComputerUseService} from '../../services/computer-use/computer-use-service';
 import type {
   ComputerUseEvent,
   ComputerUseRequest,
 } from '../../services/computer-use/computer-use.types';
-import {useComputerUseController} from './useComputerUseController';
+import {ComputerUsePanel} from './ComputerUsePanel';
+import {type ComputerUseController, useComputerUseController} from './useComputerUseController';
 
 const options = {
   model: 'gemini-3.6-flash' as const,
   initialUrl: 'https://www.google.com',
   cloudConsent: true,
 };
+
+function panelController(overrides: Partial<ComputerUseController> = {}): ComputerUseController {
+  return {
+    phase: 'idle',
+    health: {
+      state: 'ready',
+      mode: 'python',
+      browser: 'Microsoft Edge',
+      credentialConfigured: true,
+    },
+    model: 'gemini-3.6-flash',
+    browser: 'Microsoft Edge',
+    activity: [],
+    refreshHealth: async () => undefined,
+    start: async () => undefined,
+    approve: async () => undefined,
+    deny: async () => undefined,
+    stop: () => undefined,
+    ...overrides,
+  };
+}
+
+function renderPanel(controller: ComputerUseController) {
+  return render(
+    <AppProviders appearance={{mode: 'dark', transparency: 'disabled', effects: 'reduced', motion: 'reduced'}}>
+      <ComputerUsePanel cloudConsent controller={controller} draftTask="review the support form" onOpenSettings={() => undefined} onStart={() => undefined} />
+    </AppProviders>,
+  );
+}
 
 class MemoryComputerUseService implements ComputerUseService {
   request?: ComputerUseRequest;
@@ -72,6 +103,28 @@ class MemoryComputerUseService implements ComputerUseService {
 }
 
 describe('useComputerUseController', () => {
+  it('keeps approval and a later failure inside the Computer Use workspace with textual status', () => {
+    const {rerender} = renderPanel(panelController({
+      phase: 'approval',
+      task: 'Submit the support form',
+      approval: {id: 'approval1', explanation: 'Submit this form?'},
+    }));
+
+    expect(screen.getByRole('status', {name: 'Approval required'})).toHaveTextContent('Approval required');
+    expect(screen.getByRole('alertdialog', {name: 'Approve Computer Use action'})).toHaveTextContent('Submit this form?');
+    expect(screen.getByRole('button', {name: 'Deny and stop'})).toBeVisible();
+
+    rerender(
+      <AppProviders appearance={{mode: 'dark', transparency: 'disabled', effects: 'reduced', motion: 'reduced'}}>
+        <ComputerUsePanel cloudConsent controller={panelController({phase: 'error', error: 'Worker connection closed.'})} draftTask="review the support form" onOpenSettings={() => undefined} onStart={() => undefined} />
+      </AppProviders>,
+    );
+
+    expect(screen.getByRole('status', {name: 'Unavailable'})).toHaveTextContent('Unavailable');
+    expect(screen.getByRole('alert')).toHaveTextContent('Worker connection closed.');
+    expect(screen.queryByRole('alertdialog', {name: 'Approve Computer Use action'})).not.toBeInTheDocument();
+  });
+
   it('streams a browser task through the typed service boundary', async () => {
     const service = new MemoryComputerUseService();
     const {result} = renderHook(() => useComputerUseController(service, options));
