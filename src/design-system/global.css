@@ -22,6 +22,7 @@
   --color-text-secondary: var(--lumen-text-secondary);
   --color-text-tertiary: var(--lumen-text-tertiary);
   --color-text-inverse: var(--lumen-text-inverse);
+  --color-text-button: var(--lumen-text-button);
   --color-accent: var(--lumen-accent);
   --color-focus: var(--lumen-focus);
   --color-border-subtle: var(--lumen-border-subtle);
@@ -49,6 +50,7 @@
   --lumen-text-secondary: rgba(43, 47, 51, 0.7);
   --lumen-text-tertiary: rgba(71, 76, 81, 0.52);
   --lumen-text-inverse: #f9fafb;
+  --lumen-text-button: rgba(22, 25, 28, 0.94);
   --lumen-accent: #087fc3;
   --lumen-focus: #087dc1;
   --lumen-border-subtle: rgba(37, 43, 48, 0.12);
@@ -74,6 +76,7 @@
   --lumen-text-secondary: rgba(222, 225, 228, 0.74);
   --lumen-text-tertiary: rgba(199, 204, 208, 0.54);
   --lumen-text-inverse: #16181a;
+  --lumen-text-button: rgba(249, 250, 251, 0.96);
   --lumen-accent: #7dc9ff;
   --lumen-focus: #8fd3ff;
   --lumen-border-subtle: rgba(240, 243, 245, 0.12);
@@ -88,6 +91,43 @@
   --lumen-radius-control: 12px;
   --lumen-shadow-surface: 0 26px 72px rgba(0, 0, 0, 0.42), 0 7px 24px rgba(0, 0, 0, 0.24);
   --lumen-shadow-control: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-transparency='disabled'] {
+  --lumen-canvas: #edf3f7;
+  --lumen-surface-glass: #f4f8fb;
+  --lumen-surface-raised: #ffffff;
+  --lumen-surface-inset: #e2ebf1;
+}
+
+[data-resolved-theme='dark']:where([data-transparency='disabled']) {
+  --lumen-canvas: #071017;
+  --lumen-surface-glass: #111c27;
+  --lumen-surface-raised: #223246;
+  --lumen-surface-inset: #0b141d;
+}
+
+[data-contrast='high'] {
+  --lumen-canvas: Canvas;
+  --lumen-surface-glass: Canvas;
+  --lumen-surface-raised: ButtonFace;
+  --lumen-surface-inset: ButtonFace;
+  --lumen-text-primary: CanvasText;
+  --lumen-text-secondary: CanvasText;
+  --lumen-text-tertiary: CanvasText;
+  --lumen-text-inverse: HighlightText;
+  --lumen-text-button: ButtonText;
+  --lumen-accent: Highlight;
+  --lumen-focus: Highlight;
+  --lumen-border-subtle: CanvasText;
+  --lumen-border-strong: CanvasText;
+  --lumen-border-specular: CanvasText;
+  --lumen-success: CanvasText;
+  --lumen-warning: CanvasText;
+  --lumen-danger: CanvasText;
+  --lumen-scrim: Canvas;
+  --lumen-shadow-surface: none;
+  --lumen-shadow-control: none;
 }
 
 @layer reset, base;

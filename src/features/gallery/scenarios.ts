@@ -3,11 +3,11 @@ import type {GalleryScenario, GalleryScenarioId} from './gallery.types';
 const dark = {mode: 'dark', transparency: 'native', effects: 'full', motion: 'full'} as const;
 
 export const galleryScenarios: readonly GalleryScenario[] = [
-  {id: 'collapsed-idle', label: 'Collapsed · idle', description: 'Warm launcher before input.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'collapsed', query: ''}}},
-  {id: 'collapsed-focused', label: 'Collapsed · focused', description: 'Search field with keyboard focus.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'collapsed', query: ''}}},
+  {id: 'collapsed-idle', label: 'Collapsed · idle', description: 'Warm launcher before input.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'collapsed', query: '', focusOnMount: false}}},
+  {id: 'collapsed-focused', label: 'Collapsed · focused', description: 'Search field with keyboard focus.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'collapsed', query: '', focusOnMount: true}}},
   {id: 'collapsed-typing', label: 'Collapsed · composing', description: 'IME-safe draft before commit.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'collapsed', query: 'års', composing: true}}},
   {id: 'expanded-results', label: 'Expanded results', description: 'Production launcher geometry with local files.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'report', resultSet: 'standard'}}},
-  {id: 'grouped-results', label: 'Grouped results', description: 'Local result group with mixed file kinds.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'lumen', resultSet: 'standard'}}},
+  {id: 'grouped-results', label: 'Grouped results', description: 'Local result group with mixed file kinds.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'lumen', resultSet: 'grouped'}}},
   {id: 'selected-result', label: 'Selected result', description: 'Keyboard selection capsule and actions.', category: 'Launcher', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'report', resultSet: 'standard', selectedIndex: 1}}},
   {id: 'preview-loading', label: 'Preview · loading', description: 'Cancellable preview request in progress.', category: 'Preview', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'report', resultSet: 'standard', selectedIndex: 0, preview: 'loading'}}},
   {id: 'preview-complete', label: 'Preview · complete', description: 'Safe Markdown preview and metadata.', category: 'Preview', surface: {kind: 'launcher', state: {mode: 'expanded', query: 'report', resultSet: 'standard', selectedIndex: 1, preview: 'complete'}}},

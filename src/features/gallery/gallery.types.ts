@@ -61,7 +61,7 @@ export const requiredScenarioIds = [
 
 export type GalleryScenarioId = (typeof requiredScenarioIds)[number];
 export type GalleryPreviewState = 'none' | 'loading' | 'complete' | 'failed';
-export type GalleryResultSet = 'standard' | 'empty' | 'permission' | 'long' | 'unicode' | 'large';
+export type GalleryResultSet = 'standard' | 'grouped' | 'empty' | 'permission' | 'long' | 'unicode' | 'large';
 export type GalleryAnswerState = 'waiting' | 'streaming' | 'complete' | 'failed';
 
 export interface GalleryLauncherState {
@@ -73,6 +73,7 @@ export interface GalleryLauncherState {
   preview?: GalleryPreviewState;
   answer?: GalleryAnswerState;
   constrained?: boolean;
+  focusOnMount?: boolean;
   noRoot?: boolean;
 }
 

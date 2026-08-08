@@ -10,7 +10,7 @@ const buttonStyles = cva(
     variants: {
       variant: {
         primary: 'border-border-specular bg-accent text-text-inverse data-[hovered]:brightness-110',
-        subtle: 'border-border-subtle bg-surface-raised text-text-primary data-[hovered]:border-border-strong',
+        subtle: 'border-border-subtle bg-surface-raised text-text-button data-[hovered]:border-border-strong',
         quiet: 'border-transparent bg-transparent text-text-secondary shadow-none data-[hovered]:bg-surface-inset data-[hovered]:text-text-primary',
         danger: 'border-danger/45 bg-danger/10 text-danger',
       },

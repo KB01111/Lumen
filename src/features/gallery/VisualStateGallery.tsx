@@ -105,6 +105,7 @@ function GalleryLauncher({state}: {state: GalleryLauncherState}) {
   return (
     <div className={`min-h-0 min-w-0 ${state.constrained ? 'h-[340px] w-[min(100%,520px)]' : expanded ? 'h-[min(100%,540px)] w-[min(100%,800px)]' : 'h-[66px] w-[min(100%,800px)]'}`}>
       <CollapsedLauncher
+        focusOnMount={state.focusOnMount ?? true}
         statusLabel={state.noRoot ? 'No root' : results.length > 0 ? `${results.length} results` : 'Ready'}
         windowService={galleryWindowService}
         expandedContent={expanded ? (

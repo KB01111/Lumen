@@ -101,6 +101,7 @@ export interface CollapsedLauncherProps {
   windowService?: WindowService;
   onVoiceRequest?: () => void;
   intentLocked?: boolean;
+  focusOnMount?: boolean;
   onComputerSubmit?: (task: string) => void;
 }
 
@@ -112,6 +113,7 @@ export function CollapsedLauncher({
   windowService = defaultWindowService,
   onVoiceRequest,
   intentLocked = false,
+  focusOnMount = true,
   onComputerSubmit,
 }: CollapsedLauncherProps) {
   const committedQuery = useQueryStore((state) => state.committed);
@@ -130,10 +132,13 @@ export function CollapsedLauncher({
   });
 
   useEffect(() => {
+    if (!focusOnMount) {
+      return;
+    }
     inputRef.current?.focus();
     void windowService.focusInput();
     measureAfterPaint('launcher-visible', renderStartedAt.current);
-  }, [inputRef, windowService]);
+  }, [focusOnMount, inputRef, windowService]);
 
   const handleEscapeEmpty = () => {
     hide();
