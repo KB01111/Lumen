@@ -177,4 +177,18 @@ describe('PreviewPane', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(restoreFocusRef.current).toHaveFocus();
   });
+
+  it('keeps the preview in an opaque readable surface inside a transparent host', async () => {
+    const service = new MemorySearchService();
+    const {container} = render(
+      <PreviewPane fileId="text" reducedMotion service={service} />,
+    );
+
+    await act(() => service.resolvePreview('text', preview('text', 'text', {
+      text: 'Readable local preview',
+    })));
+
+    expect(await screen.findByText('Readable local preview')).toBeVisible();
+    expect(container.querySelector('[data-preview-surface="opaque"]')).toBeInTheDocument();
+  });
 });

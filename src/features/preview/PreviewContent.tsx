@@ -1,142 +1,12 @@
-import * as stylex from '@stylexjs/stylex';
-
 import {FileGlyph} from '../../design-system/file-glyphs/FileGlyph';
-import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import type {FilePreview, SearchResultKind} from '../../services/search/search.types';
 import {SafeMarkdown} from './SafeMarkdown';
 
-const styles = stylex.create({
-  root: {
-    minHeight: '280px',
-    minWidth: 0,
-    display: 'grid',
-    alignContent: 'start',
-    gap: tokens.space12,
-    padding: tokens.space12,
-  },
-  code: {
-    margin: 0,
-    padding: tokens.space8,
-    overflow: 'auto',
-    color: tokens.colorTextPrimary,
-    backgroundColor: tokens.colorMaterialInset,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-    fontFamily: '"Cascadia Code", Consolas, monospace',
-    fontSize: tokens.fontSizeMeta,
-    lineHeight: tokens.lineHeightRelaxed,
-    whiteSpace: 'pre-wrap',
-  },
-  prose: {
-    margin: 0,
-    color: tokens.colorTextSecondary,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeBody,
-    lineHeight: tokens.lineHeightRelaxed,
-    whiteSpace: 'pre-wrap',
-    overflowWrap: 'anywhere',
-  },
-  folderList: {
-    display: 'grid',
-    gap: tokens.space3,
-    margin: 0,
-    padding: 0,
-    listStyle: 'none',
-  },
-  folderItem: {
-    minHeight: tokens.controlHeightLarge,
-    display: 'grid',
-    gridTemplateColumns: '32px minmax(0, 1fr)',
-    alignItems: 'center',
-    gap: tokens.space6,
-    paddingInline: tokens.space6,
-    borderRadius: tokens.radiusSmall,
-  },
-  media: {
-    width: '100%',
-    maxHeight: '280px',
-    display: 'block',
-    objectFit: 'contain',
-    backgroundColor: tokens.colorMaterialInset,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-  },
-  placeholder: {
-    minHeight: '176px',
-    display: 'grid',
-    placeItems: 'center',
-    gap: tokens.space6,
-    padding: tokens.space12,
-    textAlign: 'center',
-    backgroundColor: tokens.colorMaterialInset,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-  },
-  tableWrap: {
-    minWidth: 0,
-    overflow: 'auto',
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    color: tokens.colorTextSecondary,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeMeta,
-  },
-  cell: {
-    minWidth: '96px',
-    paddingBlock: tokens.space5,
-    paddingInline: tokens.space6,
-    textAlign: 'start',
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-  },
-  headerCell: {
-    color: tokens.colorTextPrimary,
-    backgroundColor: tokens.colorMaterialRaised,
-    fontWeight: tokens.fontWeightSemibold,
-  },
-  metadata: {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(84px, auto) minmax(0, 1fr)',
-    gap: tokens.space4,
-    margin: 0,
-    paddingTop: tokens.space8,
-    borderTopColor: tokens.colorBorderSubtle,
-    borderTopStyle: 'solid',
-    borderTopWidth: '1px',
-  },
-  metadataKey: {color: tokens.colorTextTertiary},
-  metadataValue: {
-    margin: 0,
-    color: tokens.colorTextSecondary,
-    overflowWrap: 'anywhere',
-  },
-});
-
 function isSafeImageSource(sourceUrl?: string) {
-  if (!sourceUrl) {
-    return false;
-  }
-  if (/^data:image\/(?:avif|gif|jpeg|png|webp);base64,/i.test(sourceUrl)) {
-    return true;
-  }
+  if (!sourceUrl) return false;
+  if (/^data:image\/(?:avif|gif|jpeg|png|webp);base64,/i.test(sourceUrl)) return true;
   try {
-    return ['https:', 'http:', 'blob:', 'asset:', 'tauri:'].includes(
-      new URL(sourceUrl).protocol,
-    );
+    return ['https:', 'http:', 'blob:', 'asset:', 'tauri:'].includes(new URL(sourceUrl).protocol);
   } catch {
     return false;
   }
@@ -144,11 +14,9 @@ function isSafeImageSource(sourceUrl?: string) {
 
 function Placeholder({kind, label}: {kind: SearchResultKind; label: string}) {
   return (
-    <div {...stylex.props(styles.placeholder)}>
+    <div className="grid min-h-44 place-items-center gap-3 rounded-control border border-[color:var(--einui-command-divider)] bg-[var(--lumen-surface-inset)] p-6 text-center">
       <FileGlyph kind={kind} size={48} />
-      <LumenText tone="secondary" variant="bodyLarge" weight="medium">
-        {label}
-      </LumenText>
+      <span className="font-sans text-[0.9375rem] font-medium text-text-secondary">{label}</span>
     </div>
   );
 }
@@ -157,82 +25,54 @@ function previewBody(preview: FilePreview) {
   switch (preview.kind) {
     case 'folder':
       return preview.children?.length ? (
-        <ul {...stylex.props(styles.folderList)}>
+        <ul className="grid list-none gap-1.5 p-0">
           {preview.children.map((child) => (
-            <li key={child.id} {...stylex.props(styles.folderItem)}>
+            <li key={child.id} className="grid min-h-10 grid-cols-[32px_minmax(0,1fr)] items-center gap-3 rounded-control px-3">
               <FileGlyph kind={child.kind} size="medium" />
-              <LumenText>{child.name}</LumenText>
+              <span className="truncate font-sans text-sm text-[color:var(--einui-command-text)]">{child.name}</span>
             </li>
           ))}
         </ul>
       ) : <Placeholder kind="folder" label="This folder is empty" />;
     case 'text':
-      return <p {...stylex.props(styles.prose)}>{preview.text || 'No text preview available.'}</p>;
+      return <p className="m-0 whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-[color:var(--einui-command-text)]">{preview.text || 'No text preview available.'}</p>;
     case 'source':
-      return <pre {...stylex.props(styles.code)}><code>{preview.text || 'No source preview available.'}</code></pre>;
+      return <pre className="m-0 overflow-auto rounded-control border border-[color:var(--einui-command-divider)] bg-[var(--lumen-surface-inset)] p-3 font-mono text-xs leading-relaxed text-[color:var(--einui-command-text)] whitespace-pre-wrap"><code>{preview.text || 'No source preview available.'}</code></pre>;
     case 'markdown':
       return <SafeMarkdown source={preview.text || 'No Markdown preview available.'} />;
-    case 'pdf':
-      return <Placeholder kind="pdf" label="PDF document" />;
-    case 'document':
-      return <Placeholder kind="document" label="Document preview" />;
-    case 'presentation':
-      return <Placeholder kind="presentation" label="Presentation preview" />;
+    case 'pdf': return <Placeholder kind="pdf" label="PDF document" />;
+    case 'document': return <Placeholder kind="document" label="Document preview" />;
+    case 'presentation': return <Placeholder kind="presentation" label="Presentation preview" />;
     case 'spreadsheet':
       return preview.rows?.length ? (
-        <div {...stylex.props(styles.tableWrap)}>
-          <table {...stylex.props(styles.table)}>
-            {preview.columns?.length ? (
-              <thead>
-                <tr>
-                  {preview.columns.map((column, index) => (
-                    <th key={`${column}-${index}`} {...stylex.props(styles.cell, styles.headerCell)} scope="col">{column}</th>
-                  ))}
-                </tr>
-              </thead>
-            ) : null}
-            <tbody>
-              {preview.rows.map((row, rowIndex) => (
-                <tr key={`row-${rowIndex}`}>
-                  {row.map((cell, cellIndex) => (
-                    <td key={`cell-${rowIndex}-${cellIndex}`} {...stylex.props(styles.cell)}>{cell}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
+        <div className="min-w-0 overflow-auto rounded-control border border-[color:var(--einui-command-divider)]">
+          <table className="w-full border-collapse font-sans text-xs text-text-secondary">
+            {preview.columns?.length ? <thead><tr>{preview.columns.map((column, index) => <th key={`${column}-${index}`} className="min-w-24 border-b border-[color:var(--einui-command-divider)] bg-[var(--lumen-surface-raised)] px-3 py-2.5 text-left font-semibold text-[color:var(--einui-command-text)]" scope="col">{column}</th>)}</tr></thead> : null}
+            <tbody>{preview.rows.map((row, rowIndex) => <tr key={`row-${rowIndex}`}>{row.map((cell, cellIndex) => <td key={`cell-${rowIndex}-${cellIndex}`} className="min-w-24 border-b border-[color:var(--einui-command-divider)] px-3 py-2.5 text-left">{cell}</td>)}</tr>)}</tbody>
           </table>
         </div>
       ) : <Placeholder kind="spreadsheet" label="Spreadsheet preview" />;
     case 'image':
-      return isSafeImageSource(preview.sourceUrl) ? (
-        <img
-          {...stylex.props(styles.media)}
-          alt={preview.title}
-          decoding="async"
-          src={preview.sourceUrl}
-        />
-      ) : <Placeholder kind="image" label="Image preview unavailable" />;
-    case 'audio':
-      return <Placeholder kind="audio" label="Audio file" />;
-    case 'video':
-      return <Placeholder kind="video" label="Video file" />;
-    case 'permissionDenied':
-      return <Placeholder kind="unknown" label="Permission required" />;
-    case 'unsupported':
-      return <Placeholder kind="unknown" label="Preview unavailable" />;
+      return isSafeImageSource(preview.sourceUrl)
+        ? <img alt={preview.title} className="block max-h-70 w-full rounded-control border border-[color:var(--einui-command-divider)] bg-[var(--lumen-surface-inset)] object-contain" decoding="async" src={preview.sourceUrl} />
+        : <Placeholder kind="image" label="Image preview unavailable" />;
+    case 'audio': return <Placeholder kind="audio" label="Audio file" />;
+    case 'video': return <Placeholder kind="video" label="Video file" />;
+    case 'permissionDenied': return <Placeholder kind="unknown" label="Permission required" />;
+    case 'unsupported': return <Placeholder kind="unknown" label="Preview unavailable" />;
   }
 }
 
 export function PreviewContent({preview}: {preview: FilePreview}) {
   const metadata = Object.entries(preview.metadata);
   return (
-    <div {...stylex.props(styles.root)} data-testid={`preview-${preview.kind}`}>
+    <div className="grid min-h-70 min-w-0 content-start gap-6 bg-[var(--lumen-surface-inset)] p-4" data-preview-surface="opaque" data-testid={`preview-${preview.kind}`}>
       {previewBody(preview)}
       {metadata.length ? (
-        <dl {...stylex.props(styles.metadata)}>
+        <dl className="grid grid-cols-[minmax(84px,auto)_minmax(0,1fr)] gap-2 border-t border-[color:var(--einui-command-divider)] pt-3 font-sans text-sm">
           {metadata.flatMap(([key, value]) => [
-            <dt key={`${key}-key`} {...stylex.props(styles.metadataKey)}>{key}</dt>,
-            <dd key={`${key}-value`} {...stylex.props(styles.metadataValue)}>{value}</dd>,
+            <dt key={`${key}-key`} className="text-[color:var(--einui-command-muted-text)]">{key}</dt>,
+            <dd key={`${key}-value`} className="m-0 break-words text-text-secondary">{value}</dd>,
           ])}
         </dl>
       ) : null}

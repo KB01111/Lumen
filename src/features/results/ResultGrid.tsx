@@ -1,42 +1,12 @@
 import {useLayoutEffect, useMemo, useRef} from 'react';
 import {GridList, type Key, type Selection} from 'react-aria-components';
-
-import * as stylex from '@stylexjs/stylex';
 import {motion} from 'motion/react';
 
 import {motionTokens} from '../../design-system/motion';
-import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import type {SearchResult} from '../../services/search/search.types';
 import {ResultRow} from './ResultRow';
 import {SelectionCapsule} from './SelectionCapsule';
 import {useResultVirtualizer} from './useResultVirtualizer';
-
-const styles = stylex.create({
-  viewport: {
-    position: 'relative',
-    minWidth: 0,
-    minHeight: 0,
-    overflowY: 'auto',
-    scrollbarColor: `${tokens.colorBorderStrong} transparent`,
-    scrollbarWidth: 'thin',
-  },
-  grid: {
-    position: 'relative',
-    display: 'grid',
-    alignContent: 'start',
-    gap: tokens.space1,
-    padding: tokens.space2,
-    outline: 'none',
-  },
-  empty: {
-    minHeight: '220px',
-    display: 'grid',
-    placeItems: 'center',
-    padding: tokens.space12,
-    textAlign: 'center',
-  },
-});
 
 interface VirtualResult {
   id: string;
@@ -71,9 +41,13 @@ export function ResultGrid({
 }: ResultGridProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const selectedResult = results.find((result) => result.id === selectedId);
+  const effectiveSelectedId = selectedResult && (selectedResult.availability ?? 'available') === 'available'
+    ? selectedId
+    : null;
   const selectedKeys = useMemo(
-    () => new Set<Key>(selectedId ? [selectedId] : []),
-    [selectedId],
+    () => new Set<Key>(effectiveSelectedId ? [effectiveSelectedId] : []),
+    [effectiveSelectedId],
   );
   const disabledKeys = useMemo(
     () => new Set<Key>(
@@ -98,7 +72,6 @@ export function ResultGrid({
     }),
     [results, virtualItems],
   );
-  // Non-virtualized entries carry their index so the entrance cascade can stagger.
   const plainEntries = useMemo(
     () => results.map((result, index) => ({id: result.id, index, result})),
     [results],
@@ -120,52 +93,46 @@ export function ResultGrid({
     const handlePreview = (event: Event) => {
       applySelection((event as CustomEvent<string | null>).detail);
     };
-    applySelection(selectedId);
+    applySelection(effectiveSelectedId);
     window.addEventListener('lumen:selection-preview', handlePreview);
     return () => window.removeEventListener('lumen:selection-preview', handlePreview);
-  }, [selectedId]);
+  }, [effectiveSelectedId]);
 
   const handleSelectionChange = (selection: Selection) => {
-    if (selection === 'all') {
-      return;
-    }
+    if (selection === 'all') return;
     const key = selection.values().next().value;
     onSelectionChange?.(key === undefined ? null : String(key));
   };
-  const handleAction = onAction
-    ? (key: Key) => onAction(String(key))
-    : undefined;
-
+  const handleAction = onAction ? (key: Key) => onAction(String(key)) : undefined;
   const renderEmptyState = () => (
     <motion.div
-      {...stylex.props(styles.empty)}
       animate={{opacity: 1}}
+      className="grid min-h-[220px] place-items-center p-6 text-center font-sans text-[0.9375rem] text-[color:var(--einui-command-muted-text)]"
       initial={reducedMotion ? false : {opacity: 0}}
       transition={{duration: motionTokens.duration.selection}}
     >
-      <LumenText tone="secondary" variant="bodyLarge">
-        {emptyLabel}
-      </LumenText>
+      {emptyLabel}
     </motion.div>
   );
+  const gridClassName = 'relative grid content-start gap-1 p-1.5 outline-none';
 
   return (
     <div
       ref={viewportRef}
-      {...stylex.props(styles.viewport)}
+      className="relative min-h-0 min-w-0 overflow-y-auto [scrollbar-color:var(--einui-command-divider)_transparent] [scrollbar-width:thin]"
       style={{maxHeight, height: maxHeight}}
     >
       <SelectionCapsule
         containerRef={viewportRef}
         reducedMotion={reducedMotion}
-        selectedId={selectedId}
+        selectedId={effectiveSelectedId}
       />
       {isVirtualized ? (
         <GridList
           ref={gridRef}
           aria-label="Search results"
           aria-rowcount={results.length}
-          className={stylex.props(styles.grid).className}
+          className={gridClassName}
           disabledKeys={disabledKeys}
           items={visibleResults}
           renderEmptyState={renderEmptyState}
@@ -181,11 +148,7 @@ export function ResultGrid({
               isOpening={entry.id === openingId}
               positionIndex={entry.index}
               positionStyle={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: entry.size,
+                position: 'absolute', top: 0, left: 0, width: '100%', height: entry.size,
                 transform: `translateY(${entry.start}px)`,
               }}
               result={entry.result}
@@ -198,7 +161,7 @@ export function ResultGrid({
           ref={gridRef}
           aria-label="Search results"
           aria-rowcount={results.length}
-          className={stylex.props(styles.grid).className}
+          className={gridClassName}
           disabledKeys={disabledKeys}
           items={plainEntries}
           renderEmptyState={renderEmptyState}

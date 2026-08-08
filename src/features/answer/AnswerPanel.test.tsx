@@ -59,5 +59,74 @@ describe('AnswerPanel', () => {
     await user.click(screen.getByRole('button', {name: 'Stop answer'}));
     expect(onStop).toHaveBeenCalledOnce();
   });
+
+  it.each(['waiting', 'streaming'] as const)(
+    'keeps stop available while the answer is %s',
+    (phase) => {
+      render(
+        <AppProviders>
+          <AnswerPanel
+            answer={{phase, text: '', citations: []}}
+            mode="auto"
+            onModeChange={vi.fn()}
+            onOpenCitation={vi.fn()}
+            onRetry={vi.fn()}
+            onStop={vi.fn()}
+          />
+        </AppProviders>,
+      );
+
+      expect(screen.getByRole('button', {name: 'Stop answer'})).toBeEnabled();
+    },
+  );
+
+  it('updates streaming deltas in one stable answer region', () => {
+    const props = {
+      mode: 'auto' as const,
+      onModeChange: vi.fn(),
+      onOpenCitation: vi.fn(),
+      onRetry: vi.fn(),
+      onStop: vi.fn(),
+    };
+    const {rerender} = render(
+      <AppProviders>
+        <AnswerPanel answer={{phase: 'streaming', text: 'First delta.', citations: []}} {...props} />
+      </AppProviders>,
+    );
+
+    const region = screen.getByTestId('answer-region');
+    rerender(
+      <AppProviders>
+        <AnswerPanel answer={{phase: 'streaming', text: 'First delta. Second delta.', citations: []}} {...props} />
+      </AppProviders>,
+    );
+
+    expect(screen.getByTestId('answer-region')).toBe(region);
+    expect(region).toHaveTextContent('First delta. Second delta.');
+  });
+
+  it('keeps citations as buttons that open their backing file IDs', async () => {
+    const user = userEvent.setup();
+    const onOpenCitation = vi.fn();
+    render(
+      <AppProviders>
+        <AnswerPanel
+          answer={{
+            phase: 'completed',
+            text: 'Grounded answer.',
+            citations: [{fileId: 'meeting-notes', label: 'Meeting notes.md'}],
+          }}
+          mode="auto"
+          onModeChange={vi.fn()}
+          onOpenCitation={onOpenCitation}
+          onRetry={vi.fn()}
+          onStop={vi.fn()}
+        />
+      </AppProviders>,
+    );
+
+    await user.click(screen.getByRole('button', {name: 'Open Meeting notes.md'}));
+    expect(onOpenCitation).toHaveBeenCalledWith('meeting-notes');
+  });
 });
 

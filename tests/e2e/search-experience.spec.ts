@@ -41,6 +41,8 @@ test('completes search, selection, details, folder, and open without a pointer',
   );
 
   await capture(page, testInfo, 'expanded-results');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(page.locator('[data-launcher-visible="false"]')).toBeAttached();
 });
@@ -57,13 +59,32 @@ test('preserves the full result list and opens details as a dialog at narrow wid
   await capture(page, testInfo, 'narrow-details');
 });
 
+test('keeps local results available when the browser answer route fails', async ({page}) => {
+  await page.goto('/?service=memory');
+  const search = page.getByRole('searchbox', {name: 'Search files'});
+  await search.fill('report');
+  await expect(page.getByRole('row')).toHaveCount(3);
+
+  await search.press('Enter');
+  await expect(page.getByTestId('answer-region')).toContainText(
+    'The answer could not be completed.',
+  );
+  await expect(page.getByRole('row')).toHaveCount(3);
+  await expect(page.getByRole('row', {name: /Quarterly report/i})).toHaveAttribute(
+    'data-selected',
+    'true',
+  );
+});
+
 test('handles Unicode and very long filenames without horizontal overflow', async ({page}) => {
   await page.goto('/?service=memory');
   const query = `årsrapport-${'väldigt-lång-'.repeat(12)}終`;
   await page.getByRole('searchbox', {name: 'Search files'}).fill(query);
 
   await expect(page.getByRole('row', {name: /årsrapport.*終/i})).toBeVisible();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  const overflow = await page.locator('[data-einui-layer="surface"]').evaluate(
+    (element) => element.scrollWidth - element.clientWidth,
+  );
   expect(overflow).toBeLessThanOrEqual(0);
 });
 

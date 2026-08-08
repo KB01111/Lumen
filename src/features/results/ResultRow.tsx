@@ -1,150 +1,22 @@
 import {useEffect, useRef, type CSSProperties} from 'react';
 import {GridListItem} from 'react-aria-components';
 
-import * as stylex from '@stylexjs/stylex';
-
 import {FileGlyph} from '../../design-system/file-glyphs/FileGlyph';
 import {motionTokens} from '../../design-system/motion';
-import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import type {SearchResult} from '../../services/search/search.types';
 
-const styles = stylex.create({
-  row: {
-    position: 'relative',
-    zIndex: tokens.zContent,
-    minWidth: 0,
-    minHeight: tokens.resultHeightComfortable,
-    display: 'grid',
-    gridTemplateColumns: {
-      default: '36px minmax(0, 1fr) auto minmax(72px, auto) 42px',
-      '@media (max-width: 759px)': '36px minmax(0, 1fr) minmax(72px, auto)',
-    },
-    alignItems: 'center',
-    gap: tokens.space6,
-    paddingInline: tokens.space8,
-    color: tokens.colorTextPrimary,
-    borderColor: 'transparent',
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-    cursor: 'default',
-    outlineColor: 'transparent',
-    outlineOffset: '-2px',
-    outlineStyle: 'solid',
-    outlineWidth: '2px',
-  },
-  hovered: {
-    backgroundColor: tokens.colorSelection,
-  },
-  focused: {
-    outlineColor: tokens.colorFocus,
-  },
-  disabled: {
-    cursor: 'not-allowed',
-    opacity: 0.64,
-  },
-  opening: {
-    backgroundColor: tokens.colorSelectionStrong,
-    transform: 'scale(0.992)',
-    transitionDuration: tokens.durationPress,
-    transitionProperty: 'background-color, transform',
-    transitionTimingFunction: tokens.easingStandard,
-  },
-  primary: {
-    minWidth: 0,
-    display: 'grid',
-    gap: tokens.space1,
-  },
-  titleLine: {
-    minWidth: 0,
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: tokens.space4,
-  },
-  filename: {
-    minWidth: 0,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  extension: {
-    flexShrink: 0,
-  },
-  detailLine: {
-    minWidth: 0,
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.space4,
-  },
-  path: {
-    minWidth: 0,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  fragment: {
-    minWidth: 0,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  badge: {
-    display: {
-      default: 'block',
-      '@media (max-width: 759px)': 'none',
-    },
-    flexShrink: 0,
-    paddingBlock: tokens.space2,
-    paddingInline: tokens.space5,
-    color: tokens.colorTextSecondary,
-    backgroundColor: tokens.colorMaterialInset,
-    borderRadius: tokens.radiusRound,
-  },
-  state: {
-    minWidth: '88px',
-    display: 'flex',
-    justifyContent: 'flex-end',
-  },
-  shortcut: {
-    minWidth: '42px',
-    display: {
-      default: 'flex',
-      '@media (max-width: 759px)': 'none',
-    },
-    justifyContent: 'flex-end',
-    color: tokens.colorTextTertiary,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeCaption,
-  },
-});
-
 const sourceLabels: Record<SearchResult['match']['source'], string> = {
-  filename: 'Name',
-  content: 'Content',
-  metadata: 'Metadata',
-  ocr: 'OCR',
-  semantic: 'Meaning',
-  related: 'Related',
+  filename: 'Name', content: 'Content', metadata: 'Metadata', ocr: 'OCR', semantic: 'Meaning', related: 'Related',
 };
 
 const availabilityLabels: Record<NonNullable<SearchResult['availability']>, string> = {
-  available: '',
-  loading: 'Loading',
-  unavailable: 'Unavailable',
-  permissionDenied: 'Permission required',
+  available: '', loading: 'Loading', unavailable: 'Unavailable', permissionDenied: 'Permission required',
 };
 
 function formatSize(sizeBytes?: number) {
-  if (sizeBytes === undefined) {
-    return '';
-  }
-  if (sizeBytes < 1024) {
-    return `${sizeBytes} B`;
-  }
-  if (sizeBytes < 1024 * 1024) {
-    return `${Math.round(sizeBytes / 1024)} KB`;
-  }
+  if (sizeBytes === undefined) return '';
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} KB`;
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
@@ -180,13 +52,9 @@ export function ResultRow({
   const stateLabel = availabilityLabels[result.availability ?? 'available'];
   const rowRef = useRef<HTMLDivElement | null>(null);
 
-  // Entrance cascade: a WAAPI opacity fade played once when a refined result
-  // set mounts. Never used for virtualized grids, so scrolling cannot replay it.
   useEffect(() => {
     const element = rowRef.current;
-    if (!animateEntrance || !element || typeof element.animate !== 'function') {
-      return;
-    }
+    if (!animateEntrance || !element || typeof element.animate !== 'function') return;
     const {duration, stagger, maxStaggered, reducedDuration} = motionTokens.rowEntrance;
     const animation = element.animate([{opacity: 0}, {opacity: 1}], {
       delay: reducedMotion ? 0 : Math.min(entranceIndex, maxStaggered) * stagger * 1000,
@@ -195,7 +63,6 @@ export function ResultRow({
       fill: 'backwards',
     });
     return () => animation.cancel();
-    // Mount-only: entrance props describe the grid generation this row belongs to.
   }, []);
 
   return (
@@ -205,15 +72,7 @@ export function ResultRow({
       aria-label={accessibilityLabel(result)}
       aria-posinset={positionIndex === undefined ? undefined : positionIndex + 1}
       aria-setsize={totalCount}
-      className={({isFocusVisible, isHovered}) =>
-        stylex.props(
-          styles.row,
-          isHovered && styles.hovered,
-          isFocusVisible && styles.focused,
-          isDisabled && styles.disabled,
-          isOpening && styles.opening,
-        ).className ?? ''
-      }
+      className="relative z-20 grid min-h-[58px] min-w-0 cursor-default grid-cols-[36px_minmax(0,1fr)_minmax(72px,auto)] items-center gap-3 rounded-control border border-transparent px-4 text-[color:var(--einui-command-text)] outline-none transition-[background-color,color,transform] duration-[90ms] ease-standard data-[hovered]:bg-[var(--einui-command-row-hover)] data-[focus-visible]:ring-2 data-[focus-visible]:ring-[var(--lumen-focus)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-65 data-[opening]:scale-[.992] min-[760px]:grid-cols-[36px_minmax(0,1fr)_auto_minmax(72px,auto)_42px]"
       data-opening={isOpening || undefined}
       data-result-id={result.id}
       isDisabled={isDisabled}
@@ -221,61 +80,20 @@ export function ResultRow({
       textValue={result.name}
     >
       <>
-          <FileGlyph kind={result.kind} size="large" />
-          <div {...stylex.props(styles.primary)}>
-            <div {...stylex.props(styles.titleLine)}>
-              <LumenText
-                className={stylex.props(styles.filename).className}
-                variant="body"
-                weight="medium"
-              >
-                {result.name}
-              </LumenText>
-              {result.metadata.extension ? (
-                <LumenText
-                  className={stylex.props(styles.extension).className}
-                  tone="tertiary"
-                  variant="caption"
-                >
-                  {result.metadata.extension.toUpperCase()}
-                </LumenText>
-              ) : null}
-            </div>
-            <div {...stylex.props(styles.detailLine)}>
-              <LumenText
-                className={stylex.props(styles.path).className}
-                title={result.path}
-                tone="tertiary"
-                variant="caption"
-              >
-                {result.path}
-              </LumenText>
-              {result.match.fragment ? (
-                <LumenText
-                  className={stylex.props(styles.fragment).className}
-                  tone="secondary"
-                  variant="caption"
-                >
-                  {result.match.fragment}
-                </LumenText>
-              ) : null}
-            </div>
+        <FileGlyph kind={result.kind} size="large" />
+        <div className="grid min-w-0 gap-0.5">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate font-sans text-sm font-medium text-[color:var(--einui-command-text)]">{result.name}</span>
+            {result.metadata.extension ? <span className="shrink-0 font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">{result.metadata.extension.toUpperCase()}</span> : null}
           </div>
-          <LumenText
-            className={stylex.props(styles.badge).className}
-            tone="secondary"
-            variant="caption"
-          >
-            {sourceLabels[result.match.source]}
-          </LumenText>
-          <div {...stylex.props(styles.state)}>
-            <LumenText tone={isDisabled ? 'secondary' : 'tertiary'} variant="caption">
-              {stateLabel || formatSize(result.metadata.sizeBytes)}
-            </LumenText>
+          <div className="flex min-w-0 items-center gap-2 font-sans text-[0.6875rem] leading-[1.45]">
+            <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]" title={result.path}>{result.path}</span>
+            {result.match.fragment ? <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]">{result.match.fragment}</span> : null}
           </div>
-          <kbd aria-hidden="true" {...stylex.props(styles.shortcut)}>
-            Enter
-          </kbd>
+        </div>
+        <span className="hidden shrink-0 rounded-pill bg-[var(--einui-command-row)] px-2 py-0.5 font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)] min-[760px]:block">{sourceLabels[result.match.source]}</span>
+        <span className="flex min-w-[88px] justify-end font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">{stateLabel || formatSize(result.metadata.sizeBytes)}</span>
+        <kbd aria-hidden="true" className="hidden min-w-[42px] justify-end font-sans text-xs text-[color:var(--einui-command-muted-text)] min-[760px]:flex">Enter</kbd>
       </>
     </GridListItem>
   );

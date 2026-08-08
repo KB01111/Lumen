@@ -1,94 +1,17 @@
 import {useState} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
-import {LumenButton} from '../../design-system/primitives/LumenButton';
-import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import type {RuntimeMode} from '../../services/answer/answer.types';
 import type {AnswerState} from './useAnswerController';
 import {RuntimeModeSwitch} from './RuntimeModeSwitch';
 
-const styles = stylex.create({
-  root: {
-    display: 'grid',
-    gap: tokens.space5,
-    paddingBlock: tokens.space5,
-    paddingInline: tokens.space8,
-    backgroundColor: tokens.colorMaterialTint,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space6,
-  },
-  heading: {
-    minWidth: 0,
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: tokens.space4,
-  },
-  answer: {
-    maxHeight: '112px',
-    margin: 0,
-    overflowY: 'auto',
-    color: tokens.colorTextPrimary,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeBody,
-    lineHeight: tokens.lineHeightRelaxed,
-    whiteSpace: 'pre-wrap',
-  },
-  footer: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space5,
-  },
-  citations: {
-    minWidth: 0,
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: tokens.space3,
-  },
-  citation: {
-    minHeight: '26px',
-    paddingInline: tokens.space4,
-    color: tokens.colorAccent,
-    backgroundColor: tokens.colorAccentMuted,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusRound,
-    outlineColor: 'transparent',
-    outlineOffset: '2px',
-    outlineStyle: 'solid',
-    outlineWidth: '2px',
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeCaption,
-    cursor: 'default',
-    ':focus-visible': {outlineColor: tokens.colorFocus},
-  },
-  actions: {
-    display: 'flex',
-    flexShrink: 0,
-    gap: tokens.space2,
-  },
-});
-
 function statusLabel(answer: AnswerState) {
+  if (answer.phase === 'idle') return 'Ready when submitted';
   if (answer.phase === 'waiting') return 'Settling query';
   if (answer.phase === 'streaming') return 'Answering';
-  if (answer.phase === 'error') return answer.error ?? 'Answer unavailable';
+  if (answer.phase === 'error') return 'Answer unavailable';
   if (answer.phase === 'cancelled') return 'Stopped';
-  if (answer.provider || answer.model) {
-    return [answer.provider, answer.model, answer.route].filter(Boolean).join(' · ');
-  }
-  return 'Local search stays available';
+  return 'Ready';
 }
 
 function citationLabel(label: string, page?: number, timestampSeconds?: number) {
@@ -100,6 +23,8 @@ function citationLabel(label: string, page?: number, timestampSeconds?: number) 
   }
   return label;
 }
+
+const quietButtonClass = 'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-control px-2.5 font-sans text-xs text-[color:var(--einui-command-muted-text)] outline-none transition-colors duration-[90ms] hover:bg-[var(--einui-command-row-hover)] hover:text-[color:var(--einui-command-text)] focus-visible:ring-2 focus-visible:ring-[var(--lumen-focus)] disabled:cursor-not-allowed disabled:opacity-55';
 
 export interface AnswerPanelProps {
   answer: AnswerState;
@@ -121,6 +46,7 @@ export function AnswerPanel({
   const [copied, setCopied] = useState(false);
   const canStop = answer.phase === 'waiting' || answer.phase === 'streaming';
   const hasAnswer = answer.text.length > 0;
+  const runtimeDetail = [answer.provider, answer.model, answer.route].filter(Boolean).join(' · ');
 
   const copyAnswer = async () => {
     await navigator.clipboard.writeText(answer.text);
@@ -128,52 +54,61 @@ export function AnswerPanel({
   };
 
   return (
-    <section aria-label="AI answer" {...stylex.props(styles.root)}>
-      <header {...stylex.props(styles.header)}>
-        <div {...stylex.props(styles.heading)}>
-          <LumenText variant="meta" weight="medium">AI answer</LumenText>
-          <LumenText tone="tertiary" variant="caption">{statusLabel(answer)}</LumenText>
+    <section aria-label="AI answer" className="grid min-h-[150px] gap-3 border-b border-[color:var(--einui-command-divider)] px-4 py-3">
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="font-sans text-xs font-medium text-[color:var(--einui-command-text)]">AI answer</span>
+          <span className="truncate font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">{statusLabel(answer)}</span>
         </div>
         <RuntimeModeSwitch mode={mode} onChange={onModeChange} />
       </header>
-      {answer.phase !== 'idle' ? (
-        <p aria-live="polite" {...stylex.props(styles.answer)}>
-          {hasAnswer ? answer.text : answer.phase === 'waiting' ? 'Waiting for the query to settle…' : 'Preparing an answer…'}
-        </p>
-      ) : null}
-      <footer {...stylex.props(styles.footer)}>
-        <div aria-label="Answer sources" {...stylex.props(styles.citations)}>
+      <div
+        aria-live="polite"
+        className="min-h-12 max-h-28 overflow-y-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-[color:var(--einui-command-text)]"
+        data-testid="answer-region"
+      >
+        {answer.phase === 'idle' ? null : hasAnswer
+          ? answer.text
+          : answer.phase === 'waiting'
+            ? 'Waiting for the query to settle…'
+            : answer.phase === 'error'
+              ? 'The answer could not be completed. You can retry without interrupting local search.'
+              : 'Preparing an answer…'}
+      </div>
+      <footer className="flex items-center justify-between gap-3">
+        <div aria-label="Answer sources" className="flex min-w-0 flex-wrap gap-1.5">
           {answer.citations.map((citation) => {
             const label = citationLabel(citation.label, citation.page, citation.timestampSeconds);
             return (
               <button
                 key={`${citation.fileId}-${citation.page ?? citation.timestampSeconds ?? 'file'}`}
                 aria-label={`Open ${label}`}
+                className="min-h-7 rounded-pill border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row)] px-2 font-sans text-[0.6875rem] text-accent outline-none transition-colors duration-[90ms] hover:bg-[var(--einui-command-row-hover)] focus-visible:ring-2 focus-visible:ring-focus"
                 type="button"
                 onClick={() => onOpenCitation(citation.fileId)}
-                {...stylex.props(styles.citation)}
               >
                 {label}
               </button>
             );
           })}
         </div>
-        <div {...stylex.props(styles.actions)}>
+        <div className="flex shrink-0 items-center gap-1">
+          {runtimeDetail ? (
+            <details className="relative">
+              <summary className={`${quietButtonClass} cursor-default list-none [&::-webkit-details-marker]:hidden`}>Runtime details</summary>
+              <div className="absolute bottom-full right-0 z-30 mb-1 w-max max-w-64 rounded-control border border-[color:var(--einui-command-divider)] bg-[var(--lumen-surface-raised)] px-2 py-1.5 font-sans text-[0.6875rem] text-text-secondary shadow-control">
+                {runtimeDetail}
+              </div>
+            </details>
+          ) : null}
           {canStop ? (
-            <LumenButton aria-label="Stop answer" size="small" variant="quiet" onPress={onStop}>
-              <LumenUiIcon name="stop" size="small" /> Stop
-            </LumenButton>
+            <button aria-label="Stop answer" className={quietButtonClass} type="button" onClick={onStop}><LumenUiIcon name="stop" size="small" /> Stop</button>
           ) : (
-            <LumenButton aria-label="Retry answer" size="small" variant="quiet" onPress={onRetry}>
-              <LumenUiIcon name="retry" size="small" /> Retry
-            </LumenButton>
+            <button aria-label="Retry answer" className={quietButtonClass} type="button" onClick={onRetry}><LumenUiIcon name="retry" size="small" /> Retry</button>
           )}
-          <LumenButton aria-label="Copy answer" isDisabled={!hasAnswer} size="small" variant="quiet" onPress={() => void copyAnswer()}>
-            <LumenUiIcon name="copy" size="small" /> {copied ? 'Copied' : 'Copy'}
-          </LumenButton>
+          <button aria-label="Copy answer" className={quietButtonClass} disabled={!hasAnswer} type="button" onClick={() => void copyAnswer()}><LumenUiIcon name="copy" size="small" /> {copied ? 'Copied' : 'Copy'}</button>
         </div>
       </footer>
     </section>
   );
 }
-

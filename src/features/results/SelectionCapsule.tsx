@@ -1,28 +1,8 @@
 import {useLayoutEffect, useRef, type RefObject} from 'react';
-
-import * as stylex from '@stylexjs/stylex';
 import {motion, useMotionValue, useSpring} from 'motion/react';
 
 import {motionTokens} from '../../design-system/motion';
-import {tokens} from '../../design-system/tokens.stylex';
 import {comfortableResultHeight} from './useResultVirtualizer';
-
-const styles = stylex.create({
-  capsule: {
-    position: 'absolute',
-    top: 0,
-    left: tokens.space2,
-    right: tokens.space2,
-    zIndex: tokens.zSelection,
-    pointerEvents: 'none',
-    backgroundColor: tokens.colorSelectionStrong,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-    boxShadow: tokens.shadowInsetTop,
-  },
-});
 
 export interface SelectionCapsuleProps {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -39,8 +19,6 @@ export function SelectionCapsule({
   const springY = useSpring(targetY, motionTokens.selectionSpring);
   const height = useMotionValue(comfortableResultHeight);
   const opacity = useMotionValue(0);
-  // The capsule snaps to its first measured position so it appears directly
-  // on the selected row; the spring only drives subsequent selection moves.
   const hasPositioned = useRef(false);
 
   useLayoutEffect(() => {
@@ -58,7 +36,6 @@ export function SelectionCapsule({
         hasPositioned.current = false;
         return;
       }
-
       const measure = () => {
         if (!hasPositioned.current) {
           hasPositioned.current = true;
@@ -74,9 +51,7 @@ export function SelectionCapsule({
         observer.observe(selected);
       }
     };
-    const handlePreview = (event: Event) => {
-      updateSelection((event as CustomEvent<string | null>).detail);
-    };
+    const handlePreview = (event: Event) => updateSelection((event as CustomEvent<string | null>).detail);
     updateSelection(selectedId);
     window.addEventListener('lumen:selection-preview', handlePreview);
     return () => {
@@ -88,14 +63,10 @@ export function SelectionCapsule({
   return (
     <motion.div
       aria-hidden="true"
-      {...stylex.props(styles.capsule)}
+      className="pointer-events-none absolute inset-x-1.5 top-0 z-10 rounded-control border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row-selected)] shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
       data-selection-capsule="true"
       layoutId="lumen-result-selection"
-      style={{
-        height,
-        opacity,
-        y: reducedMotion ? targetY : springY,
-      }}
+      style={{height, opacity, y: reducedMotion ? targetY : springY}}
     />
   );
 }
