@@ -12,7 +12,7 @@ export interface LumenSurfaceProps extends HTMLAttributes<HTMLDivElement> {
 const materialClasses: Record<LumenMaterial, string> = {
   mica: 'bg-surface-glass shadow-surface backdrop-blur-[32px] backdrop-saturate-[135%]',
   raised: 'bg-surface-raised shadow-control backdrop-blur-[20px] backdrop-saturate-[125%]',
-  inset: 'bg-surface-inset shadow-[inset_0_-1px_0_rgba(0,0,0,0.14),inset_0_2px_8px_rgba(0,0,0,0.16)]',
+  inset: 'bg-surface-inset shadow-[inset_0_-1px_0_rgba(0,0,0,0.14),inset_0_2px_8px_rgba(0,0,0,0.16)] high-contrast:shadow-none',
   flat: 'bg-surface-glass shadow-none',
 };
 
@@ -30,7 +30,7 @@ export const LumenSurface = forwardRef<HTMLDivElement, LumenSurfaceProps>(
         {...props}
         ref={ref}
         className={cn(
-          'relative isolate overflow-hidden border border-border-subtle text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.74),inset_0_-1px_0_rgba(0,0,0,0.14)]',
+          'relative isolate overflow-hidden border border-border-subtle text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.74),inset_0_-1px_0_rgba(0,0,0,0.14)] high-contrast:shadow-none',
           materialClasses[material],
           className,
         )}

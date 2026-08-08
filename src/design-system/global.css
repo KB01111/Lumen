@@ -452,6 +452,10 @@ input[type='search']::-webkit-search-cancel-button {
   color: HighlightText;
 }
 
+[data-contrast='high'] .einui-command-row[aria-selected='true'] {
+  box-shadow: none;
+}
+
 [data-contrast='high'] .einui-command-row:hover *,
 [data-contrast='high'] .einui-command-row[aria-selected='true'] * {
   color: inherit;

@@ -48,6 +48,31 @@ describe('Lumen primitives', () => {
     expect(surface.querySelectorAll('[aria-hidden="true"]')).toHaveLength(3);
   });
 
+  it('suppresses literal inset shadows under app-controlled high contrast', () => {
+    render(
+      <>
+        <LumenSurface data-testid="mica-surface" material="mica">
+          Mica
+        </LumenSurface>
+        <LumenSurface data-testid="inset-surface" material="inset">
+          Inset
+        </LumenSurface>
+      </>,
+    );
+
+    const micaSurface = screen.getByTestId('mica-surface');
+    const insetSurface = screen.getByTestId('inset-surface');
+
+    expect(micaSurface).toHaveClass('high-contrast:shadow-none');
+    expect(micaSurface.className).toContain(
+      'shadow-[inset_0_1px_0_rgba(255,255,255,0.74),inset_0_-1px_0_rgba(0,0,0,0.14)]',
+    );
+    expect(insetSurface).toHaveClass('high-contrast:shadow-none');
+    expect(insetSurface.className).toContain(
+      'shadow-[inset_0_-1px_0_rgba(0,0,0,0.14),inset_0_2px_8px_rgba(0,0,0,0.16)]',
+    );
+  });
+
   it('uses the shared 24-unit icon geometry', () => {
     const {container} = render(<LumenMark title="Lumen" />);
     const icon = container.querySelector('svg');

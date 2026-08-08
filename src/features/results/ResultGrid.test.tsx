@@ -63,6 +63,21 @@ describe('ResultGrid', () => {
     );
   });
 
+  it('suppresses the selection capsule inset shadow in app-controlled high contrast', () => {
+    const results = [file('selected')];
+    const {container} = render(
+      <ResultGrid results={results} selectedId="selected" />,
+    );
+
+    const capsule = container.querySelector('[data-selection-capsule]');
+
+    expect(capsule).not.toBeNull();
+    expect(capsule).toHaveClass('high-contrast:shadow-none');
+    expect(capsule?.className).toContain(
+      'shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]',
+    );
+  });
+
   it('does not expose a disabled or empty collection as a selected row', () => {
     const {container, rerender} = render(
       <ResultGrid

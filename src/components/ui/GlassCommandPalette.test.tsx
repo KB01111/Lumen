@@ -186,12 +186,19 @@ describe('GlassCommandPalette', () => {
   background: Highlight;
   color: HighlightText;
 }`;
+    const selectedRowShadowOverride = `
+[data-contrast='high'] .einui-command-row[aria-selected='true'] {
+  box-shadow: none;
+}`;
 
     expect(paletteStyles).toContain('--einui-command-row: Canvas;');
     expect(paletteStyles).toContain(ordinaryRowRule);
     expect(paletteStyles).toContain(ordinaryRowNestedRule);
     expect(paletteStyles).toContain(activeRowRule);
+    expect(paletteStyles).toContain(selectedRowShadowOverride);
     expect(paletteStyles.indexOf(ordinaryRowRule)).toBeLessThan(paletteStyles.indexOf(activeRowRule));
+    expect(paletteStyles.indexOf('.einui-command-row[aria-selected=\'true\'] {\n  background: var(--einui-command-row-selected);\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);'))
+      .toBeLessThan(paletteStyles.indexOf(selectedRowShadowOverride));
     expect(paletteStyles).toContain(`
 [data-contrast='high'] .einui-command-row:hover *,
 [data-contrast='high'] .einui-command-row[aria-selected='true'] * {

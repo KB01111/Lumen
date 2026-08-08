@@ -63,7 +63,7 @@ export function SelectionCapsule({
   return (
     <motion.div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-x-1.5 top-0 z-10 rounded-control border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row-selected)] shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
+      className="pointer-events-none absolute inset-x-1.5 top-0 z-10 rounded-control border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row-selected)] shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] high-contrast:shadow-none"
       data-selection-capsule="true"
       layoutId="lumen-result-selection"
       style={{height, opacity, y: reducedMotion ? targetY : springY}}
