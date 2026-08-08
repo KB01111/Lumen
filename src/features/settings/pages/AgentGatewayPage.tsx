@@ -1,12 +1,9 @@
 import {useCallback, useEffect, useState} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
 import {McpIcon} from '../../../design-system/icons/lumen-icons';
 import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
-import {tokens} from '../../../design-system/tokens.stylex';
 import {GatewayStatusPanel} from '../../gateway/GatewayStatusPanel';
 import {useGatewayStore} from '../../gateway/gateway.store';
 import {ProviderRouteList} from '../../gateway/ProviderRouteList';
@@ -18,24 +15,6 @@ import {StatusBadge} from '../components/StatusBadge';
 import {LumenTextField} from '../components/SettingsControls';
 import {useSettingsStore} from '../settings.store';
 import {isNativeRuntime, nativeAiService, type EnrichmentHealth, type GatewayHealth} from '../../../services/ai/native-ai-service';
-
-const styles = stylex.create({
-  mcpRow: {
-    minHeight: '64px',
-    display: 'grid',
-    gridTemplateColumns: 'auto minmax(0, 1fr) auto',
-    alignItems: 'center',
-    gap: tokens.space6,
-    padding: tokens.space8,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-    ':last-child': {borderBottomWidth: 0},
-  },
-  mcpIcon: {color: tokens.colorAccent},
-  mcpText: {display: 'grid', gap: tokens.space2},
-  actions: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: tokens.space5},
-});
 
 export function AgentGatewayPage() {
   const gatewayState = useGatewayStore((state) => state.gatewayState);
@@ -136,7 +115,7 @@ export function AgentGatewayPage() {
           'lumen.answer.local', 'lumen.answer.cloud', 'lumen.embed.local', 'lumen.embed.cloud',
           'lumen.vision.cloud', 'lumen.audio.cloud', 'lumen.rerank.cloud',
         ].map((alias) => (
-          <div key={alias} {...stylex.props(styles.mcpRow)}>
+          <div key={alias} className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
             <LumenText weight="medium">{alias}</LumenText>
             <LumenText tone="tertiary" variant="meta">Generated, secret-free route</LumenText>
             <StatusBadge tone={alias.endsWith('.local') ? 'info' : health?.cloudCredentialConfigured && cloudConsent ? 'success' : 'warning'}>
@@ -147,10 +126,10 @@ export function AgentGatewayPage() {
       </SettingSection>
       {native ? (
         <SettingSection title="Provider credential" description="The value is written directly to Windows Credential Manager and never returned to React.">
-          <div {...stylex.props(styles.mcpRow)}>
-            <LumenUiIcon name="success" size="medium" {...stylex.props(styles.mcpIcon)} />
+          <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
+            <LumenUiIcon className="text-accent" name="success" size="medium" />
             <LumenTextField aria-label="OpenAI API key" type="password" placeholder="sk-…" value={credential} onChange={setCredential} />
-            <div {...stylex.props(styles.actions)}>
+            <div className="flex flex-wrap items-center gap-3">
               <LumenButton size="small" variant="primary" onPress={() => void saveCredential()}>Save</LumenButton>
               <LumenButton size="small" variant="quiet" onPress={() => void deleteCredential()}>Delete</LumenButton>
             </div>
@@ -158,14 +137,14 @@ export function AgentGatewayPage() {
         </SettingSection>
       ) : null}
       <SettingSection title="Cloud consent" description="Cloud routes stay unavailable until this device records explicit consent.">
-        <div {...stylex.props(styles.mcpRow)}>
-          <LumenUiIcon name="success" size="medium" {...stylex.props(styles.mcpIcon)} />
-          <div {...stylex.props(styles.mcpText)}>
+        <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
+          <LumenUiIcon className="text-accent" name="success" size="medium" />
+          <div className="grid gap-1">
             <LumenText weight="medium">Provider requests</LumenText>
             <LumenText tone="tertiary" variant="meta">Search queries, filenames, and relevant indexed excerpts may leave this device after consent.</LumenText>
           </div>
           {cloudConsent ? (
-            <div {...stylex.props(styles.actions)}>
+            <div className="flex flex-wrap items-center gap-3">
               <StatusBadge tone="success">Cloud consent granted</StatusBadge>
               <LumenButton size="small" variant="quiet" onPress={() => void revokeCloudConsent()}>Revoke</LumenButton>
             </div>
@@ -184,13 +163,13 @@ export function AgentGatewayPage() {
       </SettingSection>
       {native ? (
         <SettingSection title="Durable enrichment queue" description="Rivet Actors owns idempotent OCR and transcription job leases when its Windows engine is healthy.">
-          <div {...stylex.props(styles.mcpRow)}>
-            <LumenUiIcon name="connect" size="medium" {...stylex.props(styles.mcpIcon)} />
-            <div {...stylex.props(styles.mcpText)}>
+          <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
+            <LumenUiIcon className="text-accent" name="connect" size="medium" />
+            <div className="grid gap-1">
               <LumenText weight="medium">Rivet worker</LumenText>
               <LumenText tone="tertiary" variant="meta">{enrichment?.detail ?? (enrichment?.paused ? 'Queue paused' : 'Loopback-only worker')}</LumenText>
             </div>
-            <div {...stylex.props(styles.actions)}>
+            <div className="flex flex-wrap items-center gap-3">
               <StatusBadge tone={enrichment?.state === 'ready' ? 'success' : 'warning'}>{enrichment?.state ?? 'Checking'}</StatusBadge>
               <LumenButton size="small" variant="quiet" onPress={() => void (enrichment?.paused ? nativeAiService.resumeEnrichment() : nativeAiService.pauseEnrichment()).then(refresh)}>{enrichment?.paused ? 'Resume' : 'Pause'}</LumenButton>
             </div>
@@ -199,9 +178,9 @@ export function AgentGatewayPage() {
       ) : null}
       <SettingSection title="MCP services" description="Visible service and tool counts make unavailable states explicit.">
         {services.map((service) => (
-          <div key={service.id} {...stylex.props(styles.mcpRow)}>
-            <McpIcon className={stylex.props(styles.mcpIcon).className} size={20} />
-            <div {...stylex.props(styles.mcpText)}>
+          <div key={service.id} className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
+            <McpIcon className="text-accent" size={20} />
+            <div className="grid gap-1">
               <LumenText weight="medium">{service.name}</LumenText>
               <LumenText tone="tertiary" variant="meta">
                 {service.status === 'connected' ? `${service.toolCount} preview tools` : service.status === 'testing' ? 'Testing preview…' : 'Service unavailable'}
@@ -215,9 +194,9 @@ export function AgentGatewayPage() {
         <ToolPermissionList permissions={permissions} onChange={setPermission} />
       </SettingSection>
       <SettingSection title="Sanitized diagnostics">
-        <div {...stylex.props(styles.mcpRow)}>
-          <LumenUiIcon name="bug" size="medium" {...stylex.props(styles.mcpIcon)} />
-          <div {...stylex.props(styles.mcpText)}>
+        <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
+          <LumenUiIcon className="text-accent" name="bug" size="medium" />
+          <div className="grid gap-1">
             <LumenText weight="medium">Gateway support snapshot</LumenText>
             <LumenText tone="tertiary" variant="meta">Routes and states only. Secrets, prompts, and local paths are omitted.</LumenText>
           </div>

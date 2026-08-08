@@ -1,51 +1,9 @@
 import type {ReactNode} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
 import {Tab, TabList} from 'react-aria-components';
 
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
-import {tokens} from '../../design-system/tokens.stylex';
 import type {SettingsPageId} from './settings.schema';
-
-const styles = stylex.create({
-  list: {
-    display: 'grid',
-    alignContent: 'start',
-    gap: tokens.space2,
-    padding: tokens.space5,
-  },
-  tab: {
-    minHeight: tokens.controlHeightLarge,
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.space5,
-    paddingInline: tokens.space6,
-    color: tokens.colorTextSecondary,
-    borderRadius: tokens.radiusMedium,
-    cursor: 'default',
-    outlineColor: 'transparent',
-    outlineOffset: '-2px',
-    outlineStyle: 'solid',
-    outlineWidth: '2px',
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeBody,
-    fontWeight: tokens.fontWeightMedium,
-    transitionDuration: tokens.durationHover,
-    transitionProperty: 'background-color, color, box-shadow',
-    transitionTimingFunction: tokens.easingStandard,
-  },
-  hovered: {backgroundColor: tokens.colorMaterialRaised, color: tokens.colorTextPrimary},
-  selected: {
-    color: tokens.colorTextPrimary,
-    backgroundColor: tokens.colorSelection,
-    boxShadow: `${tokens.shadowInsetTop}, inset 3px 0 0 ${tokens.colorAccent}`,
-  },
-  focused: {
-    outlineColor: tokens.colorFocus,
-    boxShadow: `0 0 0 3px ${tokens.colorFocusSoft}`,
-  },
-  icon: {display: 'grid', flexShrink: 0, color: 'currentColor'},
-});
 
 export interface SettingsPageDefinition {
   id: SettingsPageId;
@@ -70,18 +28,18 @@ export const settingsPages: readonly SettingsPageDefinition[] = [
 export function SettingsNav() {
   return (
     <nav aria-label="Settings">
-      <TabList aria-label="Settings pages" items={settingsPages} {...stylex.props(styles.list)}>
+      <TabList aria-label="Settings pages" items={settingsPages} className="grid content-start gap-1 p-3">
         {(page) => (
           <Tab
             id={page.id}
-            className={({isFocusVisible, isHovered, isSelected}) => stylex.props(
-              styles.tab,
-              isHovered && styles.hovered,
-              isSelected && styles.selected,
-              isFocusVisible && styles.focused,
-            ).className ?? ''}
+            className={({isFocusVisible, isHovered, isSelected}) => [
+              'flex min-h-10 cursor-default items-center gap-3 rounded-control px-4 font-sans text-sm font-medium text-text-secondary outline-none transition-[background-color,color,box-shadow] duration-150 ease-standard',
+              isHovered ? 'bg-surface-raised text-text-primary' : '',
+              isSelected ? 'bg-surface-raised text-text-primary shadow-[inset_3px_0_0_var(--lumen-accent)]' : '',
+              isFocusVisible ? 'ring-2 ring-focus/70' : '',
+            ].filter(Boolean).join(' ')}
           >
-            <span aria-hidden="true" {...stylex.props(styles.icon)}>{page.icon}</span>
+            <span aria-hidden="true" className="grid shrink-0 text-current">{page.icon}</span>
             {page.label}
           </Tab>
         )}

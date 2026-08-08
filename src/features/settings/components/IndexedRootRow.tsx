@@ -1,63 +1,13 @@
 import {useState} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenIconButton} from '../../../design-system/primitives/LumenIconButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
-import {tokens} from '../../../design-system/tokens.stylex';
 import type {IndexedRoot} from '../settings.schema';
 import {ConfirmationDialog} from './ConfirmationDialog';
 import {LumenSelect, LumenSwitch, LumenTextField} from './SettingsControls';
 import {StatusBadge} from './StatusBadge';
-
-const styles = stylex.create({
-  root: {
-    display: 'grid',
-    gap: tokens.space8,
-    padding: tokens.space8,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-    ':last-child': {borderBottomWidth: 0},
-  },
-  top: {display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', alignItems: 'center', gap: tokens.space6},
-  glyph: {
-    width: '38px',
-    height: '38px',
-    display: 'grid',
-    placeItems: 'center',
-    color: tokens.colorAccent,
-    backgroundColor: tokens.colorAccentMuted,
-    borderRadius: tokens.radiusMedium,
-  },
-  path: {minWidth: 0, display: 'grid', gap: tokens.space2},
-  truncate: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
-  actions: {display: 'flex', alignItems: 'center', gap: tokens.space3},
-  policies: {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) auto auto',
-    alignItems: 'center',
-    gap: tokens.space5,
-  },
-  exclusions: {display: 'grid', gap: tokens.space4},
-  addExclusion: {display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: tokens.space4},
-  chips: {display: 'flex', flexWrap: 'wrap', gap: tokens.space3},
-  chip: {
-    minHeight: '26px',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: tokens.space3,
-    paddingInline: tokens.space5,
-    color: tokens.colorTextSecondary,
-    backgroundColor: tokens.colorMaterialRaised,
-    borderRadius: tokens.radiusRound,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeMeta,
-  },
-  error: {color: tokens.colorError},
-});
 
 const rootStatus = {
   ready: {label: 'Ready', tone: 'success'},
@@ -107,14 +57,14 @@ export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichme
   });
 
   return (
-    <article aria-label={`Indexed root ${root.path}`} {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.top)}>
-        <span aria-hidden="true" {...stylex.props(styles.glyph)}><LumenUiIcon name="folder" size="medium" /></span>
-        <div {...stylex.props(styles.path)}>
-          <LumenText className={stylex.props(styles.truncate).className} weight="medium">{root.path}</LumenText>
+    <article aria-label={`Indexed root ${root.path}`} className="grid gap-4 border-b border-border-subtle p-5 last:border-b-0">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4">
+        <span aria-hidden="true" className="grid size-10 place-items-center rounded-control bg-accent/10 text-accent"><LumenUiIcon name="folder" size="medium" /></span>
+        <div className="grid min-w-0 gap-1">
+          <LumenText className="truncate" weight="medium">{root.path}</LumenText>
           <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
         </div>
-        <div {...stylex.props(styles.actions)}>
+        <div className="flex items-center gap-1">
           <LumenIconButton
             aria-label={`${root.paused ? 'Resume' : 'Pause'} ${root.path}`}
             size="small"
@@ -135,7 +85,7 @@ export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichme
           </ConfirmationDialog>
         </div>
       </div>
-      <div {...stylex.props(styles.policies)}>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3">
         <LumenText tone="tertiary" variant="meta">Root policy</LumenText>
         <LumenSwitch
           aria-label={`Allow cloud enrichment for ${root.path}`}
@@ -158,8 +108,8 @@ export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichme
           onChange={(value) => onChange({...root, maxFileSizeMb: Number(value)})}
         />
       </div>
-      <div {...stylex.props(styles.exclusions)}>
-        <div {...stylex.props(styles.addExclusion)}>
+      <div className="grid gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
           <LumenTextField
             aria-label={`Exclusion pattern for ${root.path}`}
             placeholder="Examples: node_modules or *.tmp"
@@ -177,11 +127,11 @@ export function IndexedRootRow({cloudEnrichment, root, onChange, onCloudEnrichme
           />
           <LumenButton aria-label={`Add exclusion for ${root.path}`} size="small" onPress={addExclusion}>Add</LumenButton>
         </div>
-        {error ? <LumenText className={stylex.props(styles.error).className} role="alert" variant="meta">{error}</LumenText> : null}
+        {error ? <LumenText className="text-danger" role="alert" variant="meta">{error}</LumenText> : null}
         {root.exclusions.length ? (
-          <div aria-label={`Exclusions for ${root.path}`} {...stylex.props(styles.chips)}>
+          <div aria-label={`Exclusions for ${root.path}`} className="flex flex-wrap gap-2">
             {root.exclusions.map((exclusion) => (
-              <span key={exclusion} {...stylex.props(styles.chip)}>
+              <span key={exclusion} className="inline-flex min-h-[26px] items-center gap-1 rounded-pill bg-surface-raised px-2.5 font-sans text-xs text-text-secondary">
                 {exclusion}
                 <LumenIconButton
                   aria-label={`Remove exclusion ${exclusion}`}

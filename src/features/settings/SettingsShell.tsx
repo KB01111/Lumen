@@ -1,6 +1,5 @@
 import {useEffect, useRef, type ReactNode} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
 import {AnimatePresence, motion} from 'motion/react';
 import {TabPanel, Tabs} from 'react-aria-components';
 
@@ -9,7 +8,6 @@ import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import {settingsPages, SettingsNav} from './SettingsNav';
 import {PersistenceNotice} from './components/PersistenceNotice';
 import {AppearancePage} from './pages/AppearancePage';
@@ -24,69 +22,6 @@ import {PrivacyPage} from './pages/PrivacyPage';
 import {SearchPage} from './pages/SearchPage';
 import {settingsPageIdSchema, type SettingsPageId} from './settings.schema';
 import {useSettingsStore} from './settings.store';
-
-const styles = stylex.create({
-  shell: {
-    width: '100%',
-    height: '100%',
-    minWidth: 0,
-    minHeight: 0,
-    display: 'grid',
-    gridTemplateRows: '54px minmax(0, 1fr)',
-    overflow: 'hidden',
-    borderRadius: tokens.radiusLarge,
-  },
-  titlebar: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space8,
-    paddingInline: tokens.space8,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-  },
-  titleGroup: {display: 'flex', alignItems: 'baseline', gap: tokens.space5},
-  tabs: {
-    minWidth: 0,
-    minHeight: 0,
-    display: 'grid',
-    gridTemplateColumns: 'minmax(176px, 260px) minmax(0, 1fr)',
-  },
-  rail: {
-    minWidth: 0,
-    minHeight: 0,
-    overflowY: 'auto',
-    backgroundColor: tokens.colorMaterialInset,
-    borderRightColor: tokens.colorBorderSubtle,
-    borderRightStyle: 'solid',
-    borderRightWidth: '1px',
-  },
-  panel: {
-    minWidth: 0,
-    minHeight: 0,
-    outline: 'none',
-  },
-  page: {
-    width: '100%',
-    maxWidth: '760px',
-    display: 'grid',
-    alignContent: 'start',
-    gap: tokens.space12,
-    marginInline: 'auto',
-    paddingBlock: tokens.space12,
-    paddingInline: tokens.space12,
-  },
-  heading: {display: 'grid', gap: tokens.space3},
-  overview: {
-    padding: tokens.space10,
-    backgroundColor: tokens.colorMaterialInset,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusLarge,
-  },
-});
 
 export interface SettingsShellProps {
   onClose(): void;
@@ -147,15 +82,15 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
     <LumenSurface
       ref={shellRef}
       aria-label="Lumen settings"
-      className={stylex.props(styles.shell).className}
+      className="grid h-full min-h-0 min-w-0 w-full grid-rows-[54px_minmax(0,1fr)] overflow-hidden rounded-surface"
       material="mica"
     >
-      <header data-tauri-drag-region {...stylex.props(styles.titlebar)}>
-        <div {...stylex.props(styles.titleGroup)}>
+      <header data-tauri-drag-region className="flex items-center justify-between gap-6 border-b border-border-subtle px-6">
+        <div className="flex items-baseline gap-3">
           <LumenText weight="semibold">Lumen</LumenText>
           <LumenText tone="tertiary" variant="meta">Settings</LumenText>
         </div>
-        <LumenIconButton aria-label="Close settings" size="small" variant="quiet" onPress={onClose}>
+        <LumenIconButton aria-label="Close settings" data-settings-close-action="true" size="small" variant="quiet" onPress={onClose}>
           <LumenUiIcon name="close" size="small" />
         </LumenIconButton>
       </header>
@@ -163,32 +98,27 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
         orientation="vertical"
         selectedKey={activePage}
         onSelectionChange={handleSelectionChange}
-        {...stylex.props(styles.tabs)}
+        className="grid min-h-0 min-w-0 grid-cols-[minmax(176px,260px)_minmax(0,1fr)]"
       >
-        <div {...stylex.props(styles.rail)}><SettingsNav /></div>
-        <TabPanel
-          key={activePage}
-          id={activePage}
-          data-testid="settings-content"
-          style={{overflowY: 'auto'}}
-          {...stylex.props(styles.panel)}
-        >
+        <div className="min-h-0 min-w-0 overflow-y-auto border-r border-border-subtle bg-surface-inset"><SettingsNav /></div>
+        <main aria-label="Settings content" className="min-h-0 min-w-0 overflow-y-auto" data-testid="settings-content" style={{overflowY: 'auto'}}>
+          <TabPanel key={activePage} id={activePage}>
           <AnimatePresence initial={false} mode="wait">
             <motion.div
               key={activePage}
-              {...stylex.props(styles.page)}
+              className="mx-auto grid w-full max-w-[760px] content-start gap-8 px-8 py-8"
               initial={{opacity: 0, x: reducedMotion ? 0 : 10}}
               animate={{opacity: 1, x: 0}}
               exit={{opacity: 0, x: reducedMotion ? 0 : -8}}
               transition={{duration: pageDuration}}
             >
-              <div {...stylex.props(styles.heading)}>
+              <div className="grid gap-2">
                 <LumenText as="h1" variant="title">{page.label}</LumenText>
                 <LumenText tone="secondary">{page.description}</LumenText>
               </div>
               <PersistenceNotice />
               {pages?.[activePage] ?? defaultPageContent(activePage) ?? (
-                <div {...stylex.props(styles.overview)}>
+                <div className="rounded-surface border border-border-subtle bg-surface-inset p-6">
                   <LumenText tone="secondary">
                     Lumen keeps this area focused on the controls that belong to {page.label.toLowerCase()}.
                   </LumenText>
@@ -196,7 +126,8 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
               )}
             </motion.div>
           </AnimatePresence>
-        </TabPanel>
+          </TabPanel>
+        </main>
       </Tabs>
     </LumenSurface>
   );

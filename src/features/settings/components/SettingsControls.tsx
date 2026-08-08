@@ -1,6 +1,5 @@
 import type {ReactNode} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
 import {
   Button,
   Checkbox,
@@ -22,174 +21,28 @@ import {
   type SwitchProps,
 } from 'react-aria-components';
 
-import {tokens} from '../../../design-system/tokens.stylex';
 import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 
-const styles = stylex.create({
-  switch: {
-    minWidth: '42px',
-    height: '24px',
-    display: 'flex',
-    alignItems: 'center',
-    padding: '2px',
-    backgroundColor: tokens.colorMaterialRaised,
-    borderColor: tokens.colorBorderStrong,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusRound,
-    outlineColor: 'transparent',
-    outlineOffset: '2px',
-    outlineStyle: 'solid',
-    outlineWidth: '2px',
-    transitionDuration: tokens.durationHover,
-    transitionProperty: 'background-color, border-color, box-shadow',
-  },
-  switchSelected: {backgroundColor: tokens.colorAccent, borderColor: tokens.colorAccentHover},
-  switchFocused: {outlineColor: tokens.colorFocus, boxShadow: `0 0 0 3px ${tokens.colorFocusSoft}`},
-  switchDisabled: {opacity: 0.46},
-  switchThumb: {
-    width: '18px',
-    height: '18px',
-    backgroundColor: tokens.colorTextPrimary,
-    borderRadius: tokens.radiusRound,
-    boxShadow: tokens.shadowControl,
-    transform: 'translateX(0)',
-    transitionDuration: tokens.durationSelection,
-    transitionProperty: 'transform, background-color',
-    transitionTimingFunction: tokens.easingStandard,
-  },
-  switchThumbSelected: {backgroundColor: tokens.colorTextInverse, transform: 'translateX(18px)'},
-  selectButton: {
-    minWidth: '132px',
-    minHeight: tokens.controlHeightMedium,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space5,
-    paddingInline: tokens.space6,
-    color: tokens.colorTextPrimary,
-    backgroundColor: tokens.colorMaterialRaised,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-    outlineColor: 'transparent',
-    outlineOffset: '2px',
-    outlineStyle: 'solid',
-    outlineWidth: '2px',
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeBody,
-  },
-  focused: {outlineColor: tokens.colorFocus, boxShadow: `0 0 0 3px ${tokens.colorFocusSoft}`},
-  popover: {
-    minWidth: 'var(--trigger-width)',
-    padding: tokens.space3,
-    color: tokens.colorTextPrimary,
-    backgroundColor: tokens.colorCanvasElevated,
-    borderColor: tokens.colorBorderStrong,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-    boxShadow: tokens.shadowAmbient,
-  },
-  option: {
-    minHeight: tokens.controlHeightMedium,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space6,
-    paddingInline: tokens.space5,
-    borderRadius: tokens.radiusSmall,
-    outline: 'none',
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeBody,
-  },
-  optionFocused: {backgroundColor: tokens.colorSelection},
-  optionSelected: {color: tokens.colorAccent},
-  slider: {width: '168px', display: 'grid', gridTemplateColumns: '1fr auto', gap: tokens.space4},
-  sliderLabel: {position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)'},
-  sliderOutput: {color: tokens.colorTextSecondary, fontFamily: tokens.fontFamilyText, fontSize: tokens.fontSizeMeta},
-  track: {gridColumn: '1 / -1', height: '20px', display: 'flex', alignItems: 'center'},
-  trackLine: {width: '100%', height: '4px', backgroundColor: tokens.colorMaterialRaised, borderRadius: tokens.radiusRound},
-  thumb: {
-    width: '16px',
-    height: '16px',
-    backgroundColor: tokens.colorAccent,
-    borderColor: tokens.colorSpecularTop,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusRound,
-    boxShadow: tokens.shadowControl,
-    outlineColor: 'transparent',
-    outlineOffset: '2px',
-    outlineStyle: 'solid',
-    outlineWidth: '2px',
-  },
-  checkbox: {
-    minHeight: tokens.controlHeightMedium,
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: tokens.space4,
-    color: tokens.colorTextSecondary,
-    outline: 'none',
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeBody,
-  },
-  checkboxBox: {
-    width: '18px',
-    height: '18px',
-    display: 'grid',
-    placeItems: 'center',
-    color: tokens.colorTextInverse,
-    backgroundColor: tokens.colorMaterialRaised,
-    borderColor: tokens.colorBorderStrong,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusSmall,
-  },
-  checkboxSelected: {backgroundColor: tokens.colorAccent, borderColor: tokens.colorAccentHover},
-  checkboxFocused: {boxShadow: `0 0 0 3px ${tokens.colorFocusSoft}`},
-  textField: {display: 'grid', gap: tokens.space3},
-  input: {
-    width: '100%',
-    minHeight: tokens.controlHeightMedium,
-    paddingInline: tokens.space6,
-    color: tokens.colorTextPrimary,
-    caretColor: tokens.colorAccent,
-    backgroundColor: tokens.colorMaterialInset,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-    outlineColor: 'transparent',
-    outlineOffset: '2px',
-    outlineStyle: 'solid',
-    outlineWidth: '2px',
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeBody,
-  },
-});
+const visuallyHidden = 'absolute size-px overflow-hidden [clip-path:inset(50%)]';
+const focusRing = 'data-[focus-visible]:ring-2 data-[focus-visible]:ring-focus/70';
 
 export function LumenSwitch(props: SwitchProps) {
   return (
     <Switch
       {...props}
-      className={({isDisabled, isFocusVisible, isSelected}) => stylex.props(
-        styles.switch,
-        isSelected && styles.switchSelected,
-        isFocusVisible && styles.switchFocused,
-        isDisabled && styles.switchDisabled,
-      ).className ?? ''}
+      className={({isDisabled, isFocusVisible, isSelected}) => [
+        'flex h-6 min-w-[42px] items-center rounded-pill border border-border-strong bg-surface-raised p-0.5 transition-[background-color,border-color,box-shadow] duration-150',
+        isSelected ? 'border-accent bg-accent' : '',
+        isFocusVisible ? 'ring-2 ring-focus/70' : '',
+        isDisabled ? 'opacity-45' : '',
+      ].filter(Boolean).join(' ')}
     >
-      {({isSelected}) => <span {...stylex.props(styles.switchThumb, isSelected && styles.switchThumbSelected)} />}
+      {({isSelected}) => <span className={isSelected ? 'size-[18px] translate-x-[18px] rounded-pill bg-text-inverse shadow-control transition-transform duration-150' : 'size-[18px] rounded-pill bg-text-primary shadow-control transition-transform duration-150'} />}
     </Switch>
   );
 }
 
-export interface SelectOption<T extends string> {
-  id: T;
-  label: string;
-}
+export interface SelectOption<T extends string> { id: T; label: string; }
 
 export interface LumenSelectProps<T extends string> {
   'aria-label': string;
@@ -200,28 +53,26 @@ export interface LumenSelectProps<T extends string> {
 
 export function LumenSelect<T extends string>({options, value, onChange, ...props}: LumenSelectProps<T>) {
   const handleChange = (key: Key | null) => {
-    if (key !== null) {
-      onChange(String(key) as T);
-    }
+    if (key !== null) onChange(String(key) as T);
   };
   return (
     <Select aria-label={props['aria-label']} selectedKey={value} onSelectionChange={handleChange}>
-      <Label {...stylex.props(styles.sliderLabel)}>{props['aria-label']}</Label>
-      <Button className={({isFocusVisible}) => stylex.props(styles.selectButton, isFocusVisible && styles.focused).className ?? ''}>
+      <Label className={visuallyHidden}>{props['aria-label']}</Label>
+      <Button className={`flex min-h-9 min-w-[132px] items-center justify-between gap-3 rounded-control border border-border-subtle bg-surface-raised px-4 font-sans text-sm text-text-primary outline-none ${focusRing}`}>
         <SelectValue />
         <LumenUiIcon className="rotate-90" name="next" size="small" />
       </Button>
-      <Popover {...stylex.props(styles.popover)}>
+      <Popover className="min-w-[var(--trigger-width)] rounded-control border border-border-strong bg-surface-raised p-1.5 text-text-primary shadow-surface">
         <ListBox items={options}>
           {(option) => (
             <ListBoxItem
               id={option.id}
               textValue={option.label}
-              className={({isFocused, isSelected}) => stylex.props(
-                styles.option,
-                isFocused && styles.optionFocused,
-                isSelected && styles.optionSelected,
-              ).className ?? ''}
+              className={({isFocused, isSelected}) => [
+                'flex min-h-9 items-center justify-between gap-4 rounded-control px-3 font-sans text-sm outline-none',
+                isFocused ? 'bg-surface-inset' : '',
+                isSelected ? 'text-accent' : '',
+              ].filter(Boolean).join(' ')}
             >
               {({isSelected}) => <>{option.label}{isSelected ? <LumenUiIcon name="approval" size="small" /> : null}</>}
             </ListBoxItem>
@@ -233,69 +84,33 @@ export function LumenSelect<T extends string>({options, value, onChange, ...prop
 }
 
 export interface LumenSliderProps {
-  label: string;
-  maxValue?: number;
-  minValue?: number;
-  step?: number;
-  suffix?: string;
-  value: number;
-  onChange(value: number): void;
+  label: string; maxValue?: number; minValue?: number; step?: number; suffix?: string; value: number; onChange(value: number): void;
 }
 
 export function LumenSlider({label, maxValue = 100, minValue = 0, step = 1, suffix = '%', value, onChange}: LumenSliderProps) {
   return (
-    <Slider
-      aria-label={label}
-      maxValue={maxValue}
-      minValue={minValue}
-      step={step}
-      value={value}
-      onChange={(next) => onChange(Array.isArray(next) ? (next[0] ?? value) : next)}
-      {...stylex.props(styles.slider)}
-    >
-      <Label {...stylex.props(styles.sliderLabel)}>{label}</Label>
-      <SliderOutput {...stylex.props(styles.sliderOutput)}>{({state}) => `${state.getThumbValue(0)}${suffix}`}</SliderOutput>
-      <SliderTrack {...stylex.props(styles.track)}>
-        <span aria-hidden="true" {...stylex.props(styles.trackLine)} />
-        <SliderThumb className={({isFocusVisible}) => stylex.props(styles.thumb, isFocusVisible && styles.focused).className ?? ''} />
-      </SliderTrack>
+    <Slider aria-label={label} className="grid w-[168px] grid-cols-[1fr_auto] gap-2" maxValue={maxValue} minValue={minValue} step={step} value={value} onChange={(next) => onChange(Array.isArray(next) ? (next[0] ?? value) : next)}>
+      <Label className={visuallyHidden}>{label}</Label>
+      <SliderOutput className="font-sans text-xs text-text-secondary">{({state}) => `${state.getThumbValue(0)}${suffix}`}</SliderOutput>
+      <SliderTrack className="col-span-full flex h-5 items-center"><span aria-hidden="true" className="h-1 w-full rounded-pill bg-surface-inset" /><SliderThumb className={`size-4 rounded-pill border border-border-specular bg-accent shadow-control outline-none ${focusRing}`} /></SliderTrack>
     </Slider>
   );
 }
 
 export function LumenCheckbox({children, ...props}: CheckboxProps & {children: ReactNode}) {
   return (
-    <Checkbox {...props} className={stylex.props(styles.checkbox).className}>
+    <Checkbox {...props} className="inline-flex min-h-9 items-center gap-2 font-sans text-sm text-text-secondary outline-none">
       {({isFocusVisible, isSelected}) => (
-        <>
-          <span {...stylex.props(styles.checkboxBox, isSelected && styles.checkboxSelected, isFocusVisible && styles.checkboxFocused)}>
-            {isSelected ? <LumenUiIcon name="approval" size="small" /> : null}
-          </span>
-          {children}
-        </>
+        <><span className={["grid size-[18px] place-items-center rounded border border-border-strong bg-surface-raised text-text-inverse", isSelected ? 'border-accent bg-accent' : '', isFocusVisible ? 'ring-2 ring-focus/70' : ''].filter(Boolean).join(' ')}>{isSelected ? <LumenUiIcon name="approval" size="small" /> : null}</span>{children}</>
       )}
     </Checkbox>
   );
 }
 
 export interface LumenTextFieldProps {
-  'aria-label': string;
-  placeholder?: string;
-  value: string;
-  onChange(value: string): void;
-  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
-  type?: 'text' | 'password';
+  'aria-label': string; placeholder?: string; value: string; onChange(value: string): void; onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>; type?: 'text' | 'password';
 }
 
 export function LumenTextField(props: LumenTextFieldProps) {
-  return (
-    <TextField aria-label={props['aria-label']} value={props.value} onChange={props.onChange} {...stylex.props(styles.textField)}>
-      <Input
-        className={({isFocusVisible}) => stylex.props(styles.input, isFocusVisible && styles.focused).className ?? ''}
-        placeholder={props.placeholder}
-        type={props.type}
-        onKeyDown={props.onKeyDown}
-      />
-    </TextField>
-  );
+  return <TextField aria-label={props['aria-label']} className="grid gap-1" value={props.value} onChange={props.onChange}><Input className={`min-h-9 w-full rounded-control border border-border-subtle bg-surface-inset px-4 font-sans text-sm text-text-primary caret-accent outline-none ${focusRing}`} placeholder={props.placeholder} type={props.type} onKeyDown={props.onKeyDown} /></TextField>;
 }

@@ -1,11 +1,8 @@
 import {useCallback, useEffect, useState} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
-import {tokens} from '../../../design-system/tokens.stylex';
 import {isNativeRuntime, nativeAiService} from '../../../services/ai/native-ai-service';
 import {TauriComputerUseService} from '../../../services/computer-use/tauri-computer-use-service';
 import {
@@ -22,21 +19,6 @@ import {StatusBadge} from '../components/StatusBadge';
 import {useSettingsStore} from '../settings.store';
 
 const computerUseService = new TauriComputerUseService();
-
-const styles = stylex.create({
-  credential: {
-    minHeight: '64px',
-    display: 'grid',
-    gridTemplateColumns: 'auto minmax(0, 1fr) auto',
-    alignItems: 'center',
-    gap: tokens.space6,
-    padding: tokens.space8,
-  },
-  icon: {color: tokens.colorAccent},
-  text: {display: 'grid', gap: tokens.space2},
-  actions: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: tokens.space4},
-  wideControl: {width: '260px'},
-});
 
 const modelOptions = computerUseModels.map((model) => ({id: model, label: model}));
 
@@ -132,7 +114,7 @@ export function ComputerUsePage() {
           />
         </SettingRow>
         <SettingRow label="Start page" description="Every task starts in a fresh Edge context at this HTTP or HTTPS address.">
-          <div {...stylex.props(styles.actions, styles.wideControl)}>
+          <div className="flex w-[260px] flex-wrap items-center gap-2">
             <LumenTextField aria-label="Computer Use start page" value={initialUrl} onChange={setInitialUrl} />
             <LumenButton size="small" variant="quiet" onPress={() => void saveInitialUrl()}>Save</LumenButton>
           </div>
@@ -140,16 +122,16 @@ export function ComputerUsePage() {
       </SettingSection>
       {native ? (
         <SettingSection title="Gemini credential" description="The secret is written directly to Windows Credential Manager and never returned to React.">
-          <div {...stylex.props(styles.credential)}>
-            <LumenUiIcon name="key" size="medium" {...stylex.props(styles.icon)} />
-            <div {...stylex.props(styles.text)}>
+          <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 p-5">
+            <LumenUiIcon className="text-accent" name="key" size="medium" />
+            <div className="grid gap-1">
               <LumenText weight="medium">Gemini API key</LumenText>
               <LumenText tone="tertiary" variant="meta">
                 {health?.credentialConfigured ? 'A key is configured for this Windows account.' : 'No Gemini key is configured.'}
               </LumenText>
               <LumenTextField aria-label="Gemini API key" type="password" placeholder="Enter API key" value={credential} onChange={setCredential} />
             </div>
-            <div {...stylex.props(styles.actions)}>
+            <div className="flex flex-wrap items-center gap-2">
               <LumenButton size="small" variant="primary" onPress={() => void saveCredential()}>Save</LumenButton>
               <LumenButton size="small" variant="quiet" onPress={() => void deleteCredential()}>Delete</LumenButton>
             </div>
@@ -157,14 +139,14 @@ export function ComputerUsePage() {
         </SettingSection>
       ) : null}
       <SettingSection title="Cloud consent" description="Consent is device-local and can be revoked at any time.">
-        <div {...stylex.props(styles.credential)}>
-          <LumenUiIcon name="success" size="medium" {...stylex.props(styles.icon)} />
-          <div {...stylex.props(styles.text)}>
+        <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 p-5">
+          <LumenUiIcon className="text-accent" name="success" size="medium" />
+          <div className="grid gap-1">
             <LumenText weight="medium">Browser task requests</LumenText>
             <LumenText tone="tertiary" variant="meta">The task, page URL, and screenshots are sent to Gemini. Passwords and payment details may be visible if you navigate to them.</LumenText>
           </div>
           {settings.cloudConsent ? (
-            <div {...stylex.props(styles.actions)}>
+            <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone="success">Consent granted</StatusBadge>
               <LumenButton size="small" variant="quiet" onPress={revokeConsent}>Revoke</LumenButton>
             </div>

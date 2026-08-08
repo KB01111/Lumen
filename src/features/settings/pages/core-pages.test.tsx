@@ -13,6 +13,7 @@ import {ComputerUsePage} from './ComputerUsePage';
 import {GeneralPage} from './GeneralPage';
 import {IndexedRootsPage} from './IndexedRootsPage';
 import {SearchPage} from './SearchPage';
+import {SettingSection} from '../components/SettingSection';
 
 class DeferredRootService implements RootSelectionService {
   private resolveSelection?: (path: string | null) => void;
@@ -48,6 +49,18 @@ afterEach(() => {
 });
 
 describe('core settings pages', () => {
+  it('keeps setting sections as semantic groups rather than nested material surfaces', () => {
+    renderWithProviders(
+      <SettingSection description="A quiet semantic group." title="Presentation contract">
+        <span>Control</span>
+      </SettingSection>,
+    );
+
+    const section = screen.getByRole('region', {name: 'Presentation contract'});
+    expect(section).toHaveAttribute('data-setting-section', 'true');
+    expect(section.querySelector('[data-material]')).not.toBeInTheDocument();
+  });
+
   it('switches to opaque mode immediately when transparency is disabled', async () => {
     const user = userEvent.setup();
     renderWithProviders(<AppearancePage />);

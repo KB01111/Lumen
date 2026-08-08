@@ -1,12 +1,9 @@
 import {useState} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenIconButton} from '../../../design-system/primitives/LumenIconButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
-import {tokens} from '../../../design-system/tokens.stylex';
 import {ActivityStatus} from '../../activity/ActivityStatus';
 import {ApplicationOverrideRow} from '../../activity/ApplicationOverrideRow';
 import {useActivityStore} from '../../activity/activity.store';
@@ -16,24 +13,6 @@ import {SettingSection} from '../components/SettingSection';
 import {LumenSelect, LumenSwitch, LumenTextField} from '../components/SettingsControls';
 import {SettingsCallout, SettingsPage} from '../components/SettingsPage';
 import {useSettingsStore} from '../settings.store';
-
-const styles = stylex.create({
-  stateToolbar: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: tokens.space6},
-  addRow: {display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: tokens.space4, padding: tokens.space8},
-  chips: {display: 'flex', flexWrap: 'wrap', gap: tokens.space3, padding: tokens.space8},
-  chip: {
-    display: 'inline-flex',
-    minHeight: tokens.controlHeightMedium,
-    alignItems: 'center',
-    gap: tokens.space3,
-    paddingInlineStart: tokens.space6,
-    color: tokens.colorTextSecondary,
-    backgroundColor: tokens.colorMaterialRaised,
-    borderRadius: tokens.radiusRound,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeMeta,
-  },
-});
 
 function applicationId(application: string) {
   return `app-${application.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
@@ -73,7 +52,7 @@ export function ActivityPage() {
 
   return (
     <SettingsPage>
-      <div {...stylex.props(styles.stateToolbar)}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <LumenSelect<ActivityMode>
           aria-label="Development activity state"
           options={[
@@ -121,7 +100,7 @@ export function ActivityPage() {
         </SettingRow>
       </SettingSection>
       <SettingSection title="Application overrides" description="Give a specific executable a stable policy instead of relying on classification.">
-        <div {...stylex.props(styles.addRow)}>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 p-5">
           <LumenTextField
             aria-label="Application override"
             placeholder="Example: render.exe"
@@ -146,14 +125,14 @@ export function ActivityPage() {
         ))}
       </SettingSection>
       <SettingSection title="User-defined games" description="Add executables that Windows or a future detector may not classify.">
-        <div {...stylex.props(styles.addRow)}>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 p-5">
           <LumenTextField aria-label="User-defined game" placeholder="Example: game.exe" value={gameName} onChange={setGameName} />
           <LumenButton aria-label="Add user-defined game" size="small" onPress={addGame}><LumenUiIcon name="tools" size="small" /> Add game</LumenButton>
         </div>
         {activity.userGames.length ? (
-          <div {...stylex.props(styles.chips)}>
+          <div className="flex flex-wrap gap-2 p-5">
             {activity.userGames.map((game) => (
-              <span key={game} {...stylex.props(styles.chip)}>
+              <span key={game} className="inline-flex min-h-9 items-center gap-1 rounded-pill bg-surface-raised pl-3 text-xs text-text-secondary">
                 {game}
                 <LumenIconButton aria-label={`Remove game ${game}`} size="small" variant="quiet" onPress={() => void updateActivity({userGames: activity.userGames.filter((item) => item !== game)})}>
                   <LumenUiIcon name="close" size="small" />
@@ -161,7 +140,7 @@ export function ActivityPage() {
               </span>
             ))}
           </div>
-        ) : <div {...stylex.props(styles.chips)}><LumenText tone="tertiary" variant="meta">No custom game classifications.</LumenText></div>}
+        ) : <div className="flex flex-wrap gap-2 p-5"><LumenText tone="tertiary" variant="meta">No custom game classifications.</LumenText></div>}
       </SettingSection>
       <LumenButton aria-label="Reset classifications" size="small" variant="quiet" onPress={resetAll}>Reset classifications</LumenButton>
     </SettingsPage>

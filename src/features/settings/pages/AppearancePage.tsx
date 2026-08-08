@@ -1,45 +1,11 @@
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenMark} from '../../../design-system/icons/LumenMark';
 import {LumenText} from '../../../design-system/primitives/LumenText';
-import {tokens} from '../../../design-system/tokens.stylex';
 import {useAppearanceStore} from '../../../state/appearance.store';
 import {SettingRow} from '../components/SettingRow';
 import {SettingSection} from '../components/SettingSection';
 import {LumenSelect, LumenSlider, LumenSwitch} from '../components/SettingsControls';
 import {SettingsPage} from '../components/SettingsPage';
 import {useSettingsStore} from '../settings.store';
-
-const styles = stylex.create({
-  preview: {
-    minHeight: '118px',
-    display: 'grid',
-    placeItems: 'center',
-    overflow: 'hidden',
-    backgroundColor: tokens.colorCanvas,
-    backgroundImage: 'radial-gradient(circle at 70% 25%, rgba(54, 143, 205, 0.35), transparent 42%), radial-gradient(circle at 18% 82%, rgba(53, 196, 154, 0.18), transparent 38%)',
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusLarge,
-  },
-  previewShell: {
-    width: '78%',
-    minHeight: '52px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.space6,
-    paddingInline: tokens.space6,
-    backgroundColor: tokens.colorMaterialBackdrop,
-    backdropFilter: `blur(${tokens.blurGlass})`,
-    borderColor: tokens.colorBorderStrong,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusLauncher,
-    boxShadow: tokens.shadowAmbient,
-  },
-  line: {height: '7px', flex: 1, backgroundColor: tokens.colorBorderStrong, borderRadius: tokens.radiusRound},
-});
 
 export function AppearancePage() {
   const mode = useAppearanceStore((state) => state.mode);
@@ -59,10 +25,10 @@ export function AppearancePage() {
 
   return (
     <SettingsPage>
-      <div aria-label="Appearance preview" {...stylex.props(styles.preview)}>
-        <div {...stylex.props(styles.previewShell)} style={{opacity: Math.max(0.55, presentation.glassIntensity / 100)}}>
+      <div aria-label="Appearance preview" className="grid min-h-[118px] place-items-center overflow-hidden rounded-surface border border-border-subtle bg-canvas [background-image:radial-gradient(circle_at_70%_25%,color-mix(in_srgb,var(--lumen-accent)_35%,transparent),transparent_42%)]">
+        <div className="flex min-h-[52px] w-[78%] items-center gap-3 rounded-surface border border-border-strong bg-surface-glass px-4 shadow-surface backdrop-blur-xl" style={{opacity: Math.max(0.55, presentation.glassIntensity / 100)}}>
           <LumenMark size="medium" />
-          <span aria-hidden="true" {...stylex.props(styles.line)} />
+          <span aria-hidden="true" className="h-1.5 flex-1 rounded-pill bg-border-strong" />
           <LumenText tone="tertiary" variant="caption">Preview</LumenText>
         </div>
       </div>

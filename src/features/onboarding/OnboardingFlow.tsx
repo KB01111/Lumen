@@ -1,6 +1,5 @@
 import {useEffect, useRef, type KeyboardEvent} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
 import {AnimatePresence, motion} from 'motion/react';
 
 import {useLumenMotion} from '../../design-system/MotionProvider';
@@ -8,7 +7,6 @@ import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
 import {OnboardingScene} from './OnboardingScene';
@@ -27,63 +25,6 @@ import {ShortcutScene} from './ShortcutScene';
 
 const defaultRootService = createRootSelectionService();
 const defaultWindowService = createWindowService();
-
-const styles = stylex.create({
-  shell: {
-    width: '100%',
-    height: '100%',
-    display: 'grid',
-    gridTemplateRows: 'auto minmax(0, 1fr) auto',
-    overflow: 'hidden',
-    borderRadius: tokens.radiusLarge,
-  },
-  topbar: {
-    minHeight: '54px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space8,
-    paddingInline: tokens.space12,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-  },
-  progress: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.space3,
-  },
-  progressDot: {
-    width: '18px',
-    height: '3px',
-    backgroundColor: tokens.colorBorderStrong,
-    borderRadius: tokens.radiusRound,
-  },
-  progressActive: {backgroundColor: tokens.colorAccent},
-  sceneViewport: {
-    minWidth: 0,
-    minHeight: 0,
-    display: 'grid',
-    placeItems: 'center',
-    overflow: 'hidden',
-    paddingBlock: tokens.space16,
-  },
-  sceneMotion: {
-    width: '100%',
-  },
-  footer: {
-    minHeight: '64px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space8,
-    paddingInline: tokens.space12,
-    borderTopColor: tokens.colorBorderSubtle,
-    borderTopStyle: 'solid',
-    borderTopWidth: '1px',
-  },
-  footerSpacer: {width: tokens.controlHeightMedium},
-});
 
 function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut'>}) {
   switch (step) {
@@ -216,29 +157,29 @@ export function OnboardingFlow({
     <LumenSurface
       ref={shellRef}
       aria-label="Welcome to Lumen"
-      className={stylex.props(styles.shell).className}
+      className="grid h-full w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-surface"
       material="mica"
       onKeyDown={handleKeyDown}
     >
-      <header data-tauri-drag-region {...stylex.props(styles.topbar)}>
+      <header data-tauri-drag-region className="flex min-h-[54px] items-center justify-between gap-6 border-b border-border-subtle px-8">
         <LumenText weight="semibold">Lumen</LumenText>
-        <div aria-label={`Step ${currentIndex + 1} of ${onboardingSteps.length}`} {...stylex.props(styles.progress)}>
+        <div aria-label={`Step ${currentIndex + 1} of ${onboardingSteps.length}`} className="flex items-center gap-2">
           {onboardingSteps.map((item, index) => (
             <span
               key={item}
               aria-hidden="true"
-              {...stylex.props(styles.progressDot, index <= currentIndex && styles.progressActive)}
+              className={index <= currentIndex ? 'h-[3px] w-[18px] rounded-pill bg-accent' : 'h-[3px] w-[18px] rounded-pill bg-border-strong'}
             />
           ))}
         </div>
       </header>
-      <div {...stylex.props(styles.sceneViewport)}>
+      <div className="grid min-h-0 min-w-0 place-items-center overflow-hidden py-12">
         <AnimatePresence custom={directionRef.current} initial={false} mode="wait">
           <motion.div
             key={step}
             data-motion-direction={reducedMotion ? 'fade' : 'spatial'}
             data-testid="onboarding-scene"
-            {...stylex.props(styles.sceneMotion)}
+            className="w-full"
             animate="center"
             custom={directionRef.current}
             exit="exit"
@@ -268,12 +209,13 @@ export function OnboardingFlow({
           </motion.div>
         </AnimatePresence>
       </div>
-      <footer {...stylex.props(styles.footer)}>
+      <footer className="flex min-h-16 items-center justify-between gap-6 border-t border-border-subtle px-8">
         {currentIndex > 0 ? (
-          <LumenButton size="medium" variant="quiet" onPress={goBack}>Back</LumenButton>
-        ) : <span aria-hidden="true" {...stylex.props(styles.footerSpacer)} />}
+          <LumenButton data-testid="onboarding-back-action" size="medium" variant="quiet" onPress={goBack}>Back</LumenButton>
+        ) : <span aria-hidden="true" className="w-9" />}
         <LumenButton
           data-onboarding-primary="true"
+          data-testid="onboarding-primary-action"
           isDisabled={step === 'root' && !isValidRoot(root)}
           size="medium"
           variant="primary"

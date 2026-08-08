@@ -110,4 +110,18 @@ describe('OnboardingFlow', () => {
       'spatial',
     );
   });
+
+  it('keeps a single primary action and a single labelled back action on reversible scenes', async () => {
+    const user = userEvent.setup();
+    renderFlow({chooseRoot: vi.fn()});
+
+    expect(screen.getAllByTestId('onboarding-primary-action')).toHaveLength(1);
+    expect(screen.queryByTestId('onboarding-back-action')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', {name: 'Begin'}));
+
+    expect(screen.getAllByTestId('onboarding-primary-action')).toHaveLength(1);
+    expect(screen.getAllByTestId('onboarding-back-action')).toHaveLength(1);
+    expect(screen.getByTestId('onboarding-back-action')).toHaveAccessibleName('Back');
+  });
 });
