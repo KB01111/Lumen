@@ -24,6 +24,7 @@
   --color-success: var(--lumen-success);
   --color-warning: var(--lumen-warning);
   --color-danger: var(--lumen-danger);
+  --color-scrim: var(--lumen-scrim);
   --radius-pill: var(--lumen-radius-pill);
   --radius-surface: var(--lumen-radius-surface);
   --radius-control: var(--lumen-radius-control);
@@ -50,6 +51,7 @@
   --lumen-success: #16784a;
   --lumen-warning: #8b5d09;
   --lumen-danger: #bd3434;
+  --lumen-scrim: rgba(1, 5, 9, 0.58);
   --lumen-radius-pill: 999px;
   --lumen-radius-surface: 18px;
   --lumen-radius-control: 12px;
@@ -74,6 +76,7 @@
   --lumen-success: #7bdca9;
   --lumen-warning: #f0c879;
   --lumen-danger: #ff9b9b;
+  --lumen-scrim: rgba(0, 0, 0, 0.68);
   --lumen-radius-pill: 999px;
   --lumen-radius-surface: 18px;
   --lumen-radius-control: 12px;

@@ -124,4 +124,16 @@ describe('OnboardingFlow', () => {
     expect(screen.getAllByTestId('onboarding-back-action')).toHaveLength(1);
     expect(screen.getByTestId('onboarding-back-action')).toHaveAccessibleName('Back');
   });
+
+  it('keeps folder selection actionable without competing with the root-step primary action', async () => {
+    const user = userEvent.setup();
+    renderFlow({chooseRoot: vi.fn()});
+
+    await user.click(screen.getByRole('button', {name: 'Begin'}));
+    await user.click(screen.getByRole('button', {name: 'Continue'}));
+
+    const chooseFolder = await screen.findByRole('button', {name: 'Choose folder'});
+    expect(screen.getAllByRole('button').filter((button) => button.dataset.variant === 'primary')).toHaveLength(1);
+    expect(chooseFolder).toHaveAttribute('data-variant', 'subtle');
+  });
 });

@@ -19,7 +19,7 @@ export function ConfirmationDialog({cancelLabel = 'Cancel', children, confirmLab
   return (
     <DialogTrigger>
       {children}
-      <ModalOverlay className="fixed inset-0 z-30 grid place-items-center bg-black/60 p-8" isDismissable>
+      <ModalOverlay className="fixed inset-0 z-30 grid place-items-center bg-scrim p-8" isDismissable>
         <Modal className="w-full max-w-[430px] outline-none">
           <Dialog aria-label={title} className="grid gap-6 rounded-surface border border-border-strong bg-surface-raised p-6 text-text-primary shadow-surface outline-none">
             {({close}) => (

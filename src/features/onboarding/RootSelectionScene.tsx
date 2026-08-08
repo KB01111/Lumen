@@ -30,7 +30,7 @@ export function RootSelectionScene({root, service, onRoot}: RootSelectionScenePr
       support="You can add, pause, exclude, or remove roots later."
       title="Choose one place to start"
     >
-      <LumenButton size="large" variant="primary" onPress={chooseRoot}>
+      <LumenButton size="large" variant="subtle" onPress={chooseRoot}>
         Choose folder
       </LumenButton>
       {root ? <div className="max-w-[440px] truncate rounded-control border border-border-subtle bg-surface-inset px-5 py-3 text-text-secondary" title={root}>{root}</div> : null}
