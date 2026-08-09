@@ -37,7 +37,7 @@ export function DiagnosticsPage() {
         <DiagnosticItem label="Browser long tasks (50 ms+)">{snapshot.browserLongTasks.length}</DiagnosticItem>
         <DiagnosticItem label="Interaction samples">{snapshot.timings.length}</DiagnosticItem>
       </SettingSection>
-      <div style={{display: 'flex', flexWrap: 'wrap', gap: 8}}>
+      <div className="flex flex-wrap gap-2">
         <LumenButton aria-label="Refresh diagnostics" size="small" onPress={refresh}><LumenUiIcon name="refresh" size="small" /> Refresh</LumenButton>
         <LumenButton aria-label="Measure refresh rate" size="small" onPress={() => void sampleRefreshRate()}>Measure refresh rate</LumenButton>
         <LumenButton aria-label="Prepare diagnostics export" size="small" variant="quiet" onPress={prepareExport}><LumenUiIcon name="download" size="small" /> Prepare export</LumenButton>

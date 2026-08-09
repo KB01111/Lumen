@@ -1,8 +1,9 @@
 import {
+  WindowService,
   windowGeometry,
   type WindowGeometry,
   type WindowMode,
-  type WindowService,
+  type WindowStateEvent,
 } from './window-service';
 
 export interface BrowserWindowSnapshot extends WindowGeometry {
@@ -12,7 +13,7 @@ export interface BrowserWindowSnapshot extends WindowGeometry {
   shortcut: string | null;
 }
 
-export class BrowserWindowService implements WindowService {
+export class BrowserWindowService extends WindowService {
   private state: BrowserWindowSnapshot = {
     mode: 'collapsed',
     visible: false,
@@ -21,17 +22,19 @@ export class BrowserWindowService implements WindowService {
     ...windowGeometry.collapsed,
   };
 
-  async show(mode: WindowMode): Promise<void> {
+  protected async performShow(mode: WindowMode): Promise<WindowStateEvent> {
     this.state = {
       ...this.state,
       ...windowGeometry[mode],
       mode,
       visible: true,
     };
+    return {mode, source: 'command', visible: true};
   }
 
-  async hide(): Promise<void> {
+  protected async performHide(): Promise<WindowStateEvent> {
     this.state = {...this.state, visible: false};
+    return {mode: null, source: 'command', visible: false};
   }
 
   async focusInput(): Promise<void> {

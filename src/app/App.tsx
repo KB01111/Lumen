@@ -7,13 +7,19 @@ import type {AppearancePreferences} from '../design-system/theme';
 import {SearchExperience} from '../features/launcher/SearchExperience';
 import {useLauncherStore} from '../features/launcher/launcher.store';
 import {useQueryStore} from '../features/launcher/query.store';
+import {
+  requestWindowShow,
+  useNativeLauncherLifecycle,
+} from '../features/launcher/useLauncherPresentation';
 import {useOnboardingStore} from '../features/onboarding/onboarding.store';
 import {createIndexedRoot} from '../features/settings/indexed-root';
 import {useSettingsStore} from '../features/settings/settings.store';
 import {createWindowService} from '../platform/window/tauri-window-service';
+import type {WindowService} from '../platform/window/window-service';
 import {TauriAnswerService} from '../services/answer/tauri-answer-service';
 import {TauriComputerUseService} from '../services/computer-use/tauri-computer-use-service';
 import {UnavailableComputerUseService} from '../services/computer-use/unavailable-computer-use-service';
+import {DevelopmentComputerUseService} from '../services/computer-use/development-computer-use-service';
 import {isNativeRuntime, nativeAiService} from '../services/ai/native-ai-service';
 import {DevelopmentFileSearchService} from '../services/search/development-file-search-service';
 import {DevelopmentSearchService} from '../services/search/development-search-service';
@@ -74,9 +80,13 @@ function createDefaultSearchService() {
 
 const defaultSearchService = createDefaultSearchService();
 const defaultAnswerService = new TauriAnswerService();
-const defaultComputerUseService = isNativeRuntime()
-  ? new TauriComputerUseService()
-  : new UnavailableComputerUseService();
+const developmentComputerUse = import.meta.env.DEV &&
+  new URLSearchParams(window.location.search).get('computerUse') === 'memory';
+const defaultComputerUseService = developmentComputerUse
+  ? new DevelopmentComputerUseService()
+  : isNativeRuntime()
+    ? new TauriComputerUseService()
+    : new UnavailableComputerUseService();
 const appWindowService = createWindowService();
 const OnboardingFlow = lazy(async () => {
   const module = await import('../features/onboarding/OnboardingFlow');
@@ -138,7 +148,11 @@ function getOnboardingMode() {
   return 'persisted' as const;
 }
 
-export function App() {
+export interface AppProps {
+  windowService?: WindowService;
+}
+
+export function App({windowService = appWindowService}: AppProps = {}) {
   const foundationPreview = isFoundationPreview();
   const galleryPreview = isGalleryPreview();
   const galleryPresentation = galleryPreview ? galleryAppearance() : null;
@@ -147,10 +161,13 @@ export function App() {
   const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
   const hydrateOnboarding = useOnboardingStore((state) => state.hydrate);
   const hydrateSettings = useSettingsStore((state) => state.hydrate);
+  const settingsHydrated = useSettingsStore((state) => state.hydrated);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
   const keepLocalWarm = useSettingsStore((state) => state.ai.keepLocalWarm);
   const [foundationAppearance, setFoundationAppearance] = useState(0);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const launcherMode = useLauncherStore((state) => state.mode);
+
+  useNativeLauncherLifecycle(windowService);
 
   useEffect(() => {
     if (!foundationPreview) {
@@ -183,6 +200,13 @@ export function App() {
   }, [foundationPreview, galleryPreview, hydrateSettings]);
 
   useEffect(() => {
+    if (!developmentComputerUse || !settingsHydrated) return;
+    useSettingsStore.setState((state) => ({
+      computerUse: {...state.computerUse, cloudConsent: true},
+    }));
+  }, [settingsHydrated]);
+
+  useEffect(() => {
     if (isNativeRuntime()) {
       void nativeAiService.setLocalRuntimeMode(runtimeMode, keepLocalWarm);
     }
@@ -209,10 +233,8 @@ export function App() {
 
   const closeSettings = useCallback(() => {
     const targetMode = useQueryStore.getState().committed ? 'expanded' : 'collapsed';
-    useLauncherStore.getState().show(targetMode);
-    setSettingsOpen(false);
-    void appWindowService.show(targetMode);
-  }, []);
+    void requestWindowShow(windowService, targetMode);
+  }, [windowService]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) {
@@ -220,12 +242,11 @@ export function App() {
     }
     const showDiagnosticsLauncher = () => {
       const targetMode = useQueryStore.getState().committed ? 'expanded' : 'collapsed';
-      useLauncherStore.getState().show(targetMode);
-      void appWindowService.show(targetMode);
+      void requestWindowShow(windowService, targetMode);
     };
     window.addEventListener('lumen:diagnostics-show-launcher', showDiagnosticsLauncher);
     return () => window.removeEventListener('lumen:diagnostics-show-launcher', showDiagnosticsLauncher);
-  }, []);
+  }, [windowService]);
 
   return (
     <AppProviders
@@ -276,9 +297,9 @@ export function App() {
           </LumenSurface>
         ) : showOnboarding ? (
           <Suspense fallback={null}>
-            <OnboardingFlow onComplete={completeOnboarding} />
+            <OnboardingFlow windowService={windowService} onComplete={completeOnboarding} />
           </Suspense>
-        ) : settingsOpen ? (
+        ) : launcherMode === 'settings' ? (
           <Suspense fallback={null}>
             <SettingsShell onClose={closeSettings} />
           </Suspense>
@@ -287,7 +308,7 @@ export function App() {
             answerService={defaultAnswerService}
             computerUseService={defaultComputerUseService}
             service={defaultSearchService}
-            onOpenSettings={() => setSettingsOpen(true)}
+            windowService={windowService}
           />
         )}
       </main>

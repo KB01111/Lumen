@@ -65,6 +65,9 @@ describe('PreviewPane', () => {
       <PreviewPane fileId={null} isOpen mode="dialog" reducedMotion service={new MemorySearchService()} />,
     );
     assertOpaqueSurfaceContract(dialog.baseElement);
+    const overlay = screen.getByRole('dialog', {name: 'File details'}).parentElement?.parentElement;
+    expect(overlay).toHaveClass('bg-scrim');
+    expect(overlay?.className).not.toContain('bg-black/50');
   });
 
   it('aborts the previous request and ignores a slow preview after selection changes', async () => {

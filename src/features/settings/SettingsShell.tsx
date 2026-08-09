@@ -101,7 +101,7 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
         className="grid min-h-0 min-w-0 grid-cols-[minmax(176px,260px)_minmax(0,1fr)]"
       >
         <div className="min-h-0 min-w-0 overflow-y-auto border-r border-border-subtle bg-surface-inset"><SettingsNav /></div>
-        <main aria-label="Settings content" className="min-h-0 min-w-0 overflow-y-auto" data-testid="settings-content" style={{overflowY: 'auto'}}>
+        <main aria-label="Settings content" className="min-h-0 min-w-0 overflow-y-auto" data-testid="settings-content">
           <TabPanel key={activePage} id={activePage}>
           <AnimatePresence initial={false} mode="wait">
             <motion.div

@@ -9,6 +9,7 @@ import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
+import {requestWindowShow} from '../launcher/useLauncherPresentation';
 import {OnboardingScene} from './OnboardingScene';
 import {
   isValidRoot,
@@ -24,7 +25,6 @@ import {
 import {ShortcutScene} from './ShortcutScene';
 
 const defaultRootService = createRootSelectionService();
-const defaultWindowService = createWindowService();
 
 function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut'>}) {
   switch (step) {
@@ -93,9 +93,14 @@ export interface OnboardingFlowProps {
 
 export function OnboardingFlow({
   rootService = defaultRootService,
-  windowService = defaultWindowService,
+  windowService: providedWindowService,
   onComplete,
 }: OnboardingFlowProps) {
+  const windowServiceRef = useRef<WindowService | null>(null);
+  if (!windowServiceRef.current) {
+    windowServiceRef.current = providedWindowService ?? createWindowService();
+  }
+  const windowService = providedWindowService ?? windowServiceRef.current;
   const {pageDuration, reducedMotion} = useLumenMotion();
   const currentIndex = useOnboardingStore((state) => state.currentIndex);
   const root = useOnboardingStore((state) => state.root);
@@ -110,7 +115,7 @@ export function OnboardingFlow({
   const step = onboardingSteps[currentIndex] ?? 'welcome';
 
   useEffect(() => {
-    void windowService.show('onboarding');
+    void requestWindowShow(windowService, 'onboarding');
   }, [windowService]);
 
   useEffect(() => {
@@ -128,7 +133,7 @@ export function OnboardingFlow({
     if (currentIndex === onboardingSteps.length - 1) {
       if (complete()) {
         onComplete?.();
-        void windowService.show('collapsed');
+        void requestWindowShow(windowService, 'collapsed');
       }
       return;
     }

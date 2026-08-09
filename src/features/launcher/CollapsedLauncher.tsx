@@ -13,9 +13,8 @@ import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
 import {ScopeRail} from './ScopeRail';
 import {SearchInput} from './SearchInput';
-import {useLauncherPresentation} from './useLauncherPresentation';
+import {requestWindowHide, useLauncherPresentation} from './useLauncherPresentation';
 
-const defaultWindowService = createWindowService();
 
 interface LauncherComposerProps {
   inputRef: RefObject<HTMLInputElement | null>;
@@ -112,15 +111,19 @@ export function CollapsedLauncher({
   inputRef: providedInputRef,
   searching = false,
   statusLabel,
-  windowService = defaultWindowService,
+  windowService: providedWindowService,
   onVoiceRequest,
   intentLocked = false,
   focusOnMount = true,
   onComputerSubmit,
 }: CollapsedLauncherProps) {
+  const windowServiceRef = useRef<WindowService | null>(null);
+  if (!windowServiceRef.current) {
+    windowServiceRef.current = providedWindowService ?? createWindowService();
+  }
+  const windowService = providedWindowService ?? windowServiceRef.current;
   const committedQuery = useQueryStore((state) => state.committed);
   const clearQuery = useQueryStore((state) => state.clear);
-  const hide = useLauncherStore((state) => state.hide);
   const visible = useLauncherStore((state) => state.visible);
   const intent = useLauncherStore((state) => state.intent);
   const setIntent = useLauncherStore((state) => state.setIntent);
@@ -156,8 +159,7 @@ export function CollapsedLauncher({
   }, [focusOnMount, inputRef, visible, windowService]);
 
   const handleEscapeEmpty = () => {
-    hide();
-    void windowService.hide();
+    void requestWindowHide(windowService);
   };
 
   const handleIntentChange = () => {

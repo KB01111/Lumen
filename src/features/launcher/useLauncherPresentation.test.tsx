@@ -2,9 +2,19 @@ import {StrictMode} from 'react';
 import {act, renderHook, waitFor} from '@testing-library/react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
-import type {WindowMode, WindowService} from '../../platform/window/window-service';
+import type {
+  WindowMode,
+  WindowStateEvent,
+} from '../../platform/window/window-service';
+import {WindowService} from '../../platform/window/window-service';
 import {useLauncherStore} from './launcher.store';
-import {useLauncherPresentation} from './useLauncherPresentation';
+import {useQueryStore} from './query.store';
+import {
+  requestWindowHide,
+  requestWindowShow,
+  useNativeLauncherLifecycle,
+  useLauncherPresentation,
+} from './useLauncherPresentation';
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -16,7 +26,7 @@ function deferred<T>() {
   return {promise, reject, resolve};
 }
 
-class DeferredWindowService implements WindowService {
+class DeferredWindowService extends WindowService {
   readonly calls: WindowMode[] = [];
   hideCalls = 0;
   nativeMode: WindowMode | 'unknown' = 'collapsed';
@@ -27,13 +37,14 @@ class DeferredWindowService implements WindowService {
     operation: ReturnType<typeof deferred<void>>;
   }> = [];
 
-  show(mode: WindowMode) {
+  protected performShow(mode: WindowMode) {
     this.calls.push(mode);
     const operation = deferred<void>();
     this.deferredShows.push({mode, operation});
-    return operation.promise.then(() => {
+    return operation.promise.then((): WindowStateEvent => {
       this.nativeMode = mode;
       this.nativeVisibility = 'visible';
+      return {mode, source: 'command', visible: true};
     });
   }
 
@@ -50,11 +61,12 @@ class DeferredWindowService implements WindowService {
     return this.deferredHide;
   }
 
-  async hide() {
+  protected async performHide(): Promise<WindowStateEvent> {
     this.hideCalls += 1;
     try {
       await this.deferredHide?.promise;
       this.nativeVisibility = 'hidden';
+      return {mode: null, source: 'command', visible: false};
     } catch (error) {
       this.nativeMode = 'unknown';
       this.nativeVisibility = 'unknown';
@@ -63,14 +75,154 @@ class DeferredWindowService implements WindowService {
   }
   async focusInput() {}
   async setShortcut() {}
+
+  emitExternal(event: WindowStateEvent) {
+    this.nativeMode = event.mode ?? this.nativeMode;
+    this.nativeVisibility = event.visible ? 'visible' : 'hidden';
+    this.publishNativeState(event);
+  }
 }
 
 afterEach(() => {
   vi.useRealTimers();
   useLauncherStore.getState().reset();
+  useQueryStore.getState().reset();
 });
 
 describe('useLauncherPresentation', () => {
+  it('restores collapsed native bounds when a current Settings request fails', async () => {
+    const windowService = new DeferredWindowService();
+    const request = requestWindowShow(windowService, 'settings');
+
+    expect(windowService.calls).toEqual(['settings']);
+    await act(async () => {
+      windowService.rejectShow('settings', new Error('Settings resize failed'));
+      await Promise.resolve();
+    });
+
+    expect(windowService.calls).toEqual(['settings', 'collapsed']);
+    await act(async () => {
+      windowService.resolveShow('collapsed');
+      await Promise.resolve();
+    });
+    await expect(request).resolves.toBe(false);
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'collapsed', visible: true});
+  });
+
+  it('preserves onboarding ownership when Alt+Space reactivates collapsed bounds', async () => {
+    const windowService = new DeferredWindowService();
+    useLauncherStore.getState().show('onboarding');
+    renderHook(() => useNativeLauncherLifecycle(windowService));
+
+    act(() => windowService.emitExternal({mode: 'collapsed', source: 'shortcut', visible: true}));
+
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'onboarding', visible: true});
+    expect(windowService.calls).toEqual(['onboarding']);
+    await act(async () => {
+      windowService.resolveShow('onboarding');
+      await Promise.resolve();
+    });
+  });
+
+  it('lets Settings take ownership before an expanded launcher unmounts', async () => {
+    const windowService = new DeferredWindowService();
+    const launcher = renderHook(() => {
+      useNativeLauncherLifecycle(windowService);
+      return useLauncherPresentation({hasContent: true, reducedMotion: false, windowService});
+    });
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    act(() => { void requestWindowShow(windowService, 'settings'); });
+    launcher.unmount();
+
+    expect(windowService.calls).toEqual(['expanded', 'settings']);
+    await act(async () => {
+      windowService.resolveShow('settings');
+      await Promise.resolve();
+    });
+    expect(windowService.calls).toEqual(['expanded', 'settings']);
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'settings', visible: true});
+  });
+
+  it('keeps file-open hide authoritative after the launcher unmounts', async () => {
+    const windowService = new DeferredWindowService();
+    const hideOperation = windowService.deferHide();
+    const launcher = renderHook(
+      () => useLauncherPresentation({hasContent: true, reducedMotion: false, windowService}),
+    );
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    act(() => { void requestWindowHide(windowService); });
+    launcher.unmount();
+
+    expect(windowService.hideCalls).toBe(1);
+    expect(useLauncherStore.getState().visible).toBe(false);
+    await act(async () => {
+      hideOperation.resolve();
+      await Promise.resolve();
+    });
+    expect(windowService.calls).toEqual(['expanded']);
+    expect(windowService.nativeVisibility).toBe('hidden');
+  });
+
+  it('reconciles native close and Alt+Space notifications with a retained query', async () => {
+    const windowService = new DeferredWindowService();
+    useQueryStore.getState().setDraft('retained report');
+    const launcher = renderHook(() => {
+      useNativeLauncherLifecycle(windowService);
+      return useLauncherPresentation({hasContent: true, reducedMotion: false, windowService});
+    });
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    act(() => windowService.emitExternal({mode: null, source: 'close', visible: false}));
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: false});
+    expect(windowService.calls).toEqual(['expanded']);
+
+    act(() => windowService.emitExternal({mode: 'collapsed', source: 'shortcut', visible: true}));
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: true});
+    expect(windowService.calls).toEqual(['expanded', 'expanded']);
+    await act(async () => {
+      windowService.resolveShow('expanded', 1);
+      await Promise.resolve();
+    });
+    expect(launcher.result.current.expanded).toBe(true);
+  });
+
+  it('lets a newer launcher generation recover after a stale Settings rejection', async () => {
+    const windowService = new DeferredWindowService();
+    const launcher = renderHook(
+      () => useLauncherPresentation({hasContent: true, reducedMotion: false, windowService}),
+    );
+
+    await act(async () => {
+      windowService.resolveShow('expanded');
+      await Promise.resolve();
+    });
+    act(() => { void requestWindowShow(windowService, 'settings'); });
+    act(() => { void requestWindowShow(windowService, 'expanded'); });
+    await act(async () => {
+      windowService.rejectShow('settings', new Error('Stale Settings resize failed'));
+      await Promise.resolve();
+    });
+
+    expect(windowService.calls).toEqual(['expanded', 'settings', 'expanded']);
+    await act(async () => {
+      windowService.resolveShow('expanded', 1);
+      await Promise.resolve();
+    });
+    expect(launcher.result.current).toMatchObject({expanded: true, presentationError: null});
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: true});
+  });
+
   it('waits for native expanded bounds before showing the workspace', async () => {
     const windowService = new DeferredWindowService();
     const {result, rerender} = renderHook(
@@ -262,15 +414,17 @@ describe('useLauncherPresentation', () => {
       await Promise.resolve();
     });
     expect(second.result.current.presentationError).toBe('Native hide unavailable');
-    expect(second.result.current.expanded).toBe(true);
-    expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: true});
-
-    second.rerender({hasContent: true});
+    expect(second.result.current.expanded).toBe(false);
     expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed', 'expanded']);
     await act(async () => {
       windowService.resolveShow('expanded', 1);
       await Promise.resolve();
     });
+    expect(second.result.current.expanded).toBe(true);
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: true});
+
+    second.rerender({hasContent: true});
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'collapsed', 'expanded']);
     expect(second.result.current.expanded).toBe(true);
     expect(useLauncherStore.getState()).toMatchObject({mode: 'expanded', visible: true});
   });
@@ -528,6 +682,12 @@ describe('useLauncherPresentation', () => {
       await Promise.resolve();
     });
     expect(result.current.presentationError).toBe('Native collapse unavailable');
+    expect(result.current.expanded).toBe(false);
+    expect(windowService.calls).toEqual(['expanded', 'collapsed', 'expanded']);
+    await act(async () => {
+      windowService.resolveShow('expanded', 1);
+      await Promise.resolve();
+    });
     expect(result.current.expanded).toBe(true);
     expect(useLauncherStore.getState().mode).toBe('expanded');
   });

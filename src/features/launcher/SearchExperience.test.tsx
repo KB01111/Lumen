@@ -21,6 +21,19 @@ afterEach(() => {
 });
 
 describe('SearchExperience answer submission', () => {
+  it('keeps the warm launcher marker on a Tailwind contents wrapper', () => {
+    const {container} = render(
+      <SearchExperience
+        service={new MemorySearchService()}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    const wrapper = container.querySelector<HTMLElement>('[data-launcher-visible]');
+    expect(wrapper).toHaveClass('contents');
+    expect(wrapper).not.toHaveAttribute('style');
+  });
+
   it('keeps the real streaming answer region mounted when local search fails', async () => {
     const user = userEvent.setup();
     const service = new MemorySearchService();

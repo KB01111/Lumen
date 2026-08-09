@@ -32,7 +32,8 @@ describe('SettingsShell', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(10);
     expect(screen.getByRole('tab', {name: 'General'})).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('heading', {name: 'General'})).toBeVisible();
-    expect(screen.getByTestId('settings-content')).toHaveStyle({overflowY: 'auto'});
+    expect(screen.getByTestId('settings-content')).toHaveClass('overflow-y-auto');
+    expect(screen.getByTestId('settings-content')).not.toHaveAttribute('style');
   });
 
   it('keeps the close action visibly focusable', () => {

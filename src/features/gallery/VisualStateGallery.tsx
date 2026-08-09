@@ -2,8 +2,8 @@ import {useCallback, useEffect, useLayoutEffect, useMemo, useState} from 'react'
 
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
+import {BrowserWindowService} from '../../platform/window/browser-window-service';
 import {createWindowService} from '../../platform/window/tauri-window-service';
-import type {WindowService} from '../../platform/window/window-service';
 import {ActivityStatus} from '../activity/ActivityStatus';
 import {AnswerPanel} from '../answer/AnswerPanel';
 import type {AnswerState} from '../answer/useAnswerController';
@@ -26,12 +26,7 @@ import {ScenarioControls} from './ScenarioControls';
 import {galleryScenarios, getGalleryScenario} from './scenarios';
 import type {GalleryAnswerState, GalleryLauncherState, GalleryScenario, GalleryScenarioId} from './gallery.types';
 
-const galleryWindowService: WindowService = {
-  async show() {},
-  async hide() {},
-  async focusInput() {},
-  async setShortcut() {},
-};
+const galleryWindowService = new BrowserWindowService();
 const nativeGalleryWindowService = createWindowService();
 
 const galleryRootService: RootSelectionService = {async chooseRoot() { return null; }};

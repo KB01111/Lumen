@@ -17,6 +17,41 @@ pub enum WindowMode {
     Gallery,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WindowStateSource {
+    Command,
+    Shortcut,
+    SecondInstance,
+    Close,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowStateEvent {
+    pub mode: Option<WindowMode>,
+    pub source: WindowStateSource,
+    pub visible: bool,
+}
+
+impl WindowStateEvent {
+    const fn visible(mode: WindowMode, source: WindowStateSource) -> Self {
+        Self {
+            mode: Some(mode),
+            source,
+            visible: true,
+        }
+    }
+
+    pub const fn hidden(source: WindowStateSource) -> Self {
+        Self {
+            mode: None,
+            source,
+            visible: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WindowGeometry {
     pub width: f64,
@@ -189,14 +224,22 @@ pub fn apply_native_material(window: &WebviewWindow) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-pub fn show_from_app(app: &AppHandle, mode: WindowMode) -> Result<(), String> {
+pub fn show_from_app(
+    app: &AppHandle,
+    mode: WindowMode,
+    source: WindowStateSource,
+) -> Result<WindowStateEvent, String> {
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "The Lumen window is unavailable.".to_owned())?;
-    show_window(&window, mode)
+    show_window(&window, mode, source)
 }
 
-fn show_window(window: &WebviewWindow, mode: WindowMode) -> Result<(), String> {
+fn show_window(
+    window: &WebviewWindow,
+    mode: WindowMode,
+    source: WindowStateSource,
+) -> Result<WindowStateEvent, String> {
     let geometry = geometry_for(mode);
     apply_geometry(window, geometry)?;
     place_on_active_monitor(window, geometry)?;
@@ -204,17 +247,37 @@ fn show_window(window: &WebviewWindow, mode: WindowMode) -> Result<(), String> {
     window.set_focus().map_err(|error| error.to_string())?;
     window
         .emit("lumen://focus-input", ())
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    let state = WindowStateEvent::visible(mode, source);
+    if source != WindowStateSource::Command {
+        window
+            .emit("lumen://window-state", state)
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(state)
 }
 
 #[tauri::command]
-pub fn show_lumen_window(window: WebviewWindow, mode: WindowMode) -> Result<(), String> {
-    show_window(&window, mode)
+pub fn show_lumen_window(
+    window: WebviewWindow,
+    mode: WindowMode,
+) -> Result<WindowStateEvent, String> {
+    show_window(&window, mode, WindowStateSource::Command)
 }
 
 #[tauri::command]
-pub fn hide_lumen_window(window: WebviewWindow) -> Result<(), String> {
-    window.hide().map_err(|error| error.to_string())
+pub fn hide_lumen_window(window: WebviewWindow) -> Result<WindowStateEvent, String> {
+    window.hide().map_err(|error| error.to_string())?;
+    Ok(WindowStateEvent::hidden(WindowStateSource::Command))
+}
+
+pub fn emit_hidden_from_app(app: &AppHandle, source: WindowStateSource) -> Result<(), String> {
+    app.emit_to(
+        "main",
+        "lumen://window-state",
+        WindowStateEvent::hidden(source),
+    )
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -347,6 +410,31 @@ mod tests {
         assert_eq!(
             effect_fallback_order(),
             [Effect::Acrylic, Effect::Mica, Effect::Blur]
+        );
+    }
+
+    #[test]
+    fn window_state_events_serialize_for_native_visibility_reconciliation() {
+        assert_eq!(
+            serde_json::to_value(WindowStateEvent::visible(
+                WindowMode::Expanded,
+                WindowStateSource::SecondInstance,
+            ))
+            .expect("visible window state should serialize"),
+            serde_json::json!({
+                "mode": "expanded",
+                "source": "secondInstance",
+                "visible": true,
+            }),
+        );
+        assert_eq!(
+            serde_json::to_value(WindowStateEvent::hidden(WindowStateSource::Close))
+                .expect("hidden window state should serialize"),
+            serde_json::json!({
+                "mode": null,
+                "source": "close",
+                "visible": false,
+            }),
         );
     }
 }

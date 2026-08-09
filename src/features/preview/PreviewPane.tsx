@@ -111,7 +111,7 @@ export function PreviewPane({
     <ModalOverlay
       isDismissable
       isOpen={isOpen}
-      className="lumen-preview-overlay fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm"
+      className="lumen-preview-overlay fixed inset-0 z-50 grid place-items-center bg-scrim p-4 backdrop-blur-sm"
       onOpenChange={onOpenChange}
     >
       <Modal className="lumen-preview-modal max-h-[min(620px,calc(100vh-32px))] w-[min(620px,calc(100vw-32px))] overflow-hidden rounded-surface border border-[color:var(--einui-command-divider)] bg-canvas high-contrast:bg-[Canvas] shadow-surface outline-none" data-preview-surface="opaque">
