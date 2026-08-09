@@ -94,18 +94,23 @@ and generated fields are therefore named `browserLongTasks` and
 entries in each measurement window. Those coarse browser observations are
 reported separately and are not claimed as proof of the direct 16 ms guards.
 
-The round-one retained Edge 151.0.4129.72 profile on this AMD Radeon 890M / 240 Hz
-host recorded `passed: true`; it is retained here as pre-review history until
-the corrected artifact is generated from the clean source commit. Edge observed approximately 238 Hz (`4.2 ms`
-median, `8.3 ms` p95). Warm launcher p95 was `2.4 ms`; input-to-paint p95
-`5.6 ms`; selection-to-paint p95 `2.4 ms`; paired hover-to-paint p95 `6.9 ms`
-with a contemporaneous `10.268 ms` frame p95; React commit p95 `2.5 ms`; idle
-CPU `0.37%`; garbage-collected heap `26.69 MB`; and zero settled animation.
-Effective input/selection and hover budgets were respectively `8.3 ms` and
-`10.268 ms`. Rapid input and selection each produced 30 samples; input ended at
-the correct value, selection retained exactly one selected row, and neither
-window contained a browser Long Task. Raw strict-240 results remain visible and are
-input false, selection true, hover false, aggregate false.
+The final corrected Edge 151.0.4129.72 profile on this AMD Radeon 890M / 240 Hz
+host records `passed: true` for source commit
+`4edbb78f545096831c6a657dc37883b95ccb3849`. Edge observed approximately 238 Hz
+(`4.2 ms` median, `8.1 ms` p95). Warm launcher p95 was `3.4 ms`;
+input-to-paint p95 `5.1 ms`; selection-to-paint p95 `2.2 ms`; paired
+hover-to-paint p95 `6.9 ms` with a contemporaneous `10.368 ms` frame p95;
+React commit p95 `2.2 ms`; idle CPU `0.31%`; garbage-collected heap `26.71 MB`;
+and zero settled animation. Effective input/selection and hover budgets were
+respectively `8.1 ms` and `10.368 ms`.
+
+Rapid input and selection each produced 30 samples; input ended at the correct
+value, selection retained exactly one selected row, and their direct
+synchronous durations were `0.9 ms` and `1.6 ms`. Maximum synchronous hover
+dispatch was `1.0 ms`. The rapid-input, rapid-selection, paced-selection, and
+hover windows contained zero browser Long Tasks (50 ms+). Raw strict-240
+results remain visible and are input false, selection true, hover false,
+aggregate false.
 
 Before the paired hover correction, two same-server corrected-burst profiles
 already passed without rapid-input tasks. The first measured input/selection at
@@ -125,6 +130,9 @@ arbitrary tolerance, retry, worker count, port rule, or browser flag changed.
 | initial `bun run profile` | 1 | Terminal and honestly RED; it exposed the protocol-driven rapid-burst method defect. |
 | corrected `bun run profile` pair | 0 / 0 | Two same-server terminal passes; both produced 30 rapid-input samples, the correct final value, and no browser Long Task (50 ms+). |
 | final paired-hover `bun run profile` | 0 | Terminal retained profile with the measurements above and `passed: true`. |
+| review-corrected `bun run capture:gallery` | 0 | Terminal against one retained owned server; regenerated 53 scenarios plus contact sheet from clean source SHA `4edbb78f545096831c6a657dc37883b95ccb3849` in 40.5 s. |
+| review-corrected `bun run record:interactions` | 0 | Terminal against the same server; regenerated six recordings with clicked/asserted Stop, Approve once, and Deny and stop transitions in 44.4 s. |
+| review-corrected `bun run profile` | 0 | Terminal against the same server in 19.4 s; direct synchronous guards passed, all browser Long Task arrays were empty, raw strict-240 values remained visible, and `passed: true`. |
 | exact `bun run test:e2e` | 0 | Terminal; 34/34 passed against one owned IPv4 Vite server. |
 | focused light-theme CSS contract | 0 | Terminal; 3/3 tests passed after the demonstrated RED. |
 | focused light-theme Playwright contract | 0 | Terminal; 1/1 passed after the demonstrated computed-color RED. |
@@ -132,8 +140,8 @@ arbitrary tolerance, retry, worker count, port rule, or browser flag changed.
 
 All browser and artifact runners were serialized. The explicitly owned Vite
 tree was stopped after evidence generation and port 1420 was confirmed free.
-The performance-method correction then passed typecheck, lint, all 219 unit
-tests, the 34-test exact E2E suite, and the frontend production build. The final
+The review correction passed typecheck, lint, all 222 unit tests, the 34-test
+exact E2E suite, and the frontend production build. The final
 native verification history is retained below, including the first WiX RED and
 both recovery GREEN commands.
 

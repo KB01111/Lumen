@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T13:57:30.112Z",
-  "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102",
+  "generatedAt": "2026-08-09T15:30:10.340Z",
+  "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849",
   "browser": {
     "name": "Microsoft Edge"
   },
@@ -25,7 +25,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "id": "settings-routing",
@@ -40,7 +40,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "id": "onboarding",
@@ -59,7 +59,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "id": "answer-submission",
@@ -75,7 +75,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "id": "answer-approval-states",
@@ -84,15 +84,15 @@
       "flows": [
         "waiting",
         "streaming",
-        "stop control",
+        "stop transition",
         "completed answer",
         "approval pause",
-        "approve once",
-        "deny and stop"
+        "approve transition",
+        "deny transition"
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "id": "activity-provider-states",
@@ -108,7 +108,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     }
   ]
 }

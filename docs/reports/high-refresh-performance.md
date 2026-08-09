@@ -18,20 +18,20 @@ The browser Long Tasks API is a separate coarse signal: by definition it reports
 
 | Metric | Release budget | Task 12 retained result |
 | --- | ---: | ---: |
-| Warm launcher visible p95 | < 20 ms | 2.4 ms |
-| Input to paint p95 | < 8.3 ms observed frame | 5.6 ms |
-| Arrow selection to paint p95 | < 8.3 ms observed frame | 2.4 ms |
-| Hover to paint p95 | < 10.268 ms paired frame | 6.9 ms |
+| Warm launcher visible p95 | < 20 ms | 3.4 ms |
+| Input to paint p95 | < 8.1 ms observed frame | 5.1 ms |
+| Arrow selection to paint p95 | < 8.1 ms observed frame | 2.2 ms |
+| Hover to paint p95 | < 10.368 ms paired frame | 6.9 ms |
 | Raw strict-240 input / selection / hover | < 4.1667 ms each | false / true / false |
-| Ordinary React commit p95 | < 3 ms | 2.5 ms |
-| Direct synchronous input/selection bursts and hover dispatch | < 16 ms | regenerated JSON records exact values |
+| Ordinary React commit p95 | < 3 ms | 2.2 ms |
+| Direct synchronous input/selection bursts and hover dispatch | < 16 ms | 0.9 / 1.6 / 1.0 ms |
 | Browser Long Tasks | none >= 50 ms | none |
 | Active animations after settle | 0 | 0 |
-| Idle UI CPU | < 2 percent | 0.37 percent |
-| JavaScript heap after GC | < 100 MB | 26.69 MB |
+| Idle UI CPU | < 2 percent | 0.31 percent |
+| JavaScript heap after GC | < 100 MB | 26.71 MB |
 | Unpaced input/selection bursts | correct final state, direct synchronous duration < 16 ms | passed |
 
-The machine-readable result for the delivered source is `artifacts/performance/profile-summary.json`; `interaction-trace.zip` contains the correlated trace. The JSON records the exact browser build, source SHA, samples, budgets, checks, and observed cadence.
+The machine-readable result for source commit `4edbb78f545096831c6a657dc37883b95ccb3849` is `artifacts/performance/profile-summary.json`; `interaction-trace.zip` contains the correlated trace. The JSON records that exact source SHA, browser build, samples, budgets, checks, and observed cadence. A later evidence-only commit may contain these generated files without changing the source SHA they identify.
 
 ## Render-path findings
 
@@ -46,4 +46,4 @@ The machine-readable result for the delivered source is `artifacts/performance/p
 
 ## Interpretation and limits
 
-The original host's observed browser cadence was lower than its driver-reported 500 Hz and varied between 250, 256, and 476 Hz. The Task 12 host is driver-configured for 240 Hz while Edge estimated 238 Hz with a 4.2 ms median and 8.3 ms p95 frame interval. The report therefore preserves nominal and observed values rather than inferring a fixed rate. Browser automation is not GPU-present instrumentation, and the Tauri WebView2 compositor was spot-checked visually rather than captured with PresentMon. A future release gate should repeat this profile on representative 60, 120, 144, 165, and 240 Hz panels and add native present/ETW evidence.
+The original host's observed browser cadence was lower than its driver-reported 500 Hz and varied between 250, 256, and 476 Hz. The Task 12 host is driver-configured for 240 Hz while Edge estimated 238 Hz with a 4.2 ms median and 8.1 ms p95 frame interval. The report therefore preserves nominal and observed values rather than inferring a fixed rate. Browser automation is not GPU-present instrumentation, and the Tauri WebView2 compositor was spot-checked visually rather than captured with PresentMon. A future release gate should repeat this profile on representative 60, 120, 144, 165, and 240 Hz panels and add native present/ETW evidence.
