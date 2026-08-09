@@ -53,18 +53,25 @@ test('the constrained work area keeps controls contained while results and answe
     const gallery = page.getByRole('region', {name: 'Lumen visual state gallery'});
     const launcher = page.getByLabel('Lumen launcher');
     const search = page.getByRole('searchbox', {name: 'Search files'});
-    const composer = search.locator('..');
+    const composer = launcher.locator('[data-einui-slot="composer"]');
     const footer = page.getByText('Local runtime', {exact: true}).locator('..');
     const grid = page.getByRole('grid', {name: 'Search results'});
     const resultViewport = grid.locator('..');
     const answer = page.getByTestId('answer-region');
+    const modeControl = page.getByRole('button', {name: 'Switch to Computer Use'});
+    const modeLabel = modeControl.getByText('Computer Use', {exact: true});
+    const shortcut = page.getByLabel('Alt plus Space');
 
     await expect(gallery).toBeAttached();
+    await expect(composer).toHaveAttribute('data-einui-slot', 'composer');
     await expect(search).toBeVisible();
     await expect(footer).toBeVisible();
     await expect(grid).toBeVisible();
     await expect(answer).toBeVisible();
     await expect(answer).toHaveCount(1);
+    await expect(modeControl).toHaveAccessibleName('Switch to Computer Use');
+    await expect(modeLabel).toBeVisible();
+    await expect(shortcut).toBeHidden();
     await expect(page.getByRole('region', {name: 'File preview'})).toBeHidden();
 
     const [galleryBounds, launcherBounds, composerBounds, footerBounds, searchBounds, modeBounds] = await Promise.all([
@@ -73,7 +80,7 @@ test('the constrained work area keeps controls contained while results and answe
       composer.boundingBox(),
       footer.boundingBox(),
       search.boundingBox(),
-      page.getByRole('button', {name: 'Switch to Computer Use'}).boundingBox(),
+      modeControl.boundingBox(),
     ]);
     expect(galleryBounds).not.toBeNull();
     expect(launcherBounds).not.toBeNull();
@@ -96,6 +103,25 @@ test('the constrained work area keeps controls contained while results and answe
     expect((modeBounds?.x ?? 0) + (modeBounds?.width ?? 0)).toBeLessThanOrEqual(
       (composerBounds?.x ?? 0) + (composerBounds?.width ?? 0) + 0.5,
     );
+    if (scale === 200) {
+      const labelTruncation = await modeLabel.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          clientWidth: element.clientWidth,
+          overflow: style.overflow,
+          scrollWidth: element.scrollWidth,
+          textOverflow: style.textOverflow,
+          whiteSpace: style.whiteSpace,
+        };
+      });
+      expect(labelTruncation.clientWidth).toBeGreaterThan(0);
+      expect(labelTruncation.scrollWidth).toBeGreaterThan(labelTruncation.clientWidth);
+      expect(labelTruncation).toMatchObject({
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      });
+    }
 
     const resultScroll = await resultViewport.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
