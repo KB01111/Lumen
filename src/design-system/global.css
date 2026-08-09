@@ -240,8 +240,8 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 /*
- * Details-dialog choreography. Keyframes cannot be expressed in StyleX, so
- * they live here; durations and easings mirror the motion tokens
+ * Details-dialog choreography stays in this Tailwind CSS-first stylesheet;
+ * durations and easings mirror the motion tokens
  * (open 160 ms, expand 190 ms, close 120 ms; standard / exit curves).
  * React Aria sets data-entering / data-exiting and waits for these CSS
  * animations before removing the attributes or unmounting the overlay.

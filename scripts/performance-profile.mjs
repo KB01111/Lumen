@@ -34,6 +34,14 @@ async function waitForSamples(page, name, count) {
   );
 }
 
+async function hideAndReshowLauncher(page, search) {
+  await page.keyboard.press('Escape');
+  await page.locator('[data-launcher-visible="false"]').waitFor();
+  await page.evaluate(() => window.dispatchEvent(new window.CustomEvent('lumen:diagnostics-show-launcher')));
+  await page.locator('[data-launcher-visible="true"]').waitFor();
+  await search.waitFor({state: 'visible'});
+}
+
 async function measureRefresh(page) {
   return page.evaluate(async () => {
     const intervals = [];
@@ -78,18 +86,13 @@ async function profile(baseUrl) {
     await search.waitFor({state: 'visible'});
 
     for (let index = 0; index < 6; index += 1) {
-      await page.keyboard.press('Control+,');
-      await page.getByRole('navigation', {name: 'Settings'}).waitFor();
-      await page.keyboard.press('Escape');
-      await search.waitFor({state: 'visible'});
+      await hideAndReshowLauncher(page, search);
     }
     await page.waitForTimeout(100);
     await resetMetrics(page);
 
     for (let index = 1; index <= 24; index += 1) {
-      await page.keyboard.press('Control+,');
-      await page.getByRole('navigation', {name: 'Settings'}).waitFor();
-      await page.keyboard.press('Escape');
+      await hideAndReshowLauncher(page, search);
       await waitForSamples(page, 'launcher-visible', index);
     }
     const warmMetrics = await readMetrics(page);

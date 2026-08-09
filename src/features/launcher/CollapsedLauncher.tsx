@@ -1,4 +1,4 @@
-import {useEffect, useRef, type ReactNode, type RefObject} from 'react';
+import {useLayoutEffect, useRef, type ReactNode, type RefObject} from 'react';
 
 import {GlassCommandPalette} from '../../components/ui/GlassCommandPalette';
 import {LumenMark} from '../../design-system/icons/LumenMark';
@@ -121,11 +121,21 @@ export function CollapsedLauncher({
   const committedQuery = useQueryStore((state) => state.committed);
   const clearQuery = useQueryStore((state) => state.clear);
   const hide = useLauncherStore((state) => state.hide);
+  const visible = useLauncherStore((state) => state.visible);
   const intent = useLauncherStore((state) => state.intent);
   const setIntent = useLauncherStore((state) => state.setIntent);
   const {reducedMotion} = useLumenMotion();
   const fallbackInputRef = useRef<HTMLInputElement>(null);
-  const renderStartedAt = useRef(performance.now());
+  const previousVisible = useRef(visible);
+  const visibleRenderStartedAt = useRef<number | null>(visible ? performance.now() : null);
+  if (visible) {
+    if (!previousVisible.current) {
+      visibleRenderStartedAt.current = performance.now();
+    }
+  } else {
+    visibleRenderStartedAt.current = null;
+  }
+  previousVisible.current = visible;
   const inputRef = providedInputRef ?? fallbackInputRef;
   const {expanded, presentationError} = useLauncherPresentation({
     hasContent: committedQuery.length > 0,
@@ -133,14 +143,17 @@ export function CollapsedLauncher({
     windowService,
   });
 
-  useEffect(() => {
-    if (!focusOnMount) {
+  useLayoutEffect(() => {
+    if (!visible || !focusOnMount) {
       return;
     }
     inputRef.current?.focus();
     void windowService.focusInput();
-    measureAfterPaint('launcher-visible', renderStartedAt.current);
-  }, [focusOnMount, inputRef, windowService]);
+    return measureAfterPaint(
+      'launcher-visible',
+      visibleRenderStartedAt.current ?? performance.now(),
+    );
+  }, [focusOnMount, inputRef, visible, windowService]);
 
   const handleEscapeEmpty = () => {
     hide();

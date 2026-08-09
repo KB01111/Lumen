@@ -256,17 +256,73 @@ mod tests {
     use super::*;
 
     #[test]
-    fn collapsed_geometry_matches_product_contract() {
-        let geometry = geometry_for(WindowMode::Collapsed);
-        assert_eq!((geometry.width, geometry.height), (700.0, 66.0));
-        assert!(!geometry.resizable);
-    }
+    fn native_geometry_table_matches_each_window_mode_contract() {
+        let expected = [
+            (
+                WindowMode::Collapsed,
+                WindowGeometry {
+                    width: 700.0,
+                    height: 66.0,
+                    min_width: 620.0,
+                    max_width: 760.0,
+                    min_height: 66.0,
+                    max_height: 66.0,
+                    resizable: false,
+                },
+            ),
+            (
+                WindowMode::Expanded,
+                WindowGeometry {
+                    width: 800.0,
+                    height: 540.0,
+                    min_width: 720.0,
+                    max_width: 960.0,
+                    min_height: 320.0,
+                    max_height: 600.0,
+                    resizable: true,
+                },
+            ),
+            (
+                WindowMode::Onboarding,
+                WindowGeometry {
+                    width: 800.0,
+                    height: 600.0,
+                    min_width: 720.0,
+                    max_width: 960.0,
+                    min_height: 560.0,
+                    max_height: 720.0,
+                    resizable: true,
+                },
+            ),
+            (
+                WindowMode::Settings,
+                WindowGeometry {
+                    width: 880.0,
+                    height: 600.0,
+                    min_width: 760.0,
+                    max_width: 1080.0,
+                    min_height: 520.0,
+                    max_height: 760.0,
+                    resizable: true,
+                },
+            ),
+            (
+                WindowMode::Gallery,
+                WindowGeometry {
+                    width: 1120.0,
+                    height: 760.0,
+                    min_width: 880.0,
+                    max_width: 1440.0,
+                    min_height: 640.0,
+                    max_height: 960.0,
+                    resizable: true,
+                },
+            ),
+        ];
 
-    #[test]
-    fn expanded_geometry_caps_workspace_height() {
-        let geometry = geometry_for(WindowMode::Expanded);
-        assert_eq!(geometry.width, 800.0);
-        assert_eq!(geometry.max_height, 600.0);
+        for (mode, geometry) in expected {
+            assert_eq!(geometry_for(mode), geometry, "{mode:?}");
+        }
     }
 
     #[test]

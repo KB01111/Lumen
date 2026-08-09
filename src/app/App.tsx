@@ -19,6 +19,12 @@ import {DevelopmentFileSearchService} from '../services/search/development-file-
 import {DevelopmentSearchService} from '../services/search/development-search-service';
 import {AppProviders} from './AppProviders';
 
+declare global {
+  interface WindowEventMap {
+    'lumen:diagnostics-show-launcher': CustomEvent<void>;
+  }
+}
+
 const foundationAppearances: AppearancePreferences[] = [
   {mode: 'dark', transparency: 'native', effects: 'full', motion: 'full'},
   {mode: 'light', transparency: 'native', effects: 'full', motion: 'full'},
@@ -206,6 +212,19 @@ export function App() {
     useLauncherStore.getState().show(targetMode);
     setSettingsOpen(false);
     void appWindowService.show(targetMode);
+  }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return;
+    }
+    const showDiagnosticsLauncher = () => {
+      const targetMode = useQueryStore.getState().committed ? 'expanded' : 'collapsed';
+      useLauncherStore.getState().show(targetMode);
+      void appWindowService.show(targetMode);
+    };
+    window.addEventListener('lumen:diagnostics-show-launcher', showDiagnosticsLauncher);
+    return () => window.removeEventListener('lumen:diagnostics-show-launcher', showDiagnosticsLauncher);
   }, []);
 
   return (

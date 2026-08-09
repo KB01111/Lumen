@@ -29,7 +29,7 @@ Indexed-root edits are persisted settings and feed the development file adapter.
 
 ## Appearance and accessibility
 
-The application root selects one complete StyleX color/material theme at a time: light, dark, light opaque, dark opaque, or forced high contrast. This avoids partial theme contracts resetting one another. Reduced motion is enforced by the motion provider and a CSS duration override; reduced effects remove decorative noise and lower blur. Typography uses `rem` tokens so Windows/browser text scaling reaches management content. The navigation rail remains fixed while the page panel scrolls independently, including at 200 percent text size.
+The application root selects one complete Tailwind CSS semantic color/material theme at a time: light, dark, light opaque, dark opaque, or forced high contrast. This avoids partial theme contracts resetting one another. Reduced motion is enforced by the motion provider and a CSS duration override; reduced effects remove decorative noise and lower blur. Typography uses `rem` tokens so Windows/browser text scaling reaches management content. The navigation rail remains fixed while the page panel scrolls independently, including at 200 percent text size.
 
 ## Diagnostics sampling
 

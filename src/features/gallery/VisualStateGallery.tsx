@@ -42,10 +42,16 @@ function navigate(parameters: URLSearchParams) {
   window.location.search = parameters.toString();
 }
 
-function galleryAnswer(state: GalleryAnswerState | undefined): AnswerState | null {
+function galleryAnswer(state: GalleryAnswerState | undefined, constrained = false): AnswerState | null {
   if (!state) return null;
   if (state === 'waiting') return {phase: 'waiting', text: '', citations: []};
-  if (state === 'streaming') return {phase: 'streaming', text: 'The local report is being summarized as the answer arrives.', citations: []};
+  if (state === 'streaming') return {
+    phase: 'streaming',
+    text: constrained
+      ? 'The local report is being summarized as the answer arrives. The constrained work area keeps the composer and footer visible while the answer remains available through its own scroll region. Local files stay visible alongside the streamed response, and the preview yields before either primary region is clipped.'
+      : 'The local report is being summarized as the answer arrives.',
+    citations: [],
+  };
   if (state === 'failed') return {phase: 'error', text: '', citations: [], error: 'The answer route is unavailable.'};
   return {
     phase: 'completed',
@@ -100,7 +106,7 @@ function GalleryLauncher({state}: {state: GalleryLauncherState}) {
     : null;
   const lifecycle = state.noRoot ? 'error' : results.length > 0 ? 'ready' : 'empty';
   const expanded = state.mode === 'expanded';
-  const answer = galleryAnswer(state.answer);
+  const answer = galleryAnswer(state.answer, state.constrained);
 
   return (
     <div className={`min-h-0 min-w-0 ${state.constrained ? 'h-[340px] w-[min(100%,520px)]' : expanded ? 'h-[min(100%,540px)] w-[min(100%,800px)]' : 'h-[66px] w-[min(100%,800px)]'}`}>

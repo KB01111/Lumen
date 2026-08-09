@@ -4,6 +4,7 @@ const timingSamples: TimingSample[] = [];
 const reactCommits: number[] = [];
 const longTasks: number[] = [];
 const logs: string[] = [];
+let longTaskResetAt = 0;
 
 function trim<T>(items: T[], maximum = 160) {
   if (items.length > maximum) {
@@ -27,7 +28,9 @@ export function captureLog(message: string) {
 }
 
 export function measureAfterPaint(name: TimingSample['name'], startedAt: number) {
+  let cancelled = false;
   const finish = () => {
+    if (cancelled) return;
     const end = performance.now();
     const duration = end - startedAt;
     try {
@@ -38,9 +41,16 @@ export function measureAfterPaint(name: TimingSample['name'], startedAt: number)
     captureTiming(name, duration);
   };
   if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(finish);
+    const frame = requestAnimationFrame(finish);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
   } else {
     queueMicrotask(finish);
+    return () => {
+      cancelled = true;
+    };
   }
 }
 
@@ -51,7 +61,7 @@ export function startDiagnosticsObserver() {
   try {
     const observer = new PerformanceObserver((entries) => {
       for (const entry of entries.getEntries()) {
-        if (entry.duration >= 16) {
+        if (entry.startTime >= longTaskResetAt && entry.duration >= 16) {
           longTasks.push(entry.duration);
           trim(longTasks);
         }
@@ -75,6 +85,7 @@ export function readDiagnosticMetrics() {
 }
 
 export function resetDiagnosticMetrics() {
+  longTaskResetAt = typeof performance === 'undefined' ? 0 : performance.now();
   timingSamples.splice(0);
   reactCommits.splice(0);
   longTasks.splice(0);

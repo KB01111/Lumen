@@ -47,6 +47,15 @@ async function waitForSamples(page: Page, name: string, count: number) {
   );
 }
 
+async function hideAndReshowLauncher(page: Page, search: ReturnType<Page['getByRole']>) {
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-launcher-visible="false"]')).toHaveCount(1);
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('lumen:diagnostics-show-launcher')));
+  await expect(page.locator('[data-launcher-visible="true"]')).toHaveCount(1);
+  await expect(search).toBeVisible();
+  await expect(search).toBeFocused();
+}
+
 async function measureFrameCadence(page: Page, sampleCount = 60) {
   return page.evaluate(async (count) => {
     const intervals: number[] = [];
@@ -76,19 +85,13 @@ test('warm launcher and ordinary interactions stay inside browser budgets', asyn
   await expect(search).toBeFocused();
 
   for (let index = 0; index < 6; index += 1) {
-    await page.keyboard.press('Control+,');
-    await expect(page.getByRole('navigation', {name: 'Settings'})).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(search).toBeFocused();
+    await hideAndReshowLauncher(page, search);
   }
   await page.waitForTimeout(100);
   await resetMetrics(page);
 
   for (let index = 1; index <= 24; index += 1) {
-    await page.keyboard.press('Control+,');
-    await expect(page.getByRole('navigation', {name: 'Settings'})).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(search).toBeFocused();
+    await hideAndReshowLauncher(page, search);
     await waitForSamples(page, 'launcher-visible', index);
   }
   const warmMetrics = await readMetrics(page);

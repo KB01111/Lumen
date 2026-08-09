@@ -34,7 +34,7 @@ mass: 0.7
 - When a refined result set replaces the current one, rows fade in through a short WAAPI cascade (140 ms, 14 ms stagger, capped at eight rows, opacity only). The first result set never cascades—it arrives together with the workspace reveal—nor do virtualized grids, so scrolling can never replay the effect.
 - Preview changes use short opacity and horizontal transforms; stale preview requests are aborted and cannot animate back into view.
 - Preview loading shows a static skeleton crossed by one transform-based shimmer sweep; the sweep never renders under reduced motion.
-- The details dialog (React Aria `ModalOverlay`/`Modal`) animates through CSS keyframes in `global.css` driven by the `data-entering`/`data-exiting` attributes, because keyframes cannot be expressed in StyleX: the overlay fades (160/120 ms) while the dialog rises and settles from a slight scale (190 ms in, 120 ms out). React Aria waits for these animations before unmounting.
+- The details dialog (React Aria `ModalOverlay`/`Modal`) animates through the Tailwind CSS-first `global.css` keyframes driven by the `data-entering`/`data-exiting` attributes: the overlay fades (160/120 ms) while the dialog rises and settles from a slight scale (190 ms in, 120 ms out). React Aria waits for these animations before unmounting.
 - Onboarding scenes slide in the direction of travel: forward moves enter from the right and exit left, backward moves the reverse, resolved through `AnimatePresence custom` so exits use the latest direction.
 - The launcher status dot pulses only while a search is actively running; it is static in every idle, ready, or paused state.
 - Opening a file briefly confirms the selected row before the window is hidden.
