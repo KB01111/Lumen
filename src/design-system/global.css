@@ -287,8 +287,9 @@ input[type='search']::-webkit-search-cancel-button {
 
 /*
  * Owned EinUI command-palette recipe. The normal values deliberately retain
- * the upstream liquid-glass surface; Lumen only substitutes semantic values
- * where transparency or contrast accessibility requires a different material.
+ * the upstream liquid-glass surface in dark mode. Lumen substitutes semantic
+ * light, opaque, and contrast values where the white upstream recipe would
+ * lose foreground contrast.
  */
 .einui-command-palette-wrapper {
   --einui-command-surface: rgba(255, 255, 255, 0.1);
@@ -423,6 +424,19 @@ input[type='search']::-webkit-search-cancel-button {
   .einui-command-shortcut {
     display: none;
   }
+}
+
+[data-resolved-theme='light'] .einui-command-palette-wrapper {
+  --einui-command-surface: var(--lumen-surface-raised);
+  --einui-command-text: var(--lumen-text-primary);
+  --einui-command-muted-text: var(--lumen-text-secondary);
+  --einui-command-border: var(--lumen-border-strong);
+  --einui-command-divider: var(--lumen-border-subtle);
+  --einui-command-row: var(--lumen-surface-inset);
+  --einui-command-row-hover: var(--lumen-surface-inset);
+  --einui-command-row-selected: var(--lumen-surface-inset);
+  --einui-command-shortcut: var(--lumen-surface-raised);
+  --einui-command-shadow: var(--lumen-shadow-control);
 }
 
 [data-transparency='disabled'] .einui-command-palette-wrapper {

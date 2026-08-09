@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-04T22:08:50.631Z",
-  "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02",
+  "generatedAt": "2026-08-09T13:57:30.112Z",
+  "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102",
   "browser": {
     "name": "Microsoft Edge"
   },
@@ -8,7 +8,7 @@
     "width": 1120,
     "height": 760
   },
-  "count": 4,
+  "count": 6,
   "recordings": [
     {
       "id": "launcher-search",
@@ -25,7 +25,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
     },
     {
       "id": "settings-routing",
@@ -40,7 +40,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
     },
     {
       "id": "onboarding",
@@ -59,7 +59,40 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
+    },
+    {
+      "id": "answer-submission",
+      "file": "artifacts/recordings/answer-submission.webm",
+      "title": "Explicit answer submission, isolated failure, retry, and dismissal",
+      "flows": [
+        "collapsed launcher",
+        "typing expansion",
+        "Enter-to-answer",
+        "answer failure isolation",
+        "retry",
+        "dismissal"
+      ],
+      "deterministicAdapter": true,
+      "audio": false,
+      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
+    },
+    {
+      "id": "answer-approval-states",
+      "file": "artifacts/recordings/answer-approval-states.webm",
+      "title": "Streaming, stop, completion, and Computer Use approval controls",
+      "flows": [
+        "waiting",
+        "streaming",
+        "stop control",
+        "completed answer",
+        "approval pause",
+        "approve once",
+        "deny and stop"
+      ],
+      "deterministicAdapter": true,
+      "audio": false,
+      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
     },
     {
       "id": "activity-provider-states",
@@ -75,7 +108,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "9555a509cc68b93a6e333e491467d42fc5496102"
     }
   ]
 }

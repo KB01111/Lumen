@@ -1,8 +1,114 @@
 # Tailwind/EinUI redesign validation
 
-Date: 2026-08-08
+Date: 2026-08-09
 
 Task 11 review fix completed: 2026-08-09
+
+Task 12 evidence refresh completed with a performance concern: 2026-08-09
+
+## Task 12 evidence inventory and inspection
+
+The refreshed Microsoft Edge 151.0.4129.72 gallery manifest contains 53
+scenarios plus one contact sheet (54 PNG files total). The complete contact
+sheet and full-resolution dark, corrected light, opaque, high-contrast,
+AI-waiting, AI-streaming, completed-answer, isolated answer-error,
+Computer-Use approval, constrained-work-area, and reduced-motion captures were
+inspected. They show the borderless palette surface without a title bar or
+fullscreen application backdrop, retain readable semantic foregrounds, keep
+the composer/footer anchored in constrained height, and preserve the intended
+fallback and motion states. No remaining clipped glow, page overflow,
+transparent click-blocking area, or nested-card regression was found.
+
+The recording manifest contains six fresh WebM files: launcher search,
+settings routing, onboarding, explicit answer submission/retry/dismissal,
+answer streaming/completion/approval controls, and activity/provider states.
+Every recording was decoded and scrubbed through its key transitions using
+FFmpeg contact sheets. The launcher recording covers collapsed appearance,
+downward expansion, local results, keyboard selection, preview/details, scope,
+and open confirmations. The answer recordings cover explicit Enter submission,
+failure isolation, retry, streaming Stop, completion, approval/denial, collapse,
+and dismissal. Settings, onboarding, and provider/activity transitions also
+completed. Browser video keeps a fixed recording canvas, so collapsed native
+geometry is shown with neutral letterboxing around the simulated `700 x 66`
+viewport; this is a recording-harness limitation, not a product surface.
+
+## Task 12 evidence-driven corrections
+
+Visual inspection caught a real light-theme defect: the upstream transparent
+EinUI recipe kept white foregrounds and near-transparent white rows on the pale
+light glass surface. A raw theme-token contract was RED first, and a computed
+Playwright assertion reproduced `rgb(255, 255, 255)` instead of the semantic
+light foreground. The minimal production correction scopes the command palette
+recipe to Lumen's semantic light-theme foreground, surface, border, divider,
+row, shortcut, and shadow tokens. The focused CSS contract then passed 3/3 and
+the computed light-gallery assertion passed 1/1. The corrected gallery was
+regenerated in full; capture CSS and product behavior were not altered for the
+screenshot.
+
+The first recording run also exposed two deterministic harness races. Settings
+navigation could send `Ctrl+,` before the launcher keyboard listener mounted,
+and the fixed browser viewport could not represent the native collapsed/expanded
+geometry contract. The recorder now waits for the launcher searchbox and changes
+the page viewport at the same transition boundaries owned by the native window
+service. New explicit-answer and approval-state recordings close the prior flow
+coverage gaps. Failed generator runs demonstrated the missing readiness and
+dismissal assertions before the terminal six-recording run passed.
+
+## Task 12 performance profile
+
+The refreshed machine-readable profile is deliberately retained as RED. On this
+host's AMD Radeon 890M at 2560 x 1600 / 240 Hz, Edge observed approximately
+238 Hz (`4.2 ms` median frame interval, `8.3 ms` p95). Warm launcher p95 was
+`2.3 ms`; input-to-paint p95 was `5.1 ms`; selection-to-paint p95 was `5.7 ms`;
+hover-to-paint p95 was `2.1 ms`; React commit p95 was `2.2 ms`; idle CPU was
+`0.70%`; garbage-collected heap was `26.70 MB`; and no animation remained after
+settling. The input and selection paint values exceed the unchanged absolute
+`4.1667 ms` release budgets. The unpaced input burst reached all 30 samples and
+the correct final value but observed `53 ms` and `50 ms` long tasks; the unpaced
+selection burst reached all 30 samples with exactly one selected row and no long
+task. Consequently `profile-summary.json` truthfully records `passed: false`.
+
+The input distribution contains 31 paint samples (the 30 paced samples plus the
+final `report` fill): minimum `0.2 ms`, median `1.3 ms`, p95 `5.1 ms`, maximum
+`5.9 ms`. The 120 selection samples have minimum `1.0 ms`, median `1.4 ms`, p95
+`5.7 ms`, and maximum `7.6 ms`; the 120 correlated React commits have p95
+`2.2 ms` and maximum `2.8 ms`. The Playwright trace records the 30 unpaced fill
+calls from trace time `7650.291 ms` through `9711.737 ms`; multiple protocol
+calls took more than 50 ms, including calls 3 (`99.571 ms`), 5 (`56.805 ms`), 6
+(`54.307 ms`), 7 (`52.832 ms`), 8 (`67.161 ms`), 9 (`104.322 ms`), and 10
+(`121.361 ms`). Trace snapshot collection itself was only `0.6-1.8 ms` per
+snapshot. The saved Playwright trace and current diagnostics summary do not
+retain LongTask entry timestamps/origin or rapid-burst React commits, so an
+exact one-to-one attribution of the `53/50 ms` entries is unavailable; they are
+bounded to the unpaced input phase and cannot be explained by the `4.2 ms`
+display cadence alone.
+
+A single bounded browser-flag diagnostic did not provide an acceptable
+unthrottled alternative. Default and `--disable-gpu-vsync` stayed near
+`4.2/4.3 ms` median/p95 frame intervals, while
+`--disable-frame-rate-limit` alone and paired with `--disable-gpu-vsync`
+regressed to approximately `17.7/18.5 ms`. No flag was committed, no budget was
+relaxed, and no speculative product hot-path change was made. Compared with the
+older NVIDIA/500 Hz host results in `high-refresh-performance.md`, this host
+does not satisfy the dedicated absolute 240 Hz release profile even though the
+functional and settled-work metrics remain correct.
+
+## Task 12 generator and audit command evidence
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `bun run capture:gallery` | 0 | Terminal controlled-server rerun; 53 scenarios plus contact sheet regenerated in 41.8 s. An earlier auto-start run produced all files but required stopping its verified idle orphan Vite process before the retained command exited 0; it is not treated as the clean acceptance run. |
+| `bun run record:interactions` | 0 | Terminal controlled-server rerun; six recordings regenerated in 41.9 s. |
+| `bun run profile` | 1 | Terminal and honestly RED with the measurements above; `passed: false` retained. |
+| focused light-theme CSS contract | 0 | Terminal; 3/3 tests passed after the demonstrated RED. |
+| focused light-theme Playwright contract | 0 | Terminal; 1/1 passed after the demonstrated computed-color RED. |
+| forbidden-source `rg` scan | 1 | Expected no-match exit; no forbidden source/dependency reference was found. |
+
+All browser and artifact runners were serialized. The explicitly owned Vite
+tree was stopped after evidence generation and port 1420 was confirmed free.
+Post-commit typecheck, lint, full unit, exact full E2E, and Tauri release-build
+results are recorded in the ignored Task 12 execution report so the committed
+validation evidence is not rewritten after its required evidence commit.
 
 ## Acceptance coverage
 

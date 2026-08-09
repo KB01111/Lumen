@@ -33,6 +33,26 @@ test('exposes every appearance axis through stable gallery URLs', async ({page})
   }
 });
 
+test('uses readable semantic foreground and surface colors in the light gallery theme', async ({page}) => {
+  await page.goto('/?gallery=1&scenario=theme-light&capture=1');
+
+  const colors = await page.locator('[data-einui-layer="surface"]').evaluate((surface) => {
+    const application = surface.closest('[role="application"]');
+    if (!(application instanceof HTMLElement)) throw new Error('Missing Lumen application root');
+    const applicationStyle = getComputedStyle(application);
+    const surfaceStyle = getComputedStyle(surface);
+    return {
+      foreground: surfaceStyle.color,
+      expectedForeground: applicationStyle.getPropertyValue('--lumen-text-primary').trim(),
+      background: surfaceStyle.backgroundColor,
+      expectedBackground: applicationStyle.getPropertyValue('--lumen-surface-raised').trim(),
+    };
+  });
+
+  expect(colors.foreground).toBe(colors.expectedForeground);
+  expect(colors.background).toBe(colors.expectedBackground);
+});
+
 test('renders management and activity surfaces from the same scenario registry', async ({page}) => {
   await page.goto('/?gallery=1&scenario=activity-gaming');
   await expect(page.getByTestId('activity-gaming')).toBeVisible();

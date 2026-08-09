@@ -3,6 +3,22 @@ import {describe, expect, it} from 'vitest';
 import css from './global.css?raw';
 
 describe('Lumen CSS appearance contract', () => {
+  it('maps the translucent light command palette to readable semantic colors', () => {
+    expect(css).toContain(`
+[data-resolved-theme='light'] .einui-command-palette-wrapper {
+  --einui-command-surface: var(--lumen-surface-raised);
+  --einui-command-text: var(--lumen-text-primary);
+  --einui-command-muted-text: var(--lumen-text-secondary);
+  --einui-command-border: var(--lumen-border-strong);
+  --einui-command-divider: var(--lumen-border-subtle);
+  --einui-command-row: var(--lumen-surface-inset);
+  --einui-command-row-hover: var(--lumen-surface-inset);
+  --einui-command-row-selected: var(--lumen-surface-inset);
+  --einui-command-shortcut: var(--lumen-surface-raised);
+  --einui-command-shadow: var(--lumen-shadow-control);
+}`);
+  });
+
   it('uses solid light and dark semantic surfaces when transparency is disabled', () => {
     expect(css).toContain(`
 [data-transparency='disabled'] {
