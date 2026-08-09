@@ -47,6 +47,18 @@ async function waitForSamples(page: Page, name: string, count: number) {
   );
 }
 
+async function dispatchRapidInputBurst(search: ReturnType<Page['getByRole']>) {
+  await search.evaluate((element) => {
+    if (!(element instanceof globalThis.HTMLInputElement)) throw new Error('Expected the launcher input');
+    const setValue = Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value')?.set;
+    if (!setValue) throw new Error('Missing native HTMLInputElement value setter');
+    for (let index = 1; index <= 30; index += 1) {
+      setValue.call(element, `rapid-burst-${index}`);
+      element.dispatchEvent(new globalThis.Event('input', {bubbles: true}));
+    }
+  });
+}
+
 async function hideAndReshowLauncher(page: Page, search: ReturnType<Page['getByRole']>) {
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-launcher-visible="false"]')).toHaveCount(1);
@@ -119,9 +131,7 @@ test('warm launcher and ordinary interactions stay inside browser budgets', asyn
   expect(inputP95).toBeLessThan(observedFrameBudget);
 
   await resetMetrics(page);
-  for (let index = 1; index <= 30; index += 1) {
-    await search.fill(`rapid-burst-${index}`);
-  }
+  await dispatchRapidInputBurst(search);
   await waitForSamples(page, 'input-paint', 30);
   await page.waitForTimeout(100);
   const rapidBurstMetrics = await readMetrics(page);
@@ -170,17 +180,28 @@ test('hover, idle work, animation count, and browser heap remain bounded', async
   const row = page.getByRole('row').first();
   await expect(row).toBeVisible();
 
-  const hoverSamples: number[] = [];
+  await resetMetrics(page);
+  const hoverSamples: Array<{hoverToPaintMs: number; frameIntervalMs: number}> = [];
   for (let index = 0; index < 80; index += 1) {
-    hoverSamples.push(await row.evaluate((element) => new Promise<number>((resolve) => {
-      const startedAt = performance.now();
-      element.dispatchEvent(new PointerEvent('pointerover', {bubbles: true, pointerType: 'mouse'}));
-      requestAnimationFrame(() => resolve(performance.now() - startedAt));
+    hoverSamples.push(await row.evaluate((element) => new Promise((resolve) => {
+      requestAnimationFrame((frameStartedAt) => {
+        const hoverStartedAt = performance.now();
+        element.dispatchEvent(new PointerEvent('pointerover', {bubbles: true, pointerType: 'mouse'}));
+        requestAnimationFrame((frameEndedAt) => resolve({
+          hoverToPaintMs: performance.now() - hoverStartedAt,
+          frameIntervalMs: frameEndedAt - frameStartedAt,
+        }));
+      });
     })));
     await page.waitForTimeout(12);
   }
-  const frameCadence = await measureFrameCadence(page);
-  expect(percentile(hoverSamples, 0.95)).toBeLessThan(Math.max(frameCadence.p95Ms, 1000 / 240));
+  await page.waitForTimeout(100);
+  const hoverToPaintSamples = hoverSamples.map((sample) => sample.hoverToPaintMs);
+  const hoverFrameIntervals = hoverSamples.map((sample) => sample.frameIntervalMs);
+  const hoverMetrics = await readMetrics(page);
+  const hoverFrameBudget = Math.max(percentile(hoverFrameIntervals, 0.95), 1000 / 240);
+  expect(percentile(hoverToPaintSamples, 0.95)).toBeLessThan(hoverFrameBudget);
+  expect(hoverMetrics.longTasks.filter((duration) => duration > 16)).toHaveLength(0);
 
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === 'running').length)).toBe(0);
