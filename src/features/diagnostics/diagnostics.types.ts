@@ -14,7 +14,7 @@ export interface DiagnosticsSnapshot {
   activeAnimations: number;
   reactCommitMs: number;
   reactCommits: number[];
-  longTasks: number[];
+  browserLongTasks: number[];
   timings: TimingSample[];
   activity: string;
   gateway: string;

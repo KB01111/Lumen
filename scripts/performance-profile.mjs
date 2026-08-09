@@ -35,14 +35,30 @@ async function waitForSamples(page, name, count) {
 }
 
 async function dispatchRapidInputBurst(search) {
-  await search.evaluate((element) => {
+  return search.evaluate((element) => {
     if (!(element instanceof globalThis.HTMLInputElement)) throw new Error('Expected the launcher input');
     const setValue = Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value')?.set;
     if (!setValue) throw new Error('Missing native HTMLInputElement value setter');
+    const startedAt = performance.now();
     for (let index = 1; index <= 30; index += 1) {
       setValue.call(element, `rapid-burst-${index}`);
       element.dispatchEvent(new globalThis.Event('input', {bubbles: true}));
     }
+    return {synchronousDurationMs: performance.now() - startedAt};
+  });
+}
+
+async function dispatchRapidSelectionBurst(search) {
+  return search.evaluate((element) => {
+    const startedAt = performance.now();
+    for (let index = 1; index <= 30; index += 1) {
+      element.dispatchEvent(new globalThis.KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        key: index % 2 === 0 ? 'ArrowUp' : 'ArrowDown',
+      }));
+    }
+    return {synchronousDurationMs: performance.now() - startedAt};
   });
 }
 
@@ -133,7 +149,7 @@ async function profile(baseUrl) {
       .map((sample) => sample.durationMs);
 
     await resetMetrics(page);
-    await dispatchRapidInputBurst(search);
+    const rapidBurst = await dispatchRapidInputBurst(search);
     await waitForSamples(page, 'input-paint', 30);
     await page.waitForTimeout(100);
     const rapidBurstMetrics = await readMetrics(page);
@@ -159,9 +175,7 @@ async function profile(baseUrl) {
       .map((sample) => sample.durationMs);
 
     await resetMetrics(page);
-    for (let index = 1; index <= 30; index += 1) {
-      await page.keyboard.press(index % 2 === 0 ? 'ArrowUp' : 'ArrowDown');
-    }
+    const rapidSelection = await dispatchRapidSelectionBurst(search);
     await waitForSamples(page, 'selection-paint', 30);
     await page.waitForTimeout(100);
     const rapidSelectionMetrics = await readMetrics(page);
@@ -182,9 +196,11 @@ async function profile(baseUrl) {
             bubbles: true,
             pointerType: 'mouse',
           }));
+          const synchronousDispatchMs = performance.now() - hoverStartedAt;
           requestAnimationFrame((frameEndedAt) => resolve({
             hoverToPaintMs: performance.now() - hoverStartedAt,
             frameIntervalMs: frameEndedAt - frameStartedAt,
+            synchronousDispatchMs,
           }));
         });
       })));
@@ -193,6 +209,7 @@ async function profile(baseUrl) {
     await page.waitForTimeout(100);
     const hoverToPaintSamples = hoverSamples.map((sample) => sample.hoverToPaintMs);
     const hoverFrameIntervals = hoverSamples.map((sample) => sample.frameIntervalMs);
+    const hoverSynchronousDispatch = hoverSamples.map((sample) => sample.synchronousDispatchMs);
     const hoverMetrics = await readMetrics(page);
 
     await page.waitForTimeout(500);
@@ -220,9 +237,10 @@ async function profile(baseUrl) {
       selectionToPaintP95Ms: percentile(selectionSamples, 0.95),
       hoverToPaintP95Ms: percentile(hoverToPaintSamples, 0.95),
       hoverFrameIntervalP95Ms: percentile(hoverFrameIntervals, 0.95),
-      hoverLongTasksOver16Ms: hoverMetrics.longTasks.filter((duration) => duration > 16),
+      hoverSynchronousDispatchMaxMs: Math.max(...hoverSynchronousDispatch),
+      hoverBrowserLongTasksOver50Ms: hoverMetrics.browserLongTasks,
       ordinaryReactCommitP95Ms: percentile(selectionMetrics.reactCommits, 0.95),
-      repeatedLongTasksOver16Ms: selectionMetrics.longTasks.filter((duration) => duration > 16),
+      repeatedBrowserLongTasksOver50Ms: selectionMetrics.browserLongTasks,
       activeAnimationsAfterSettle: activeAnimations,
       idleCpuPercent,
       jsHeapMegabytes: heapMegabytes,
@@ -232,13 +250,13 @@ async function profile(baseUrl) {
       rapidBurstInputSamples: rapidBurstMetrics.timings
         .filter((sample) => sample.name === 'input-paint').length,
       rapidBurstFinalValue,
-      rapidBurstLongTasksOver16Ms: rapidBurstMetrics.longTasks
-        .filter((duration) => duration > 16),
+      rapidBurstSynchronousDurationMs: rapidBurst.synchronousDurationMs,
+      rapidBurstBrowserLongTasksOver50Ms: rapidBurstMetrics.browserLongTasks,
       rapidSelectionSamples: rapidSelectionMetrics.timings
         .filter((sample) => sample.name === 'selection-paint').length,
       rapidSelectionSelectedRows,
-      rapidSelectionLongTasksOver16Ms: rapidSelectionMetrics.longTasks
-        .filter((duration) => duration > 16),
+      rapidSelectionSynchronousDurationMs: rapidSelection.synchronousDurationMs,
+      rapidSelectionBrowserLongTasksOver50Ms: rapidSelectionMetrics.browserLongTasks,
     };
     const effectivePaintFrameBudgetMs = Math.max(
       refresh.p95FrameIntervalMs,
@@ -273,7 +291,8 @@ async function profile(baseUrl) {
       selectionToPaintP95Ms: effectivePaintFrameBudgetMs,
       hoverToPaintP95Ms: effectiveHoverFrameBudgetMs,
       ordinaryReactCommitP95Ms: 3,
-      repeatedLongTaskMs: 16,
+      synchronousWorkMs: 16,
+      browserLongTaskMs: 50,
       activeAnimationsAfterSettle: 0,
       idleCpuPercent: 2,
       jsHeapMegabytes: 100,
@@ -283,25 +302,28 @@ async function profile(baseUrl) {
       input: measured.inputToPaintP95Ms < budgets.inputToPaintP95Ms,
       selection: measured.selectionToPaintP95Ms < budgets.selectionToPaintP95Ms,
       hover: measured.hoverToPaintP95Ms < budgets.hoverToPaintP95Ms,
-      hoverLongTasks: measured.hoverLongTasksOver16Ms.length === 0,
+      hoverSynchronousDispatch: measured.hoverSynchronousDispatchMaxMs < budgets.synchronousWorkMs,
+      hoverBrowserLongTasks: measured.hoverBrowserLongTasksOver50Ms.length === 0,
       reactCommit: measured.ordinaryReactCommitP95Ms < budgets.ordinaryReactCommitP95Ms,
-      longTasks: measured.repeatedLongTasksOver16Ms.length === 0,
+      browserLongTasks: measured.repeatedBrowserLongTasksOver50Ms.length === 0,
       settledAnimations: measured.activeAnimationsAfterSettle === 0,
       idleCpu: measured.idleCpuPercent < budgets.idleCpuPercent,
       memory: measured.jsHeapMegabytes < budgets.jsHeapMegabytes,
       environmentEligibility: environmentEligibility.cadenceAwareRelease,
       rapidBurst: measured.rapidBurstInputSamples === 30 &&
         measured.rapidBurstFinalValue === 'rapid-burst-30' &&
-        measured.rapidBurstLongTasksOver16Ms.length === 0,
+        measured.rapidBurstSynchronousDurationMs < budgets.synchronousWorkMs &&
+        measured.rapidBurstBrowserLongTasksOver50Ms.length === 0,
       rapidSelection: measured.rapidSelectionSamples === 30 &&
         measured.rapidSelectionSelectedRows === 1 &&
-        measured.rapidSelectionLongTasksOver16Ms.length === 0,
+        measured.rapidSelectionSynchronousDurationMs < budgets.synchronousWorkMs &&
+        measured.rapidSelectionBrowserLongTasksOver50Ms.length === 0,
     };
     const summary = {
       generatedAt: new Date().toISOString(),
       gitSha: execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
       browser: {name: 'Microsoft Edge', version: browserVersion},
-      profile: 'warm deterministic browser adapter, 800x540 viewport, 30 paced input samples, 120 paced selection samples, 80 contemporaneously paired hover/frame samples, plus renderer-side synchronous 30-update input burst',
+      profile: 'warm deterministic browser adapter, 800x540 viewport, 30 paced input samples, 120 paced selection samples, 80 contemporaneously paired hover/frame samples with direct dispatch timing, plus renderer-side synchronous 30-event input and selection bursts',
       target: {
         refreshRateHz: 240,
         frameBudgetMs: targetFrameBudgetMs,
@@ -320,6 +342,7 @@ async function profile(baseUrl) {
         selectionToPaintMs: selectionSamples,
         hoverToPaintMs: hoverToPaintSamples,
         hoverFrameIntervalMs: hoverFrameIntervals,
+        hoverSynchronousDispatchMs: hoverSynchronousDispatch,
         reactCommitMs: selectionMetrics.reactCommits,
       },
     };

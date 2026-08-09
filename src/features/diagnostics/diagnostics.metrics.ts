@@ -2,7 +2,7 @@ import type {TimingSample} from './diagnostics.types';
 
 const timingSamples: TimingSample[] = [];
 const reactCommits: number[] = [];
-const longTasks: number[] = [];
+const browserLongTasks: number[] = [];
 const logs: string[] = [];
 let longTaskResetAt = 0;
 
@@ -61,9 +61,9 @@ export function startDiagnosticsObserver() {
   try {
     const observer = new PerformanceObserver((entries) => {
       for (const entry of entries.getEntries()) {
-        if (entry.startTime >= longTaskResetAt && entry.duration >= 16) {
-          longTasks.push(entry.duration);
-          trim(longTasks);
+        if (entry.startTime >= longTaskResetAt && entry.duration >= 50) {
+          browserLongTasks.push(entry.duration);
+          trim(browserLongTasks);
         }
       }
     });
@@ -77,7 +77,7 @@ export function startDiagnosticsObserver() {
 export function readDiagnosticMetrics() {
   return {
     timings: timingSamples.slice(),
-    longTasks: longTasks.slice(),
+    browserLongTasks: browserLongTasks.slice(),
     logs: logs.slice(),
     reactCommits: reactCommits.slice(),
     reactCommitMs: reactCommits[reactCommits.length - 1] ?? 0,
@@ -88,6 +88,6 @@ export function resetDiagnosticMetrics() {
   longTaskResetAt = typeof performance === 'undefined' ? 0 : performance.now();
   timingSamples.splice(0);
   reactCommits.splice(0);
-  longTasks.splice(0);
+  browserLongTasks.splice(0);
   logs.splice(0);
 }

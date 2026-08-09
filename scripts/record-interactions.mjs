@@ -159,7 +159,7 @@ async function record(baseUrl) {
       id: 'answer-approval-states',
       file: 'answer-approval-states.webm',
       title: 'Streaming, stop, completion, and Computer Use approval controls',
-      flows: ['waiting', 'streaming', 'stop control', 'completed answer', 'approval pause', 'approve once', 'deny and stop'],
+      flows: ['waiting', 'streaming', 'stop transition', 'completed answer', 'approval pause', 'approve transition', 'deny transition'],
     }, async (page) => {
       await page.goto(`${baseUrl}/?gallery=1&scenario=ai-waiting`);
       const scenarioSelect = page.locator('select[aria-label="Gallery scenario"]');
@@ -169,6 +169,9 @@ async function record(baseUrl) {
       await page.getByRole('button', {name: 'Stop answer'}).focus();
       await pause(page, 650);
       await page.getByRole('button', {name: 'Stop answer'}).click();
+      await page.getByText('Stopped', {exact: true}).waitFor();
+      await page.getByRole('button', {name: 'Stop answer'}).waitFor({state: 'detached'});
+      await pause(page, 450);
       await scenarioSelect.selectOption('ai-complete');
       await page.getByTestId('answer-region').waitFor();
       await pause(page, 650);
@@ -176,8 +179,22 @@ async function record(baseUrl) {
       const approval = page.getByRole('alertdialog', {name: 'Approve Computer Use action'});
       await approval.waitFor();
       await page.getByRole('button', {name: 'Approve once'}).focus();
+      await pause(page, 450);
+      await page.getByRole('button', {name: 'Approve once'}).click();
+      await page.getByRole('status', {name: 'Working'}).waitFor();
+      await page.getByText('Approved once in the deterministic gallery session').waitFor();
+      await approval.waitFor({state: 'detached'});
       await pause(page, 650);
+      await scenarioSelect.selectOption('ai-complete');
+      await page.locator('[data-gallery-scenario="ai-complete"]').waitFor();
+      await scenarioSelect.selectOption('computer-use-approval');
+      await approval.waitFor();
       await page.getByRole('button', {name: 'Deny and stop'}).focus();
+      await pause(page, 450);
+      await page.getByRole('button', {name: 'Deny and stop'}).click();
+      await page.getByRole('status', {name: 'Stopped'}).waitFor();
+      await page.getByText('Denied and stopped in the deterministic gallery session').waitFor();
+      await approval.waitFor({state: 'detached'});
       await pause(page, 650);
     });
 

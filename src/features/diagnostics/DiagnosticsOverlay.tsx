@@ -47,7 +47,7 @@ export function DiagnosticsOverlay() {
       <DiagnosticItem label="React commit">{snapshot.reactCommitMs.toFixed(2)} ms</DiagnosticItem>
       <DiagnosticItem label="Input to paint">{latestInput ? `${latestInput.durationMs.toFixed(2)} ms` : 'Awaiting sample'}</DiagnosticItem>
       <DiagnosticItem label="Selection to paint">{latestSelection ? `${latestSelection.durationMs.toFixed(2)} ms` : 'Awaiting sample'}</DiagnosticItem>
-      <DiagnosticItem label="Long tasks">{snapshot.longTasks.length}</DiagnosticItem>
+      <DiagnosticItem label="Browser long tasks (50 ms+)">{snapshot.browserLongTasks.length}</DiagnosticItem>
       <DiagnosticItem label="Active animations">{snapshot.activeAnimations}</DiagnosticItem>
     </aside>
   );

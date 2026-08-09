@@ -31,7 +31,7 @@ export function ScenarioControls({matrix, scale, scenarioId, onMatrix, onNavigat
         onChange={(event) => onScenario(event.target.value as GalleryScenarioId)}
       >
         {galleryScenarios.map((scenario) => (
-          <option key={scenario.id} value={scenario.id}>{scenario.label}</option>
+          <option key={scenario.id} data-category={scenario.category} value={scenario.id}>{scenario.label}</option>
         ))}
       </select>
       <LumenButton aria-label="Toggle scenario matrix" size="small" variant={matrix ? 'primary' : 'quiet'} onPress={onMatrix}>

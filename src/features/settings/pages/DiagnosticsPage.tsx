@@ -34,7 +34,7 @@ export function DiagnosticsPage() {
         <DiagnosticItem label="Logs">{snapshot.logs[snapshot.logs.length - 1] ?? 'No warnings recorded'}</DiagnosticItem>
       </SettingSection>
       <SettingSection title="Performance samples">
-        <DiagnosticItem label="Long tasks">{snapshot.longTasks.length}</DiagnosticItem>
+        <DiagnosticItem label="Browser long tasks (50 ms+)">{snapshot.browserLongTasks.length}</DiagnosticItem>
         <DiagnosticItem label="Interaction samples">{snapshot.timings.length}</DiagnosticItem>
       </SettingSection>
       <div style={{display: 'flex', flexWrap: 'wrap', gap: 8}}>

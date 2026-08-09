@@ -9,17 +9,6 @@ import {withLumenDevServer} from './lib/lumen-dev-server.mjs';
 const outputDirectory = path.resolve('artifacts/screenshots');
 const viewport = {width: 1120, height: 760};
 
-function categoryFor(id) {
-  if (id.startsWith('activity-')) return 'Activity';
-  if (id.startsWith('provider-') || id.startsWith('model-')) return 'Local AI';
-  if (id.startsWith('gateway-')) return 'Gateway';
-  if (id.startsWith('theme-')) return 'Theme';
-  if (id.startsWith('settings-') || id.startsWith('onboarding-')) return 'Management';
-  if (['permission-required', 'long-filename', 'unicode-filename', 'large-results', 'reranking-unavailable'].includes(id)) return 'Resilience';
-  if (id.startsWith('preview-')) return 'Preview';
-  return 'Launcher';
-}
-
 async function createContactSheet(browser, entries) {
   const page = await browser.newPage({viewport: {width: 1680, height: 1000}});
   const cards = await Promise.all(entries.map(async (entry) => {
@@ -55,9 +44,13 @@ async function capture(baseUrl) {
       .evaluateAll((options) => options.map((option) => ({
         id: option.value,
         label: option.textContent?.trim() || option.value,
+        category: option.dataset.category,
       })));
     if (scenarios.length === 0) {
       throw new Error('The visual state gallery did not expose any scenarios.');
+    }
+    if (scenarios.some((scenario) => !scenario.category)) {
+      throw new Error('Every visual state gallery option must expose its registry category.');
     }
     const gitSha = execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim();
     const entries = [];
@@ -77,7 +70,7 @@ async function capture(baseUrl) {
       entries.push({
         scenario: scenario.id,
         label: scenario.label,
-        category: categoryFor(scenario.id),
+        category: scenario.category,
         file: `artifacts/screenshots/${filename}`,
         absolutePath,
         viewport,

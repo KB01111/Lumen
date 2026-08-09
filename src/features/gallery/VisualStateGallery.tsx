@@ -8,7 +8,7 @@ import {ActivityStatus} from '../activity/ActivityStatus';
 import {AnswerPanel} from '../answer/AnswerPanel';
 import type {AnswerState} from '../answer/useAnswerController';
 import {ComputerUsePanel} from '../computer-use/ComputerUsePanel';
-import type {ComputerUseController} from '../computer-use/useComputerUseController';
+import type {ComputerUseController, ComputerUseState} from '../computer-use/useComputerUseController';
 import {GatewayStatusPanel} from '../gateway/GatewayStatusPanel';
 import {CollapsedLauncher} from '../launcher/CollapsedLauncher';
 import {ExpandedWorkspace} from '../launcher/ExpandedWorkspace';
@@ -63,7 +63,7 @@ function galleryAnswer(state: GalleryAnswerState | undefined, constrained = fals
   };
 }
 
-const approvalController: ComputerUseController = {
+const approvalState: ComputerUseState = {
   phase: 'approval',
   health: {state: 'ready', mode: 'python', browser: 'Microsoft Edge', credentialConfigured: true},
   task: 'Review the release notes in the isolated browser session.',
@@ -74,11 +74,6 @@ const approvalController: ComputerUseController = {
   reasoning: 'The next action could change a remote setting.',
   approval: {id: 'gallery-approval', explanation: 'Apply the requested change in the isolated Edge session.'},
   activity: [{id: 1, label: 'Waiting for your approval', tone: 'accent'}],
-  async refreshHealth() {},
-  async start() {},
-  async approve() {},
-  async deny() {},
-  stop() {},
 };
 
 function GalleryLauncher({state}: {state: GalleryLauncherState}) {
@@ -106,7 +101,7 @@ function GalleryLauncher({state}: {state: GalleryLauncherState}) {
     : null;
   const lifecycle = state.noRoot ? 'error' : results.length > 0 ? 'ready' : 'empty';
   const expanded = state.mode === 'expanded';
-  const answer = galleryAnswer(state.answer, state.constrained);
+  const [answer, setAnswer] = useState(() => galleryAnswer(state.answer, state.constrained));
 
   return (
     <div className={`min-h-0 min-w-0 ${state.constrained ? 'h-[340px] w-[min(100%,520px)]' : expanded ? 'h-[min(100%,540px)] w-[min(100%,800px)]' : 'h-[66px] w-[min(100%,800px)]'}`}>
@@ -118,7 +113,7 @@ function GalleryLauncher({state}: {state: GalleryLauncherState}) {
           <ExpandedWorkspace
             activeFilters={[]}
             announcement={noRootError?.message ?? `${results.length} deterministic results`}
-            answerPanel={answer ? <AnswerPanel answer={answer} mode="local" onModeChange={() => undefined} onOpenCitation={() => undefined} onRetry={() => undefined} onStop={() => undefined} /> : undefined}
+            answerPanel={answer ? <AnswerPanel answer={answer} mode="local" onModeChange={() => undefined} onOpenCitation={() => undefined} onRetry={() => undefined} onStop={() => setAnswer((current) => current ? {...current, phase: 'cancelled'} : current)} /> : undefined}
             error={noRootError}
             lifecycle={lifecycle}
             openingId={null}
@@ -134,6 +129,42 @@ function GalleryLauncher({state}: {state: GalleryLauncherState}) {
           />
         ) : null}
       />
+    </div>
+  );
+}
+
+function GalleryComputerUse() {
+  const [state, setState] = useState<ComputerUseState>(approvalState);
+  const controller = useMemo<ComputerUseController>(() => ({
+    ...state,
+    async refreshHealth() {},
+    async start() {},
+    async approve() {
+      setState((current) => ({
+        ...current,
+        phase: 'running',
+        approval: undefined,
+        reasoning: 'Approval recorded. The deterministic gallery session can continue.',
+        activity: [...current.activity, {id: 2, label: 'Approved once in the deterministic gallery session', tone: 'success'}],
+      }));
+    },
+    async deny() {
+      setState((current) => ({
+        ...current,
+        phase: 'cancelled',
+        approval: undefined,
+        reasoning: 'The deterministic gallery session stopped without performing the action.',
+        activity: [...current.activity, {id: 2, label: 'Denied and stopped in the deterministic gallery session', tone: 'neutral'}],
+      }));
+    },
+    stop() {
+      setState((current) => ({...current, phase: 'cancelled', approval: undefined}));
+    },
+  }), [state]);
+
+  return (
+    <div className="h-[min(100%,540px)] w-[min(100%,800px)] min-h-0 min-w-0">
+      <ComputerUsePanel cloudConsent controller={controller} draftTask={controller.task ?? ''} onOpenSettings={() => undefined} onStart={() => undefined} />
     </div>
   );
 }
@@ -185,11 +216,7 @@ function ScenarioSurface({scenario}: {scenario: GalleryScenario}) {
     case 'settings-page': return <GalleryPanel scenario={scenario}><SearchPage /></GalleryPanel>;
     case 'settings-shell': return <GallerySettingsShell page={surface.page === 'agent-gateway' ? 'agent-gateway' : 'general'} />;
     case 'onboarding': return <GalleryOnboarding step={surface.step} />;
-    case 'computer-use': return (
-      <div className="h-[min(100%,540px)] w-[min(100%,800px)] min-h-0 min-w-0">
-        <ComputerUsePanel cloudConsent controller={approvalController} draftTask={approvalController.task ?? ''} onOpenSettings={() => undefined} onStart={() => undefined} />
-      </div>
-    );
+    case 'computer-use': return <GalleryComputerUse />;
   }
 }
 

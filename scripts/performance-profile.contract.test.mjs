@@ -8,7 +8,16 @@ const performanceProfile = await readFile(new URL('./performance-profile.mjs', i
 test('rapid input is dispatched as one renderer-side burst in both performance runners', () => {
   for (const source of [performanceSpec, performanceProfile]) {
     assert.match(source, /dispatchRapidInputBurst\(/);
+    assert.match(source, /synchronousDurationMs/);
+    assert.match(source, /toBeLessThan\(16\)|SynchronousDurationMs < budgets\.synchronousWorkMs/);
     assert.doesNotMatch(source, /search\.fill\(`rapid-burst-/);
+  }
+});
+
+test('rapid selection is dispatched and timed as one renderer-side burst in both performance runners', () => {
+  for (const source of [performanceSpec, performanceProfile]) {
+    assert.match(source, /dispatchRapidSelectionBurst\(/);
+    assert.match(source, /rapidSelection.*synchronousDurationMs|rapidSelectionSynchronousDurationMs/s);
   }
 });
 
@@ -18,12 +27,22 @@ test('the dedicated profile preserves strict 240 Hz results beside its observed-
   assert.match(performanceProfile, /environmentEligibility/);
 });
 
-test('hover uses paired frame intervals and rejects renderer long tasks in both runners', () => {
+test('hover uses paired frame intervals and an independent synchronous dispatch guard in both runners', () => {
   const e2eHover = performanceSpec.split("test('hover, idle work")[1] ?? '';
   const profileHover = performanceProfile.split('const hoverSamples = []')[1] ?? '';
   for (const source of [e2eHover, profileHover]) {
     assert.match(source, /hoverFrameIntervals/);
-    assert.match(source, /hoverMetrics\.longTasks\.filter\(\(duration\) => duration > 16\)/);
+    assert.match(source, /synchronousDispatchMs/);
+    assert.match(source, /hoverSynchronousDispatch/);
   }
   assert.doesNotMatch(e2eHover, /measureFrameCadence\(/);
+});
+
+test('the Long Tasks API is reported accurately as a 50 ms browser signal', () => {
+  for (const source of [performanceSpec, performanceProfile]) {
+    assert.match(source, /browserLongTasks/);
+    assert.doesNotMatch(source, /LongTasksOver16Ms|longTasks\.filter\(\(duration\) => duration > 16\)/);
+  }
+  assert.match(performanceProfile, /BrowserLongTasksOver50Ms/);
+  assert.match(performanceProfile, /browserLongTaskMs:\s*50/);
 });

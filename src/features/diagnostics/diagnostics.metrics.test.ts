@@ -48,13 +48,15 @@ describe('startDiagnosticsObserver', () => {
     const stop = startDiagnosticsObserver();
 
     resetDiagnosticMetrics();
-    const deliver = (startTime: number) => callback({
-      getEntries: () => [{duration: 52, startTime}],
+    const deliver = (duration: number, startTime: number) => callback({
+      getEntries: () => [{duration, startTime}],
     } as unknown as PerformanceObserverEntryList, {} as PerformanceObserver);
-    deliver(99);
-    deliver(101);
+    deliver(52, 99);
+    deliver(20, 101);
+    deliver(52, 101);
 
-    expect(readDiagnosticMetrics().longTasks).toEqual([52]);
+    expect(readDiagnosticMetrics().browserLongTasks).toEqual([52]);
+    expect(readDiagnosticMetrics()).not.toHaveProperty('longTasks');
     stop();
   });
 });

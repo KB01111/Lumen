@@ -8,6 +8,8 @@ Task 12 evidence refresh completed with a performance concern: 2026-08-09
 
 Task 12 performance-method correction completed: 2026-08-09
 
+Task 12 review correction source contract completed: 2026-08-09; evidence is regenerated separately from the clean source commit recorded by each manifest.
+
 ## Task 12 evidence inventory and inspection
 
 The refreshed Microsoft Edge 151.0.4129.72 gallery manifest contains 53
@@ -28,9 +30,11 @@ Every recording was decoded and scrubbed through its key transitions using
 FFmpeg contact sheets. The launcher recording covers collapsed appearance,
 downward expansion, local results, keyboard selection, preview/details, scope,
 and open confirmations. The answer recordings cover explicit Enter submission,
-failure isolation, retry, streaming Stop, completion, approval/denial, collapse,
-and dismissal. Settings, onboarding, and provider/activity transitions also
-completed. Browser video keeps a fixed recording canvas, so collapsed native
+failure isolation, retry, a clicked and asserted streaming Stop transition,
+completion, clicked and asserted approve-once and deny-and-stop transitions,
+collapse, and dismissal. The approval actions use only the stateful development
+gallery seam and never call a production provider or service. Settings,
+onboarding, and provider/activity transitions also completed. Browser video keeps a fixed recording canvas, so collapsed native
 geometry is shown with neutral letterboxing around the simulated `700 x 66`
 viewport; this is a recording-harness limitation, not a product surface.
 
@@ -54,7 +58,10 @@ geometry contract. The recorder now waits for the launcher searchbox and changes
 the page viewport at the same transition boundaries owned by the native window
 service. New explicit-answer and approval-state recordings close the prior flow
 coverage gaps. Failed generator runs demonstrated the missing readiness and
-dismissal assertions before the terminal six-recording run passed.
+dismissal assertions before the terminal six-recording run passed. The gallery
+registry category is now emitted on every scenario option and consumed directly
+by the capture generator; the manifest no longer relies on a partial duplicated
+ID-to-category heuristic.
 
 ## Task 12 performance profile
 
@@ -65,21 +72,31 @@ Playwright `fill` protocol transactions. The trace placed those calls between
 individual snapshot collection took only `0.6-1.8 ms`. That driver could not
 distinguish renderer work from automation/trace work observed by the page's
 LongTask observer. Both performance runners now execute one page-side
-synchronous burst using the native `HTMLInputElement` value setter and 30
-bubbled `input` events. It still requires exactly 30 paint samples, the final
-`rapid-burst-30` value, and no renderer LongTask over 16 ms.
+synchronous input burst using the native `HTMLInputElement` value setter and 30
+bubbled `input` events, plus one page-side 30-event keyboard-selection burst.
+Each runner measures the actual synchronous duration of both callbacks and
+requires it below 16 ms, alongside exactly 30 paint samples, the final
+`rapid-burst-30` value, and one selected row.
 
 The nominal 240 Hz target remains `4.1667 ms`, and the JSON retains raw
 `strict240Hz` input/selection/hover booleans. Release paint checks use one
 observed frame: `max(observed p95 frame interval, nominal 240 Hz frame)`, the
 same cadence-aware rule used by the E2E contract. Hover dispatch and cadence are
-paired directly between the same two animation-frame callbacks; hover also has
-its own reset/read LongTask window so an actual task over 16 ms cannot excuse a
-delayed paint. Environment and cadence-measurement eligibility plus the
-effective input/selection and hover budgets are explicit in the JSON.
+paired directly between the same two animation-frame callbacks. Every hover
+dispatch is also timed synchronously and the maximum must remain below 16 ms,
+so a slow handler cannot be excused by its surrounding frame interval.
+Environment and cadence-measurement eligibility plus the effective
+input/selection and hover budgets are explicit in the JSON.
 
-The final retained Edge 151.0.4129.72 profile on this AMD Radeon 890M / 240 Hz
-host records `passed: true`. Edge observed approximately 238 Hz (`4.2 ms`
+The browser Long Tasks API only reports tasks of at least 50 ms. Diagnostics
+and generated fields are therefore named `browserLongTasks` and
+`*BrowserLongTasksOver50Ms`, use an explicit 50 ms budget, and require zero
+entries in each measurement window. Those coarse browser observations are
+reported separately and are not claimed as proof of the direct 16 ms guards.
+
+The round-one retained Edge 151.0.4129.72 profile on this AMD Radeon 890M / 240 Hz
+host recorded `passed: true`; it is retained here as pre-review history until
+the corrected artifact is generated from the clean source commit. Edge observed approximately 238 Hz (`4.2 ms`
 median, `8.3 ms` p95). Warm launcher p95 was `2.4 ms`; input-to-paint p95
 `5.6 ms`; selection-to-paint p95 `2.4 ms`; paired hover-to-paint p95 `6.9 ms`
 with a contemporaneous `10.268 ms` frame p95; React commit p95 `2.5 ms`; idle
@@ -87,7 +104,7 @@ CPU `0.37%`; garbage-collected heap `26.69 MB`; and zero settled animation.
 Effective input/selection and hover budgets were respectively `8.3 ms` and
 `10.268 ms`. Rapid input and selection each produced 30 samples; input ended at
 the correct value, selection retained exactly one selected row, and neither
-window contained a LongTask. Raw strict-240 results remain visible and are
+window contained a browser Long Task. Raw strict-240 results remain visible and are
 input false, selection true, hover false, aggregate false.
 
 Before the paired hover correction, two same-server corrected-burst profiles
@@ -106,7 +123,7 @@ arbitrary tolerance, retry, worker count, port rule, or browser flag changed.
 | `bun run capture:gallery` | 0 | Terminal controlled-server rerun; 53 scenarios plus contact sheet regenerated in 41.8 s. An earlier auto-start run produced all files but required stopping its verified idle orphan Vite process before the retained command exited 0; it is not treated as the clean acceptance run. |
 | `bun run record:interactions` | 0 | Terminal controlled-server rerun; six recordings regenerated in 41.9 s. |
 | initial `bun run profile` | 1 | Terminal and honestly RED; it exposed the protocol-driven rapid-burst method defect. |
-| corrected `bun run profile` pair | 0 / 0 | Two same-server terminal passes; both produced 30 rapid-input samples, the correct final value, and no rapid-input LongTask. |
+| corrected `bun run profile` pair | 0 / 0 | Two same-server terminal passes; both produced 30 rapid-input samples, the correct final value, and no browser Long Task (50 ms+). |
 | final paired-hover `bun run profile` | 0 | Terminal retained profile with the measurements above and `passed: true`. |
 | exact `bun run test:e2e` | 0 | Terminal; 34/34 passed against one owned IPv4 Vite server. |
 | focused light-theme CSS contract | 0 | Terminal; 3/3 tests passed after the demonstrated RED. |
@@ -117,8 +134,8 @@ All browser and artifact runners were serialized. The explicitly owned Vite
 tree was stopped after evidence generation and port 1420 was confirmed free.
 The performance-method correction then passed typecheck, lint, all 219 unit
 tests, the 34-test exact E2E suite, and the frontend production build. The final
-Tauri release build remains deliberately deferred until this concern-fix commit
-is review-clean.
+native verification history is retained below, including the first WiX RED and
+both recovery GREEN commands.
 
 ## Acceptance coverage
 
@@ -167,7 +184,9 @@ is not clipped.
 | `bun run test:e2e` | 0 | Terminal review-fix rerun; 33 Playwright tests passed in 96.3 s against one explicitly owned IPv4 Vite server using `reuseExistingServer`. The server tree was then stopped and port 1420 confirmed free. |
 | `bun run build` | 0 | Terminal; production assets emitted. Main CSS asset: `dist/assets/index-DNQkXcTl.css`, 54.02 kB raw / 10.04 kB gzip. |
 | `bun run stage:sidecars` | 0 | Terminal; AgentGateway v1.4.1 checksum verified; Rivet enrichment worker, Rivet 2.3.10 Windows engine, and Computer Use worker staged. |
-| `bun run tauri build` | 0 | Terminal; controlled retained `rtk cmd /c bun run tauri build` completed in 280.6 s. Sidecars verified/staged, Vite built 2,620 modules, Rust release compilation took 46.87 s, and both installer bundles were emitted. |
+| first exact `rtk bun run tauri build` | 1 | Terminal after 160.2 s; sidecars, Vite (2,620 modules), and Rust release (1m19s) completed, then WiX `light.exe` failed while producing the MSI. No MSI existed and NSIS was not reached. This RED remains retained as failure history. |
+| scoped MSI-only verbose recovery | 0 | Terminal after 121.3 s on committed HEAD `705989604c3027161a00b4bbb91acd9749ba9ef6`; emitted `src-tauri/target/release/bundle/msi/Lumen_0.1.0_x64_en-US.msi`. |
+| final exact `rtk cmd /c "bun run tauri build"` | 0 | Terminal after 363.7 s on the same committed HEAD; sidecars verified/staged, Vite built 2,620 modules, Rust release took 1m00s, and both `src-tauri/target/release/bundle/msi/Lumen_0.1.0_x64_en-US.msi` and `src-tauri/target/release/bundle/nsis/Lumen_0.1.0_x64-setup.exe` were emitted. |
 
 The prior terminal native staging failure was resolved by removing only its
 verified ignored `.stage-mingw` temporary directory (888 files / 144,038,222
@@ -192,8 +211,9 @@ The fallback used normal `bun install --frozen-lockfile` and
 `bun run stage:sidecars` restoration before release testing. Sandbox cache/network
 attempts were retried with scoped access; `package.json` and `bun.lock` stayed
 unchanged. All sidecars and runtime DLLs were then staged, with AgentGateway
-matching its pinned SHA-256. Task12 must rerun normal staging and the full Tauri
-bundle gate; this release-profile test does not replace that bundle verification.
+matching its pinned SHA-256. The subsequent Task 12 native history above retains
+the first WiX failure and the terminal MSI-only and exact full-bundle recoveries;
+the release-profile test itself did not replace that bundle verification.
 
 ## Task 11 review-fix frontend verification
 
