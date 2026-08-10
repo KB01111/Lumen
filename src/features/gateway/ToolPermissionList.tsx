@@ -1,25 +1,6 @@
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import {LumenSelect} from '../settings/components/SettingsControls';
 import type {ToolAccess, ToolPermission} from './gateway.types';
-
-const styles = stylex.create({
-  row: {
-    minHeight: '66px',
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) auto',
-    alignItems: 'center',
-    gap: tokens.space8,
-    padding: tokens.space8,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-    ':last-child': {borderBottomWidth: 0},
-  },
-  text: {display: 'grid', gap: tokens.space2},
-});
 
 export function ToolPermissionList({permissions, onChange}: {
   permissions: ToolPermission[];
@@ -28,8 +9,8 @@ export function ToolPermissionList({permissions, onChange}: {
   return (
     <div>
       {permissions.map((permission) => (
-        <div key={permission.id} {...stylex.props(styles.row)}>
-          <div {...stylex.props(styles.text)}>
+        <div key={permission.id} className="grid min-h-[66px] grid-cols-[minmax(0,1fr)_auto] items-center gap-6 border-b border-border-subtle p-5 last:border-b-0">
+          <div className="grid min-w-0 gap-1">
             <LumenText weight="medium">{permission.label}</LumenText>
             <LumenText tone="tertiary" variant="meta">{permission.description}</LumenText>
           </div>

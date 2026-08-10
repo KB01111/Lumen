@@ -1,23 +1,16 @@
 import {useEffect, useRef, type KeyboardEvent} from 'react';
 
-import {
-  CpuIcon,
-  DatabaseIcon,
-  GameControllerIcon,
-  LightningIcon,
-  MagnifyingGlassIcon,
-  ShieldCheckIcon,
-} from '@phosphor-icons/react';
-import * as stylex from '@stylexjs/stylex';
 import {AnimatePresence, motion} from 'motion/react';
 
 import {useLumenMotion} from '../../design-system/MotionProvider';
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
+import {useLauncherStore} from '../launcher/launcher.store';
+import {requestWindowShow} from '../launcher/useLauncherPresentation';
 import {OnboardingScene} from './OnboardingScene';
 import {
   isValidRoot,
@@ -33,64 +26,6 @@ import {
 import {ShortcutScene} from './ShortcutScene';
 
 const defaultRootService = createRootSelectionService();
-const defaultWindowService = createWindowService();
-
-const styles = stylex.create({
-  shell: {
-    width: '100%',
-    height: '100%',
-    display: 'grid',
-    gridTemplateRows: 'auto minmax(0, 1fr) auto',
-    overflow: 'hidden',
-    borderRadius: tokens.radiusLarge,
-  },
-  topbar: {
-    minHeight: '54px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space8,
-    paddingInline: tokens.space12,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-  },
-  progress: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.space3,
-  },
-  progressDot: {
-    width: '18px',
-    height: '3px',
-    backgroundColor: tokens.colorBorderStrong,
-    borderRadius: tokens.radiusRound,
-  },
-  progressActive: {backgroundColor: tokens.colorAccent},
-  sceneViewport: {
-    minWidth: 0,
-    minHeight: 0,
-    display: 'grid',
-    placeItems: 'center',
-    overflow: 'hidden',
-    paddingBlock: tokens.space16,
-  },
-  sceneMotion: {
-    width: '100%',
-  },
-  footer: {
-    minHeight: '64px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space8,
-    paddingInline: tokens.space12,
-    borderTopColor: tokens.colorBorderSubtle,
-    borderTopStyle: 'solid',
-    borderTopWidth: '1px',
-  },
-  footerSpacer: {width: tokens.controlHeightMedium},
-});
 
 function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut'>}) {
   switch (step) {
@@ -98,7 +33,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Find the file you mean before the thought is gone."
-          icon={<MagnifyingGlassIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="search" />}
           support="Lumen is a keyboard-first search instrument built for Windows 11."
           title="Everything, within reach"
         />
@@ -107,7 +42,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Your filenames, previews, and search history stay on this PC."
-          icon={<ShieldCheckIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="privacy" />}
           support="Cloud providers are optional, explicit, and off until you choose otherwise."
           title="Local by design"
         />
@@ -116,7 +51,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="This phase uses simple local filename search while the production index is still to come."
-          icon={<DatabaseIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="storage" />}
           support="Future indexing will run quietly and expose clear progress and pause states."
           title="A calm background index"
         />
@@ -125,7 +60,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Local AI providers will later add meaning without sending private files away."
-          icon={<CpuIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="hardware" />}
           support="NPU, GPU, CPU, and fallback status will always be visible—not implied."
           title="Intelligence stays optional"
         />
@@ -134,7 +69,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Exact filename and folder search remains available without any model."
-          icon={<LightningIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="bolt" />}
           support="Semantic search and reranking enhance the result set; they never gate it."
           title="Fast even without AI"
         />
@@ -143,7 +78,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
       return (
         <OnboardingScene
           description="Lumen can pause heavy work for games, fullscreen apps, video, and battery life."
-          icon={<GameControllerIcon size={48} weight="duotone" />}
+          icon={<LumenUiIcon className="size-12" name="tools" />}
           support="Search stays available while background activity adapts to the moment."
           title="Quiet when focus matters"
         />
@@ -159,9 +94,14 @@ export interface OnboardingFlowProps {
 
 export function OnboardingFlow({
   rootService = defaultRootService,
-  windowService = defaultWindowService,
+  windowService: providedWindowService,
   onComplete,
 }: OnboardingFlowProps) {
+  const windowServiceRef = useRef<WindowService | null>(null);
+  if (!windowServiceRef.current) {
+    windowServiceRef.current = providedWindowService ?? createWindowService();
+  }
+  const windowService = providedWindowService ?? windowServiceRef.current;
   const {pageDuration, reducedMotion} = useLumenMotion();
   const currentIndex = useOnboardingStore((state) => state.currentIndex);
   const root = useOnboardingStore((state) => state.root);
@@ -176,7 +116,8 @@ export function OnboardingFlow({
   const step = onboardingSteps[currentIndex] ?? 'welcome';
 
   useEffect(() => {
-    void windowService.show('onboarding');
+    useLauncherStore.getState().show('onboarding');
+    void windowService.show('onboarding').catch(() => undefined);
   }, [windowService]);
 
   useEffect(() => {
@@ -194,7 +135,7 @@ export function OnboardingFlow({
     if (currentIndex === onboardingSteps.length - 1) {
       if (complete()) {
         onComplete?.();
-        void windowService.show('collapsed');
+        void requestWindowShow(windowService, 'collapsed');
       }
       return;
     }
@@ -223,29 +164,29 @@ export function OnboardingFlow({
     <LumenSurface
       ref={shellRef}
       aria-label="Welcome to Lumen"
-      className={stylex.props(styles.shell).className}
+      className="grid h-full w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-surface"
       material="mica"
       onKeyDown={handleKeyDown}
     >
-      <header data-tauri-drag-region {...stylex.props(styles.topbar)}>
+      <header data-tauri-drag-region className="flex min-h-[54px] items-center justify-between gap-6 border-b border-border-subtle px-8">
         <LumenText weight="semibold">Lumen</LumenText>
-        <div aria-label={`Step ${currentIndex + 1} of ${onboardingSteps.length}`} {...stylex.props(styles.progress)}>
+        <div aria-label={`Step ${currentIndex + 1} of ${onboardingSteps.length}`} className="flex items-center gap-2">
           {onboardingSteps.map((item, index) => (
             <span
               key={item}
               aria-hidden="true"
-              {...stylex.props(styles.progressDot, index <= currentIndex && styles.progressActive)}
+              className={index <= currentIndex ? 'h-[3px] w-[18px] rounded-pill bg-accent' : 'h-[3px] w-[18px] rounded-pill bg-border-strong'}
             />
           ))}
         </div>
       </header>
-      <div {...stylex.props(styles.sceneViewport)}>
+      <div className="grid min-h-0 min-w-0 place-items-center overflow-hidden py-12">
         <AnimatePresence custom={directionRef.current} initial={false} mode="wait">
           <motion.div
             key={step}
             data-motion-direction={reducedMotion ? 'fade' : 'spatial'}
             data-testid="onboarding-scene"
-            {...stylex.props(styles.sceneMotion)}
+            className="w-full"
             animate="center"
             custom={directionRef.current}
             exit="exit"
@@ -275,12 +216,13 @@ export function OnboardingFlow({
           </motion.div>
         </AnimatePresence>
       </div>
-      <footer {...stylex.props(styles.footer)}>
+      <footer className="flex min-h-16 items-center justify-between gap-6 border-t border-border-subtle px-8">
         {currentIndex > 0 ? (
-          <LumenButton size="medium" variant="quiet" onPress={goBack}>Back</LumenButton>
-        ) : <span aria-hidden="true" {...stylex.props(styles.footerSpacer)} />}
+          <LumenButton data-testid="onboarding-back-action" size="medium" variant="quiet" onPress={goBack}>Back</LumenButton>
+        ) : <span aria-hidden="true" className="w-9" />}
         <LumenButton
           data-onboarding-primary="true"
+          data-testid="onboarding-primary-action"
           isDisabled={step === 'root' && !isValidRoot(root)}
           size="medium"
           variant="primary"

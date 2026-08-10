@@ -29,6 +29,9 @@ export const motionTokens = {
     maxStaggered: 8,
     reducedDuration: 0.08,
   },
+  launcher: {
+    bodyOffset: 6,
+  },
   reduced: {
     layoutDuration: 0,
     opacityDuration: 0.08,

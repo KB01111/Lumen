@@ -1,29 +1,17 @@
 import type {ButtonProps} from 'react-aria-components';
 
-import * as stylex from '@stylexjs/stylex';
-
-import {tokens} from '../tokens.stylex';
+import {cn} from '../../lib/cn';
 import {
   LumenButton,
   type LumenButtonSize,
   type LumenButtonVariant,
 } from './LumenButton';
 
-const styles = stylex.create({
-  iconButton: {
-    flexShrink: 0,
-    paddingInline: 0,
-  },
-  small: {
-    width: tokens.controlHeightSmall,
-  },
-  medium: {
-    width: tokens.controlHeightMedium,
-  },
-  large: {
-    width: tokens.controlHeightLarge,
-  },
-});
+const iconButtonSizes = {
+  small: 'w-8',
+  medium: 'w-9',
+  large: 'w-11',
+} as const;
 
 export interface LumenIconButtonProps extends ButtonProps {
   'aria-label': string;
@@ -37,18 +25,13 @@ export function LumenIconButton({
   variant = 'quiet',
   ...props
 }: LumenIconButtonProps) {
-  const generatedClassName = stylex.props(
-    styles.iconButton,
-    styles[size],
-  ).className;
-
   return (
     <LumenButton
       {...props}
       className={(renderProps) => {
         const customClassName =
           typeof className === 'function' ? className(renderProps) : className;
-        return [generatedClassName, customClassName].filter(Boolean).join(' ');
+        return cn('shrink-0 px-0', iconButtonSizes[size], customClassName);
       }}
       size={size}
       variant={variant}

@@ -1,5 +1,4 @@
-import {ArrowClockwiseIcon, ExportIcon} from '@phosphor-icons/react';
-
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {useDiagnosticsStore} from '../../diagnostics/diagnostics.store';
 import {DiagnosticItem} from '../../diagnostics/DiagnosticItem';
@@ -35,13 +34,13 @@ export function DiagnosticsPage() {
         <DiagnosticItem label="Logs">{snapshot.logs[snapshot.logs.length - 1] ?? 'No warnings recorded'}</DiagnosticItem>
       </SettingSection>
       <SettingSection title="Performance samples">
-        <DiagnosticItem label="Long tasks">{snapshot.longTasks.length}</DiagnosticItem>
+        <DiagnosticItem label="Browser long tasks (50 ms+)">{snapshot.browserLongTasks.length}</DiagnosticItem>
         <DiagnosticItem label="Interaction samples">{snapshot.timings.length}</DiagnosticItem>
       </SettingSection>
-      <div style={{display: 'flex', flexWrap: 'wrap', gap: 8}}>
-        <LumenButton aria-label="Refresh diagnostics" size="small" onPress={refresh}><ArrowClockwiseIcon aria-hidden="true" size={14} /> Refresh</LumenButton>
+      <div className="flex flex-wrap gap-2">
+        <LumenButton aria-label="Refresh diagnostics" size="small" onPress={refresh}><LumenUiIcon name="refresh" size="small" /> Refresh</LumenButton>
         <LumenButton aria-label="Measure refresh rate" size="small" onPress={() => void sampleRefreshRate()}>Measure refresh rate</LumenButton>
-        <LumenButton aria-label="Prepare diagnostics export" size="small" variant="quiet" onPress={prepareExport}><ExportIcon aria-hidden="true" size={14} /> Prepare export</LumenButton>
+        <LumenButton aria-label="Prepare diagnostics export" size="small" variant="quiet" onPress={prepareExport}><LumenUiIcon name="download" size="small" /> Prepare export</LumenButton>
       </div>
       {lastExport ? <SettingsCallout>{lastExport.filename} is prepared for review.</SettingsCallout> : null}
     </SettingsPage>

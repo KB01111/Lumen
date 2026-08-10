@@ -1,6 +1,6 @@
 # Lumen
 
-Lumen is a keyboard-first Windows 11 search and browser-agent experience built with Tauri 2, React 19, TypeScript, StyleX, React Aria Components, and Motion. It combines confined local-file search, local/cloud answers behind AgentGateway, and an explicitly consented Gemini Computer Use mode for browser-only tasks.
+Lumen is a keyboard-first Windows 11 search and browser-agent experience built with Tauri 2, React 19, TypeScript, Tailwind CSS v4, React Aria Components, and Motion. Its owned EinUI command palette uses OpenAI Apps SDK UI icons within Lumen's semantic glass theme. It combines confined local-file search, local/cloud answers behind AgentGateway, and an explicitly consented Gemini Computer Use mode for browser-only tasks.
 
 ![Lumen phase-one visual state gallery](artifacts/screenshots/contact-sheet.png)
 
@@ -14,9 +14,11 @@ Lumen is a keyboard-first Windows 11 search and browser-agent experience built w
 - Light, dark, opaque, reduced-effects, reduced-motion, and forced-colors/high-contrast presentation.
 - Typed local-file search, metadata, preview, and opener commands confined to user-selected roots.
 - A supervised Gemini Computer Use sidecar that controls a fresh Microsoft Edge context, pauses model-requested sensitive actions for approval, and stops with Lumen.
-- Development-only 46-scenario visual gallery, screenshot set, contact sheet, interaction recordings, accessibility/DPI suites, and a strict high-refresh profiler.
+- Development-only 53-scenario visual gallery, screenshot set, contact sheet, six interaction recordings, accessibility/DPI suites, and a strict high-refresh profiler.
 
 The normal Tauri application always uses the real local-file adapter. Deterministic memory data is available only to development tests, recordings, and gallery routes.
+
+The shipped answer path is provider-neutral at the React boundary and routes typed requests through native services. A general provider/model registry, semantic/vector search and reranking, MCP, and other production phase-two services remain explicit follow-up work rather than preview claims.
 
 ## Requirements
 
@@ -59,8 +61,8 @@ cargo test --all-features
 
 Generated evidence is checked in under `artifacts`:
 
-- `artifacts/screenshots/contact-sheet.png` and `manifest.json`: all 46 deterministic states.
-- `artifacts/recordings/manifest.json`: four silent WebM interaction studies.
+- `artifacts/screenshots/contact-sheet.png` and `manifest.json`: all 53 deterministic states.
+- `artifacts/recordings/manifest.json`: six silent WebM interaction studies.
 - `artifacts/performance/profile-summary.json`: machine-readable budgets, measurements, burst guards, browser version, and source SHA.
 - `artifacts/performance/interaction-trace.zip`: Playwright trace for the measured interaction run.
 

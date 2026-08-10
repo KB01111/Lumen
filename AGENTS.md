@@ -1,6 +1,6 @@
 # Lumen
 
-Keyboard-first Windows 11 file-search launcher. Tauri 2 + React 19 + TypeScript + StyleX + React Aria Components + Motion. Phase one is a finished frontend against a confined local-file adapter — the production index, semantic search, AI inference, AgentGateway, and MCP services intentionally do **not** exist. New backend capability must go behind the existing typed contracts (`src/services`), never into UI components.
+Keyboard-first Windows 11 search and browser-agent launcher. Tauri 2 + React 19 + TypeScript + Tailwind CSS v4 + React Aria Components + Motion, with an owned EinUI command palette and OpenAI Apps SDK UI icons. The current runtime includes confined local-file search, durable SQLite content indexing, supervised AgentGateway/local-runtime processes, typed native local/cloud answer routing, and explicitly consented browser-only Computer Use. The provider/model registry, semantic/vector search and reranking, MCP, and other production phase-two services remain deferred. New backend capability must go behind the existing typed contracts (`src/services`), never into UI components.
 
 ## Environment
 
@@ -37,21 +37,21 @@ Focused runs:
 
 - Playwright is serial (`workers: 1`, no retries) and uses the installed Edge via `channel: 'msedge'` — do not switch to a downloaded chromium.
 - Playwright auto-starts `bun run dev` on `127.0.0.1:1420` and **reuses an already-running server** (`reuseExistingServer`). A stale dev server serving old code will silently affect e2e results.
-- Vitest compiles StyleX with `devMode: 'css-only'`; jsdom + `@testing-library/jest-dom` setup is in `src/test/setup.ts`. Mocks restore automatically (`restoreMocks: true`).
+- Vitest compiles Tailwind CSS v4 through the shared Vite plugin; jsdom + `@testing-library/jest-dom` setup is in `src/test/setup.ts`. Mocks restore automatically (`restoreMocks: true`).
 
 ## Dev-only URL modes (browser/e2e, gated by `import.meta.env.DEV`)
 
 The plain browser has no Tauri IPC, so deterministic states are reached via query params (wired in `src/app/App.tsx`):
 
 - `?service=memory` — deterministic in-memory search data; also bypasses onboarding. Used by e2e, recordings, profiler.
-- `?gallery=1&scenario=<id>[&theme=...]` — 46-state visual gallery (see `artifacts/screenshots/manifest.json` for IDs).
+- `?gallery=1&scenario=<id>[&theme=...]` — 53-state visual gallery (see `artifacts/screenshots/manifest.json` for IDs).
 - `?mode=foundation` — shell preview; `Ctrl+Shift+L` cycles dark/light/opaque.
 - `?onboarding=1` / `?onboarded=1` — force or bypass onboarding.
 
 ## Architecture (what actually matters)
 
 - `src/app` — composition root (`App.tsx`), providers, route/dev-mode branching.
-- `src/design-system` — StyleX tokens (`tokens.stylex.ts`), themes, materials, motion, primitives. All styling goes through `stylex.create` + these tokens; do not add raw CSS (only `global.css` exists).
+- `src/design-system` — Tailwind CSS v4 semantic variables in `global.css`, themes, materials, motion, icons, and primitives. Product styling uses semantic Tailwind utilities; the EinUI palette is owned vendored source, and `LumenUiIcon` bridges OpenAI Apps SDK UI icons.
 - `src/features` — launcher, results, preview, onboarding, settings, activity, gateway, local-AI, diagnostics, gallery.
 - `src/services/search` — the key boundary: UI only knows the `SearchService` interface and never imports Tauri commands directly. Adapters: `DevelopmentFileSearchService` (default, real Tauri commands), `DevelopmentSearchService` (`?service=memory`), `MemorySearchService` (unit tests), `FutureProductionSearchService` (throws — the phase-two seam). Every native payload is Zod-parsed before entering UI state.
 - `src/services/computer-use` — typed Computer Use health, stream, approval, and cancellation boundary. Rust owns the fixed worker process and Job Object; React receives only Zod-parsed progress events. The Gemini key is never returned to React.
@@ -72,8 +72,8 @@ The plain browser has no Tauri IPC, so deterministic states are reached via quer
 
 `artifacts/` is committed and expected to be regenerated after UI/perf changes:
 
-- `bun run capture:gallery` → `artifacts/screenshots/` (46 states + contact sheet + manifest)
-- `bun run record:interactions` → `artifacts/recordings/`
+- `bun run capture:gallery` → `artifacts/screenshots/` (53 states + contact sheet + manifest)
+- `bun run record:interactions` → `artifacts/recordings/` (6 WebM studies + manifest)
 - `bun run profile` → `artifacts/performance/profile-summary.json` (240 Hz frame budgets, driven via the dev-only `window.__LUMEN_DIAGNOSTICS__`)
 
 All three auto-start a dev server if none is running. Build outputs under `src-tauri/target/release/bundle` are not committed.

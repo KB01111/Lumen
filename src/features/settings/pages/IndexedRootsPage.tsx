@@ -1,11 +1,8 @@
 import {useEffect, useState} from 'react';
 
-import {FolderOpenIcon} from '@phosphor-icons/react';
-import * as stylex from '@stylexjs/stylex';
-
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
-import {tokens} from '../../../design-system/tokens.stylex';
 import {
   createRootSelectionService,
   type RootSelectionService,
@@ -27,28 +24,6 @@ interface PageNotice {
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
-
-const styles = stylex.create({
-  toolbar: {display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: tokens.space8},
-  actions: {display: 'flex', alignItems: 'center', gap: tokens.space6, flexWrap: 'wrap'},
-  empty: {
-    minHeight: '190px',
-    display: 'grid',
-    placeItems: 'center',
-    gap: tokens.space6,
-    padding: tokens.space12,
-    textAlign: 'center',
-  },
-  emptyIcon: {
-    width: '54px',
-    height: '54px',
-    display: 'grid',
-    placeItems: 'center',
-    color: tokens.colorAccent,
-    backgroundColor: tokens.colorAccentMuted,
-    borderRadius: tokens.radiusLarge,
-  },
-});
 
 export function IndexedRootsPage({rootService = defaultRootService}: {rootService?: RootSelectionService}) {
   const roots = useSettingsStore((state) => state.roots);
@@ -154,9 +129,9 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
 
   return (
     <SettingsPage>
-      <div {...stylex.props(styles.toolbar)}>
+      <div className="flex items-center justify-between gap-4">
         <LumenText tone="secondary">{roots.length} {roots.length === 1 ? 'root' : 'roots'}</LumenText>
-        <div {...stylex.props(styles.actions)}>
+        <div className="flex flex-wrap items-center gap-3">
           <LumenButton isDisabled={indexBusy || roots.length === 0} size="small" onPress={rebuildIndex}>
             {indexBusy ? 'Working…' : 'Rebuild index'}
           </LumenButton>
@@ -164,7 +139,7 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
             Delete index
           </LumenButton>
           <LumenButton aria-label="Add root" isDisabled={choosing} size="small" variant="primary" onPress={addRoot}>
-            <FolderOpenIcon aria-hidden="true" size={16} />
+            <LumenUiIcon name="folderOpen" size="small" />
             {choosing ? 'Choosing…' : 'Add root'}
           </LumenButton>
         </div>
@@ -172,8 +147,8 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
       {notice ? <SettingsCallout tone={notice.tone}>{notice.text}</SettingsCallout> : null}
       <SettingSection title="Indexed search directories" description="Content stays local unless cloud enrichment is enabled explicitly for that root.">
         {roots.length === 0 ? (
-          <div {...stylex.props(styles.empty)}>
-            <span aria-hidden="true" {...stylex.props(styles.emptyIcon)}><FolderOpenIcon size={26} weight="duotone" /></span>
+          <div className="grid min-h-[190px] place-items-center gap-3 p-8 text-center">
+            <span aria-hidden="true" className="grid size-14 place-items-center rounded-surface bg-accent/10 text-accent"><LumenUiIcon name="folderOpen" size="large" /></span>
             <div>
               <LumenText as="p" weight="semibold">Choose a focused folder to begin</LumenText>
               <LumenText as="p" tone="tertiary" variant="meta">Project folders keep the development adapter quick and predictable.</LumenText>

@@ -1,8 +1,8 @@
-import stylex from '@stylexjs/unplugin';
+import tailwindcss from '@tailwindcss/vite';
 import {defineConfig} from 'vitest/config';
 
 export default defineConfig({
-  plugins: [stylex.rollup({devMode: 'css-only', useCSSLayers: true})],
+  plugins: [tailwindcss()],
   test: {
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     environment: 'jsdom',

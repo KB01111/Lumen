@@ -44,3 +44,97 @@ test('settings remain usable at 200-percent text size', async ({page}) => {
   await expect(page.getByRole('tab', {name: 'AgentGateway'})).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
+
+test('the constrained work area keeps controls contained while results and answers scroll internally', async ({page}) => {
+  await page.setViewportSize({width: 720, height: 540});
+  for (const scale of scales) {
+    await page.goto(`/?gallery=1&scenario=constrained-work-area&capture=1&scale=${scale}`);
+
+    const gallery = page.getByRole('region', {name: 'Lumen visual state gallery'});
+    const launcher = page.getByLabel('Lumen launcher');
+    const search = page.getByRole('searchbox', {name: 'Search files'});
+    const composer = launcher.locator('[data-einui-slot="composer"]');
+    const footer = page.getByText('Local runtime', {exact: true}).locator('..');
+    const grid = page.getByRole('grid', {name: 'Search results'});
+    const resultViewport = grid.locator('..');
+    const answer = page.getByTestId('answer-region');
+    const modeControl = page.getByRole('button', {name: 'Switch to Computer Use'});
+    const modeLabel = modeControl.getByText('Computer Use', {exact: true});
+    const shortcut = page.getByLabel('Alt plus Space');
+
+    await expect(gallery).toBeAttached();
+    await expect(composer).toHaveAttribute('data-einui-slot', 'composer');
+    await expect(search).toBeVisible();
+    await expect(footer).toBeVisible();
+    await expect(grid).toBeVisible();
+    await expect(answer).toBeVisible();
+    await expect(answer).toHaveCount(1);
+    await expect(modeControl).toHaveAccessibleName('Switch to Computer Use');
+    await expect(modeLabel).toBeVisible();
+    await expect(shortcut).toBeHidden();
+    await expect(page.getByRole('region', {name: 'File preview'})).toBeHidden();
+
+    const [galleryBounds, launcherBounds, composerBounds, footerBounds, searchBounds, modeBounds] = await Promise.all([
+      gallery.boundingBox(),
+      launcher.boundingBox(),
+      composer.boundingBox(),
+      footer.boundingBox(),
+      search.boundingBox(),
+      modeControl.boundingBox(),
+    ]);
+    expect(galleryBounds).not.toBeNull();
+    expect(launcherBounds).not.toBeNull();
+    expect(composerBounds).not.toBeNull();
+    expect(footerBounds).not.toBeNull();
+    expect(searchBounds).not.toBeNull();
+    expect(modeBounds).not.toBeNull();
+
+    for (const bounds of [launcherBounds, composerBounds, footerBounds]) {
+      expect(bounds?.x ?? -1).toBeGreaterThanOrEqual(-0.5);
+      expect(bounds?.y ?? -1).toBeGreaterThanOrEqual(-0.5);
+      expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(720.5);
+      expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(540.5);
+    }
+    expect(composerBounds?.y ?? 0).toBeGreaterThanOrEqual(launcherBounds?.y ?? 0);
+    expect((footerBounds?.y ?? 0) + (footerBounds?.height ?? 0)).toBeLessThanOrEqual(
+      (launcherBounds?.y ?? 0) + (launcherBounds?.height ?? 0) + 0.5,
+    );
+    expect(searchBounds?.width ?? 0).toBeGreaterThan(24);
+    expect((modeBounds?.x ?? 0) + (modeBounds?.width ?? 0)).toBeLessThanOrEqual(
+      (composerBounds?.x ?? 0) + (composerBounds?.width ?? 0) + 0.5,
+    );
+    if (scale === 200) {
+      const labelTruncation = await modeLabel.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          clientWidth: element.clientWidth,
+          overflow: style.overflow,
+          scrollWidth: element.scrollWidth,
+          textOverflow: style.textOverflow,
+          whiteSpace: style.whiteSpace,
+        };
+      });
+      expect(labelTruncation.clientWidth).toBeGreaterThan(0);
+      expect(labelTruncation.scrollWidth).toBeGreaterThan(labelTruncation.clientWidth);
+      expect(labelTruncation).toMatchObject({
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      });
+    }
+
+    const resultScroll = await resultViewport.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      return {clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, scrollTop: element.scrollTop};
+    });
+    const answerScroll = await answer.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      return {clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, scrollTop: element.scrollTop};
+    });
+    expect(resultScroll.scrollHeight).toBeGreaterThan(resultScroll.clientHeight);
+    expect(resultScroll.scrollTop).toBeGreaterThan(0);
+    expect(answerScroll.scrollHeight).toBeGreaterThan(answerScroll.clientHeight);
+    expect(answerScroll.scrollTop).toBeGreaterThan(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  }
+});

@@ -1,63 +1,14 @@
-import * as stylex from '@stylexjs/stylex';
 import {motion} from 'motion/react';
-
-import {tokens} from '../../design-system/tokens.stylex';
-
-const styles = stylex.create({
-  root: {
-    position: 'relative',
-    minHeight: '280px',
-    display: 'grid',
-    alignContent: 'start',
-    gap: tokens.space8,
-    padding: tokens.space12,
-    overflow: 'hidden',
-  },
-  block: {
-    height: '12px',
-    backgroundColor: tokens.colorLuminosity,
-    borderRadius: tokens.radiusRound,
-  },
-  title: {width: '56%', height: '18px'},
-  medium: {width: '78%'},
-  short: {width: '42%'},
-  preview: {
-    width: '100%',
-    height: '144px',
-    marginBlockEnd: tokens.space4,
-    backgroundColor: tokens.colorMaterialInset,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-  },
-  sweep: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    width: '35%',
-    pointerEvents: 'none',
-    backgroundImage: `linear-gradient(100deg, transparent 0%, ${tokens.colorLuminosity} 50%, transparent 100%)`,
-  },
-});
 
 export function PreviewSkeleton({reducedMotion = false}: {reducedMotion?: boolean}) {
   return (
-    <div aria-label="Loading preview" role="status" {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.preview)} />
-      <div {...stylex.props(styles.block, styles.title)} />
-      <div {...stylex.props(styles.block, styles.medium)} />
-      <div {...stylex.props(styles.block)} />
-      <div {...stylex.props(styles.block, styles.short)} />
-      {reducedMotion ? null : (
-        <motion.span
-          aria-hidden="true"
-          {...stylex.props(styles.sweep)}
-          animate={{x: ['-110%', '310%']}}
-          transition={{duration: 1.4, ease: 'easeInOut', repeat: Infinity}}
-        />
-      )}
+    <div aria-label="Loading preview" className="relative grid min-h-70 content-start gap-3 overflow-hidden bg-canvas high-contrast:bg-[Canvas] p-4" role="status" data-preview-surface="opaque">
+      <div className="mb-1 h-36 w-full rounded-control border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row)]" />
+      <div className="h-[18px] w-[56%] rounded-pill bg-[var(--einui-command-row)]" />
+      <div className="h-3 w-[78%] rounded-pill bg-[var(--einui-command-row)]" />
+      <div className="h-3 w-full rounded-pill bg-[var(--einui-command-row)]" />
+      <div className="h-3 w-[42%] rounded-pill bg-[var(--einui-command-row)]" />
+      {reducedMotion ? null : <motion.span aria-hidden="true" animate={{x: ['-110%', '310%']}} className="pointer-events-none absolute inset-y-0 left-0 w-[35%] bg-[linear-gradient(100deg,transparent_0%,var(--einui-command-row-selected)_50%,transparent_100%)]" transition={{duration: 1.4, ease: 'easeInOut', repeat: Infinity}} />}
     </div>
   );
 }

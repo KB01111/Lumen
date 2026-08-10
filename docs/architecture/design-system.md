@@ -1,14 +1,16 @@
 # Lumen design system
 
-Lumen owns its authored visual language through semantic StyleX variables. Components consume roles such as `colorTextSecondary`, `colorMaterialRaised`, `radiusLauncher`, and `durationOpen`; product code does not introduce page-local palettes or arbitrary motion timings.
+Lumen owns its authored visual language through Tailwind CSS v4's CSS-first semantic variables. Components consume semantic utilities backed by the global token contract; product code does not introduce page-local palettes or arbitrary motion timings.
 
 ## Ownership
 
-- StyleX owns authored layout, appearance, themes, and semantic tokens.
+- Tailwind CSS v4 owns authored layout, appearance, themes, and semantic tokens through `src/design-system/global.css`.
 - React Aria Components owns behavior and accessibility for Lumen-authored controls.
 - Motion for React owns meaningful spatial transitions and follows the resolved motion preference.
-- Phosphor supplies general interface symbols. Product-specific symbols use `LumenIcon`'s 24-unit, current-color SVG frame.
-- Astryx is reserved for secondary management controls where it does not impose launcher styling.
+- `LumenUiIcon` is the typed bridge to OpenAI Apps SDK UI interface icons. Product-specific symbols use `LumenIcon`'s 24-unit, current-color SVG frame.
+- The owned EinUI command palette is vendored source, not a runtime dependency. Its provenance ledger records the upstream revision, license, frozen visual recipe, and deliberate update policy.
+
+StyleX, Astryx, and Phosphor have no remaining Lumen runtime or authored-style path. Apps SDK UI supplies interface chrome only; it does not determine provider identity, routing, credentials, or product styling.
 
 ## Theme axes
 

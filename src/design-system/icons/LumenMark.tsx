@@ -1,10 +1,11 @@
 import {LumenIcon, type LumenIconProps} from './LumenIcon';
+import {cn} from '../../lib/cn';
 
 export type LumenMarkProps = Omit<LumenIconProps, 'children'>;
 
-export function LumenMark(props: LumenMarkProps) {
+export function LumenMark({className, ...props}: LumenMarkProps) {
   return (
-    <LumenIcon {...props}>
+    <LumenIcon {...props} className={cn(className)}>
       <path d="M17.45 15.8 21 19.35" vectorEffect="non-scaling-stroke" />
       <path
         d="M17.75 10.2a7.1 7.1 0 1 1-2.08-5.02"

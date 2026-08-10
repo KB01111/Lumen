@@ -1,8 +1,8 @@
 import {describe, expect, it} from 'vitest';
-import {themeContracts} from './themes.stylex';
+import {defaultAppearance, themeContracts} from './theme';
 
-describe('Lumen themes', () => {
-  it('defines every required theme axis', () => {
+describe('Lumen theme contract', () => {
+  it('exposes every required appearance axis', () => {
     expect(Object.keys(themeContracts)).toEqual([
       'light',
       'dark',
@@ -11,5 +11,11 @@ describe('Lumen themes', () => {
       'reducedEffects',
       'reducedMotion',
     ]);
+    expect(defaultAppearance).toEqual({
+      mode: 'system',
+      transparency: 'native',
+      effects: 'full',
+      motion: 'system',
+    });
   });
 });

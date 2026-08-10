@@ -1,7 +1,11 @@
 import {useEffect, type RefObject} from 'react';
 
 import type {SearchResult} from '../../services/search/search.types';
-import {useLauncherStore, type LauncherFocusRegion} from '../launcher/launcher.store';
+import {
+  useLauncherStore,
+  type LauncherFocusRegion,
+  type LauncherIntent,
+} from '../launcher/launcher.store';
 import {useQueryStore} from '../launcher/query.store';
 import {
   readSelectionIntent,
@@ -13,6 +17,7 @@ type KeyboardAction = () => void | Promise<void>;
 export interface LumenKeyboardOptions {
   detailsOpen: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
+  intent: LauncherIntent;
   isExpanded: boolean;
   results: readonly SearchResult[];
   selectedId: string | null;
@@ -73,6 +78,7 @@ function isRendered(element: HTMLElement | null) {
 export function useLumenKeyboard({
   detailsOpen,
   inputRef,
+  intent,
   isExpanded,
   results,
   selectedId,
@@ -119,7 +125,7 @@ export function useLumenKeyboard({
     };
 
     const handleTab = (event: KeyboardEvent) => {
-      if (!isExpanded) {
+      if (!isExpanded || intent !== 'search') {
         return;
       }
       const current = regionForTarget(event.target);
@@ -130,6 +136,7 @@ export function useLumenKeyboard({
         return;
       }
       event.preventDefault();
+      event.stopPropagation();
       if (event.shiftKey) {
         focusRegion(
           current === 'search'
@@ -210,6 +217,9 @@ export function useLumenKeyboard({
       }
 
       const targetRegion = regionForTarget(event.target);
+      if (event.key === 'Enter' && !event.ctrlKey && !event.altKey && targetRegion === 'search') {
+        return;
+      }
       if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') &&
         targetRegion !== 'scope' && targetRegion !== 'preview') {
         event.preventDefault();
@@ -251,6 +261,7 @@ export function useLumenKeyboard({
   }, [
     detailsOpen,
     inputRef,
+    intent,
     isExpanded,
     onCloseDetails,
     onOpen,

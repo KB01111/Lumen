@@ -1,30 +1,10 @@
 import {useState} from 'react';
 
-import {FolderOpenIcon} from '@phosphor-icons/react';
-import * as stylex from '@stylexjs/stylex';
-
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import {OnboardingScene} from './OnboardingScene';
 import type {RootSelectionService} from './root-selection-service';
-
-const styles = stylex.create({
-  selection: {
-    maxWidth: '440px',
-    paddingBlock: tokens.space5,
-    paddingInline: tokens.space8,
-    overflow: 'hidden',
-    color: tokens.colorTextSecondary,
-    backgroundColor: tokens.colorMaterialInset,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-});
 
 export interface RootSelectionSceneProps {
   root: string;
@@ -46,14 +26,14 @@ export function RootSelectionScene({root, service, onRoot}: RootSelectionScenePr
   return (
     <OnboardingScene
       description="Start with one development directory you know well."
-      icon={<FolderOpenIcon size={48} weight="duotone" />}
+      icon={<LumenUiIcon className="size-12" name="folderOpen" />}
       support="You can add, pause, exclude, or remove roots later."
       title="Choose one place to start"
     >
-      <LumenButton size="large" variant="primary" onPress={chooseRoot}>
+      <LumenButton size="large" variant="subtle" onPress={chooseRoot}>
         Choose folder
       </LumenButton>
-      {root ? <div title={root} {...stylex.props(styles.selection)}>{root}</div> : null}
+      {root ? <div className="max-w-[440px] truncate rounded-control border border-border-subtle bg-surface-inset px-5 py-3 text-text-secondary" title={root}>{root}</div> : null}
       {message ? <LumenText role="status" tone="secondary" variant="caption">{message}</LumenText> : null}
     </OnboardingScene>
   );

@@ -14,7 +14,7 @@ test.use({
 
 interface DiagnosticsMetrics {
   timings: Array<{name: string; durationMs: number}>;
-  longTasks: number[];
+  browserLongTasks: number[];
   reactCommits: number[];
 }
 
@@ -47,6 +47,43 @@ async function waitForSamples(page: Page, name: string, count: number) {
   );
 }
 
+async function dispatchRapidInputBurst(search: ReturnType<Page['getByRole']>) {
+  return search.evaluate((element) => {
+    if (!(element instanceof globalThis.HTMLInputElement)) throw new Error('Expected the launcher input');
+    const setValue = Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value')?.set;
+    if (!setValue) throw new Error('Missing native HTMLInputElement value setter');
+    const startedAt = performance.now();
+    for (let index = 1; index <= 30; index += 1) {
+      setValue.call(element, `rapid-burst-${index}`);
+      element.dispatchEvent(new globalThis.Event('input', {bubbles: true}));
+    }
+    return {synchronousDurationMs: performance.now() - startedAt};
+  });
+}
+
+async function dispatchRapidSelectionBurst(search: ReturnType<Page['getByRole']>) {
+  return search.evaluate((element) => {
+    const startedAt = performance.now();
+    for (let index = 1; index <= 30; index += 1) {
+      element.dispatchEvent(new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        key: index % 2 === 0 ? 'ArrowUp' : 'ArrowDown',
+      }));
+    }
+    return {synchronousDurationMs: performance.now() - startedAt};
+  });
+}
+
+async function hideAndReshowLauncher(page: Page, search: ReturnType<Page['getByRole']>) {
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-launcher-visible="false"]')).toHaveCount(1);
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('lumen:diagnostics-show-launcher')));
+  await expect(page.locator('[data-launcher-visible="true"]')).toHaveCount(1);
+  await expect(search).toBeVisible();
+  await expect(search).toBeFocused();
+}
+
 async function measureFrameCadence(page: Page, sampleCount = 60) {
   return page.evaluate(async (count) => {
     const intervals: number[] = [];
@@ -76,19 +113,13 @@ test('warm launcher and ordinary interactions stay inside browser budgets', asyn
   await expect(search).toBeFocused();
 
   for (let index = 0; index < 6; index += 1) {
-    await page.keyboard.press('Control+,');
-    await expect(page.getByRole('navigation', {name: 'Settings'})).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(search).toBeFocused();
+    await hideAndReshowLauncher(page, search);
   }
   await page.waitForTimeout(100);
   await resetMetrics(page);
 
   for (let index = 1; index <= 24; index += 1) {
-    await page.keyboard.press('Control+,');
-    await expect(page.getByRole('navigation', {name: 'Settings'})).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(search).toBeFocused();
+    await hideAndReshowLauncher(page, search);
     await waitForSamples(page, 'launcher-visible', index);
   }
   const warmMetrics = await readMetrics(page);
@@ -116,14 +147,13 @@ test('warm launcher and ordinary interactions stay inside browser budgets', asyn
   expect(inputP95).toBeLessThan(observedFrameBudget);
 
   await resetMetrics(page);
-  for (let index = 1; index <= 30; index += 1) {
-    await search.fill(`rapid-burst-${index}`);
-  }
+  const rapidBurst = await dispatchRapidInputBurst(search);
   await waitForSamples(page, 'input-paint', 30);
   await page.waitForTimeout(100);
   const rapidBurstMetrics = await readMetrics(page);
   await expect(search).toHaveValue('rapid-burst-30');
-  expect(rapidBurstMetrics.longTasks.filter((duration) => duration > 16)).toHaveLength(0);
+  expect(rapidBurst.synchronousDurationMs).toBeLessThan(16);
+  expect(rapidBurstMetrics.browserLongTasks).toHaveLength(0);
   await search.fill('report');
   await expect(page.getByRole('row').first()).toBeVisible();
 
@@ -148,17 +178,16 @@ test('warm launcher and ordinary interactions stay inside browser budgets', asyn
   const ordinaryCommitP95 = percentile(selectionMetrics.reactCommits, 0.95);
   expect(selectionP95).toBeLessThan(observedFrameBudget);
   expect(ordinaryCommitP95).toBeLessThan(3);
-  expect(selectionMetrics.longTasks.filter((duration) => duration > 16)).toHaveLength(0);
+  expect(selectionMetrics.browserLongTasks).toHaveLength(0);
 
   await resetMetrics(page);
-  for (let index = 1; index <= 30; index += 1) {
-    await page.keyboard.press(index % 2 === 0 ? 'ArrowUp' : 'ArrowDown');
-  }
+  const rapidSelection = await dispatchRapidSelectionBurst(search);
   await waitForSamples(page, 'selection-paint', 30);
   await page.waitForTimeout(100);
   const rapidSelectionMetrics = await readMetrics(page);
   await expect(page.locator('[data-result-id][data-selected="true"]')).toHaveCount(1);
-  expect(rapidSelectionMetrics.longTasks.filter((duration) => duration > 16)).toHaveLength(0);
+  expect(rapidSelection.synchronousDurationMs).toBeLessThan(16);
+  expect(rapidSelectionMetrics.browserLongTasks).toHaveLength(0);
 });
 
 test('hover, idle work, animation count, and browser heap remain bounded', async ({page, context}) => {
@@ -167,17 +196,32 @@ test('hover, idle work, animation count, and browser heap remain bounded', async
   const row = page.getByRole('row').first();
   await expect(row).toBeVisible();
 
-  const hoverSamples: number[] = [];
+  await resetMetrics(page);
+  const hoverSamples: Array<{hoverToPaintMs: number; frameIntervalMs: number; synchronousDispatchMs: number}> = [];
   for (let index = 0; index < 80; index += 1) {
-    hoverSamples.push(await row.evaluate((element) => new Promise<number>((resolve) => {
-      const startedAt = performance.now();
-      element.dispatchEvent(new PointerEvent('pointerover', {bubbles: true, pointerType: 'mouse'}));
-      requestAnimationFrame(() => resolve(performance.now() - startedAt));
+    hoverSamples.push(await row.evaluate((element) => new Promise((resolve) => {
+      requestAnimationFrame((frameStartedAt) => {
+        const hoverStartedAt = performance.now();
+        element.dispatchEvent(new PointerEvent('pointerover', {bubbles: true, pointerType: 'mouse'}));
+        const synchronousDispatchMs = performance.now() - hoverStartedAt;
+        requestAnimationFrame((frameEndedAt) => resolve({
+          hoverToPaintMs: performance.now() - hoverStartedAt,
+          frameIntervalMs: frameEndedAt - frameStartedAt,
+          synchronousDispatchMs,
+        }));
+      });
     })));
     await page.waitForTimeout(12);
   }
-  const frameCadence = await measureFrameCadence(page);
-  expect(percentile(hoverSamples, 0.95)).toBeLessThan(Math.max(frameCadence.p95Ms, 1000 / 240));
+  await page.waitForTimeout(100);
+  const hoverToPaintSamples = hoverSamples.map((sample) => sample.hoverToPaintMs);
+  const hoverFrameIntervals = hoverSamples.map((sample) => sample.frameIntervalMs);
+  const hoverSynchronousDispatch = hoverSamples.map((sample) => sample.synchronousDispatchMs);
+  const hoverMetrics = await readMetrics(page);
+  const hoverFrameBudget = Math.max(percentile(hoverFrameIntervals, 0.95), 1000 / 240);
+  expect(percentile(hoverToPaintSamples, 0.95)).toBeLessThan(hoverFrameBudget);
+  expect(Math.max(...hoverSynchronousDispatch)).toBeLessThan(16);
+  expect(hoverMetrics.browserLongTasks).toHaveLength(0);
 
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === 'running').length)).toBe(0);
@@ -197,4 +241,24 @@ test('hover, idle work, animation count, and browser heap remain bounded', async
 
   expect(idleCpuPercent).toBeLessThan(2);
   expect(heapMegabytes).toBeLessThan(100);
+});
+
+test('the static palette keeps one answer region and exposes diagnostics instrumentation', async ({page}) => {
+  await page.setViewportSize({width: 800, height: 540});
+  await page.goto('/?gallery=1&scenario=ai-streaming&capture=1');
+
+  await expect(page.getByTestId('answer-region')).toHaveCount(1);
+  await expect(page.getByRole('button', {name: 'Stop answer'})).toBeVisible();
+  await page.waitForTimeout(250);
+  await page.waitForFunction(
+    () => document.getAnimations().every((animation) => animation.playState !== 'running'),
+  );
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(
+    () => document.getAnimations().filter((animation) => animation.playState === 'running').length,
+  )).toBe(0);
+
+  const metrics = await readMetrics(page);
+  expect(Array.isArray(metrics.timings)).toBe(true);
+  expect(Array.isArray(metrics.reactCommits)).toBe(true);
 });

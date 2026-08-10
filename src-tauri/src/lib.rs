@@ -16,14 +16,22 @@ pub fn run() {
         .expect("Alt+Space must be a valid shortcut")
         .with_handler(|app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
-                let _ = window::show_from_app(app, window::WindowMode::Collapsed);
+                let _ = window::show_from_app(
+                    app,
+                    window::WindowMode::Collapsed,
+                    window::WindowStateSource::Shortcut,
+                );
             }
         })
         .build();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            let _ = window::show_from_app(app, window::WindowMode::Collapsed);
+            let _ = window::show_from_app(
+                app,
+                window::WindowMode::Collapsed,
+                window::WindowStateSource::SecondInstance,
+            );
         }))
         .plugin(global_shortcut)
         .plugin(tauri_plugin_autostart::Builder::new().build())
@@ -139,7 +147,12 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                let _ = window.hide();
+                if window.hide().is_ok() {
+                    let _ = window::emit_hidden_from_app(
+                        window.app_handle(),
+                        window::WindowStateSource::Close,
+                    );
+                }
             }
         })
         .run(tauri::generate_context!())

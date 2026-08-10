@@ -26,6 +26,7 @@ describe('activity classifications', () => {
       renderPage(<ActivityStatus mode={mode} />);
       expect(screen.getByTestId(`activity-${mode}`)).toHaveTextContent(/./);
       expect(screen.getByTestId(`activity-${mode}`)).toHaveAccessibleName();
+      expect(screen.getByRole('status')).toBeVisible();
     },
   );
 

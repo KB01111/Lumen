@@ -63,6 +63,43 @@ describe('ResultGrid', () => {
     );
   });
 
+  it('suppresses the selection capsule inset shadow in app-controlled high contrast', () => {
+    const results = [file('selected')];
+    const {container} = render(
+      <ResultGrid results={results} selectedId="selected" />,
+    );
+
+    const capsule = container.querySelector('[data-selection-capsule]');
+
+    expect(capsule).not.toBeNull();
+    expect(capsule).toHaveClass('high-contrast:shadow-none');
+    expect(capsule?.className).toContain(
+      'shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]',
+    );
+  });
+
+  it('clears a disabled selection so sibling surfaces cannot retain it', () => {
+    const onSelectionChange = vi.fn();
+    const {container, rerender} = render(
+      <ResultGrid
+        results={[file('blocked', {availability: 'permissionDenied'})]}
+        selectedId="blocked"
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    expect(container.querySelector('[aria-selected="true"]')).toBeNull();
+    expect(onSelectionChange).toHaveBeenCalledWith(null);
+    rerender(
+      <ResultGrid
+        results={[]}
+        selectedId="blocked"
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+    expect(container.querySelector('[aria-selected="true"]')).toBeNull();
+  });
+
   it('activates the row that was clicked by stable ID', async () => {
     const user = userEvent.setup();
     const onAction = vi.fn();

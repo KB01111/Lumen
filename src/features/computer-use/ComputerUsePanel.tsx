@@ -1,108 +1,7 @@
-import {BrowserIcon, CheckCircleIcon, GearSixIcon, StopIcon, XIcon} from '@phosphor-icons/react';
-import * as stylex from '@stylexjs/stylex';
-
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import type {ComputerUseController} from './useComputerUseController';
-
-const styles = stylex.create({
-  root: {
-    minWidth: 0,
-    minHeight: 0,
-    display: 'grid',
-    gridTemplateRows: 'auto minmax(0, 1fr) auto',
-    flex: 1,
-    overflow: 'hidden',
-    borderTopColor: tokens.colorBorderSubtle,
-    borderTopStyle: 'solid',
-    borderTopWidth: '1px',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space8,
-    paddingBlock: tokens.space6,
-    paddingInline: tokens.space8,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-  },
-  title: {display: 'flex', alignItems: 'center', gap: tokens.space4},
-  icon: {color: tokens.colorAccent},
-  status: {
-    paddingBlock: tokens.space2,
-    paddingInline: tokens.space4,
-    color: tokens.colorTextSecondary,
-    backgroundColor: tokens.colorMaterialInset,
-    borderRadius: tokens.radiusRound,
-  },
-  content: {
-    minHeight: 0,
-    display: 'grid',
-    alignContent: 'start',
-    gap: tokens.space8,
-    padding: tokens.space10,
-    overflowY: 'auto',
-  },
-  callout: {
-    display: 'grid',
-    gap: tokens.space4,
-    padding: tokens.space8,
-    backgroundColor: tokens.colorMaterialTint,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusLarge,
-  },
-  task: {
-    margin: 0,
-    color: tokens.colorTextPrimary,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeBody,
-    lineHeight: tokens.lineHeightRelaxed,
-  },
-  url: {
-    minWidth: 0,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  activity: {display: 'grid', gap: tokens.space3, margin: 0, padding: 0, listStyle: 'none'},
-  activityRow: {display: 'flex', alignItems: 'center', gap: tokens.space4},
-  activityDot: {
-    width: '6px',
-    height: '6px',
-    flexShrink: 0,
-    backgroundColor: tokens.colorTextTertiary,
-    borderRadius: tokens.radiusRound,
-  },
-  activityDotAccent: {backgroundColor: tokens.colorAccent},
-  activityDotSuccess: {backgroundColor: tokens.colorSuccess},
-  approval: {
-    display: 'grid',
-    gap: tokens.space6,
-    padding: tokens.space8,
-    backgroundColor: tokens.colorAccentMuted,
-    borderColor: tokens.colorFocusSoft,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusLarge,
-  },
-  actions: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: tokens.space4},
-  footer: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: tokens.space6,
-    paddingBlock: tokens.space5,
-    paddingInline: tokens.space8,
-    borderTopColor: tokens.colorBorderSubtle,
-    borderTopStyle: 'solid',
-    borderTopWidth: '1px',
-  },
-});
 
 function phaseLabel(controller: ComputerUseController) {
   switch (controller.phase) {
@@ -146,17 +45,17 @@ export function ComputerUsePanel({
           : 'A separate Microsoft Edge session will carry out this browser-only task.';
 
   return (
-    <section aria-label="Computer Use workspace" {...stylex.props(styles.root)}>
-      <header {...stylex.props(styles.header)}>
-        <div {...stylex.props(styles.title)}>
-          <BrowserIcon aria-hidden="true" size={20} {...stylex.props(styles.icon)} />
+    <section aria-label="Computer Use workspace" className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden border-t border-border-subtle">
+      <header className="flex items-center justify-between gap-6 border-b border-border-subtle px-6 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <LumenUiIcon className="text-accent" name="computer" size="medium" />
           <LumenText weight="semibold">Computer Use</LumenText>
           <LumenText tone="tertiary" variant="meta">Gemini · browser only</LumenText>
         </div>
-        <LumenText variant="caption" {...stylex.props(styles.status)}>{phaseLabel(controller)}</LumenText>
+        <LumenText aria-label={phaseLabel(controller)} className="rounded-pill bg-surface-inset px-2.5 py-1 text-text-secondary" role="status" variant="caption">{phaseLabel(controller)}</LumenText>
       </header>
-      <div {...stylex.props(styles.content)}>
-        <div {...stylex.props(styles.callout)}>
+      <div className="grid min-h-0 content-start gap-6 overflow-y-auto p-8">
+        <div className="grid gap-3 rounded-control border border-border-subtle bg-surface-inset p-5">
           <LumenText weight="medium">Protected browser session</LumenText>
           <LumenText tone="secondary" variant="meta">{setupMessage}</LumenText>
           <LumenText tone="tertiary" variant="caption">
@@ -164,80 +63,76 @@ export function ComputerUsePanel({
           </LumenText>
         </div>
         {controller.task ? (
-          <div {...stylex.props(styles.callout)}>
+          <div className="grid gap-3 rounded-control border border-border-subtle bg-surface-inset p-5">
             <LumenText tone="tertiary" variant="caption">Current task</LumenText>
-            <p {...stylex.props(styles.task)}>{controller.task}</p>
+            <p className="m-0 font-sans text-sm leading-relaxed text-text-primary">{controller.task}</p>
             {controller.currentUrl ? (
-              <LumenText className={stylex.props(styles.url).className} tone="tertiary" variant="caption">
+              <LumenText className="min-w-0 truncate" tone="tertiary" variant="caption">
                 {controller.currentUrl}
               </LumenText>
             ) : null}
           </div>
         ) : null}
         {controller.reasoning ? (
-          <div aria-live="polite" {...stylex.props(styles.callout)}>
+          <div aria-live="polite" className="grid gap-3 rounded-control border border-border-subtle bg-surface-inset p-5">
             <LumenText tone="tertiary" variant="caption">Agent update</LumenText>
             <LumenText tone="secondary">{controller.reasoning}</LumenText>
           </div>
         ) : null}
         {controller.approval ? (
-          <div role="alertdialog" aria-label="Approve Computer Use action" {...stylex.props(styles.approval)}>
+          <div aria-label="Approve Computer Use action" className="grid gap-4 rounded-control border border-accent/40 bg-accent/10 p-5" role="alertdialog">
             <LumenText weight="semibold">Gemini needs your approval</LumenText>
             <LumenText tone="secondary">{controller.approval.explanation}</LumenText>
-            <div {...stylex.props(styles.actions)}>
+            <div className="flex flex-wrap items-center gap-3">
               <LumenButton variant="primary" onPress={() => void controller.approve()}>
-                <CheckCircleIcon aria-hidden="true" size={16} /> Approve once
+                <LumenUiIcon name="success" size="small" /> Approve once
               </LumenButton>
               <LumenButton variant="quiet" onPress={() => void controller.deny()}>
-                <XIcon aria-hidden="true" size={16} /> Deny and stop
+                <LumenUiIcon name="close" size="small" /> Deny and stop
               </LumenButton>
             </div>
           </div>
         ) : null}
         {controller.summary ? (
-          <div aria-live="polite" {...stylex.props(styles.callout)}>
+          <div aria-live="polite" className="grid gap-3 rounded-control border border-border-subtle bg-surface-inset p-5">
             <LumenText weight="medium">Task complete</LumenText>
             <LumenText tone="secondary">{controller.summary}</LumenText>
           </div>
         ) : null}
         {controller.error ? (
-          <div role="alert" {...stylex.props(styles.callout)}>
+          <div className="grid gap-3 rounded-control border border-danger/40 bg-danger/10 p-5" role="alert">
             <LumenText weight="medium">Computer Use could not continue</LumenText>
             <LumenText tone="secondary">{controller.error}</LumenText>
           </div>
         ) : null}
         {controller.activity.length > 0 ? (
-          <ul aria-label="Computer Use activity" {...stylex.props(styles.activity)}>
+          <ul aria-label="Computer Use activity" className="m-0 grid list-none gap-2 p-0">
             {controller.activity.map((item) => (
-              <li key={item.id} {...stylex.props(styles.activityRow)}>
-                <span aria-hidden="true" {...stylex.props(
-                  styles.activityDot,
-                  item.tone === 'accent' && styles.activityDotAccent,
-                  item.tone === 'success' && styles.activityDotSuccess,
-                )} />
+              <li key={item.id} className="flex items-center gap-3">
+                <span aria-hidden="true" className={['size-1.5 shrink-0 rounded-pill', item.tone === 'accent' ? 'bg-accent' : item.tone === 'success' ? 'bg-success' : 'bg-text-tertiary'].join(' ')} />
                 <LumenText tone="secondary" variant="meta">{item.label}</LumenText>
               </li>
             ))}
           </ul>
         ) : null}
       </div>
-      <footer {...stylex.props(styles.footer)}>
+      <footer className="flex items-center justify-between gap-4 border-t border-border-subtle px-6 py-3">
         <LumenText tone="tertiary" variant="caption">
           {controller.model ?? 'gemini-3.6-flash'} · {controller.browser ?? 'Microsoft Edge'}
         </LumenText>
-        <div {...stylex.props(styles.actions)}>
+        <div className="flex flex-wrap items-center gap-3">
           {!setupReady && !active ? (
             <LumenButton size="small" variant="quiet" onPress={onOpenSettings}>
-              <GearSixIcon aria-hidden="true" size={15} /> Open settings
+              <LumenUiIcon name="settings" size="small" /> Open settings
             </LumenButton>
           ) : null}
           {active ? (
             <LumenButton size="small" variant="quiet" onPress={controller.stop}>
-              <StopIcon aria-hidden="true" size={15} /> Stop
+              <LumenUiIcon name="stop" size="small" /> Stop
             </LumenButton>
           ) : (
             <LumenButton isDisabled={!setupReady || !draftTask.trim()} size="small" variant="primary" onPress={onStart}>
-              <BrowserIcon aria-hidden="true" size={15} /> Run in Edge
+              <LumenUiIcon name="computer" size="small" /> Run in Edge
             </LumenButton>
           )}
         </div>

@@ -1,93 +1,28 @@
 import {Button, type ButtonProps} from 'react-aria-components';
 
-import * as stylex from '@stylexjs/stylex';
+import {cva} from 'class-variance-authority';
 
-import {tokens} from '../tokens.stylex';
+import {cn} from '../../lib/cn';
 
-const styles = stylex.create({
-  base: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: tokens.space4,
-    minWidth: tokens.targetMinimum,
-    borderColor: tokens.colorBorderSubtle,
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: tokens.radiusMedium,
-    color: tokens.colorTextPrimary,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeBody,
-    fontWeight: tokens.fontWeightMedium,
-    letterSpacing: tokens.letterSpacingBody,
-    lineHeight: tokens.lineHeightTight,
-    boxShadow: tokens.shadowControl,
-    cursor: 'default',
-    outlineColor: 'transparent',
-    outlineOffset: '2px',
-    outlineStyle: 'solid',
-    outlineWidth: '2px',
-    userSelect: 'none',
-    transitionDuration: tokens.durationHover,
-    transitionProperty: 'background-color, border-color, color, box-shadow, transform',
-    transitionTimingFunction: tokens.easingStandard,
+const buttonStyles = cva(
+  'inline-flex min-w-11 cursor-default select-none items-center justify-center gap-2 rounded-control border font-sans outline-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-standard data-[focus-visible]:ring-2 data-[focus-visible]:ring-focus/70 data-[pressed]:translate-y-px data-[pressed]:scale-[.985] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-55',
+  {
+    variants: {
+      variant: {
+        primary: 'border-border-specular bg-accent text-text-inverse data-[hovered]:brightness-110',
+        subtle: 'border-border-subtle bg-surface-raised text-text-button data-[hovered]:border-border-strong',
+        quiet: 'border-transparent bg-transparent text-text-secondary shadow-none data-[hovered]:bg-surface-inset data-[hovered]:text-text-primary',
+        danger: 'border-danger/45 bg-danger/10 text-danger',
+      },
+      size: {
+        small: 'min-h-8 px-3 text-xs',
+        medium: 'min-h-9 px-4 text-sm',
+        large: 'min-h-11 px-5 text-[15px]',
+      },
+    },
+    defaultVariants: {size: 'medium', variant: 'subtle'},
   },
-  primary: {
-    backgroundColor: tokens.colorAccent,
-    borderColor: tokens.colorSpecularTop,
-    color: tokens.colorTextInverse,
-  },
-  subtle: {
-    backgroundColor: tokens.colorMaterialRaised,
-  },
-  quiet: {
-    backgroundColor: 'transparent',
-    borderColor: 'transparent',
-    boxShadow: 'none',
-    color: tokens.colorTextSecondary,
-  },
-  danger: {
-    backgroundColor: tokens.colorErrorMuted,
-    borderColor: tokens.colorError,
-    color: tokens.colorError,
-  },
-  small: {
-    minHeight: tokens.controlHeightSmall,
-    paddingInline: tokens.space6,
-  },
-  medium: {
-    minHeight: tokens.controlHeightMedium,
-    paddingInline: tokens.space8,
-  },
-  large: {
-    minHeight: tokens.controlHeightLarge,
-    paddingInline: tokens.space10,
-    fontSize: tokens.fontSizeBodyLarge,
-  },
-  hovered: {
-    backgroundColor: tokens.colorAccentMuted,
-    borderColor: tokens.colorBorderStrong,
-    color: tokens.colorTextPrimary,
-  },
-  primaryHovered: {
-    backgroundColor: tokens.colorAccentHover,
-    color: tokens.colorTextInverse,
-  },
-  pressed: {
-    transform: 'translateY(1px) scale(0.985)',
-    transitionDuration: tokens.durationPress,
-  },
-  focused: {
-    outlineColor: tokens.colorFocus,
-    boxShadow: `0 0 0 4px ${tokens.colorFocusSoft}, ${tokens.shadowControl}`,
-  },
-  disabled: {
-    color: tokens.colorTextDisabled,
-    cursor: 'not-allowed',
-    opacity: 0.58,
-    transform: 'none',
-  },
-});
+);
 
 export type LumenButtonVariant = 'primary' | 'subtle' | 'quiet' | 'danger';
 export type LumenButtonSize = 'small' | 'medium' | 'large';
@@ -109,18 +44,7 @@ export function LumenButton({
       className={(renderProps) => {
         const customClassName =
           typeof className === 'function' ? className(renderProps) : className;
-        const generatedClassName = stylex.props(
-          styles.base,
-          styles[variant],
-          styles[size],
-          renderProps.isHovered && styles.hovered,
-          renderProps.isHovered && variant === 'primary' && styles.primaryHovered,
-          renderProps.isPressed && styles.pressed,
-          renderProps.isFocusVisible && styles.focused,
-          renderProps.isDisabled && styles.disabled,
-        ).className;
-
-        return [generatedClassName, customClassName].filter(Boolean).join(' ');
+        return cn(buttonStyles({size, variant}), customClassName);
       }}
       data-size={size}
       data-variant={variant}

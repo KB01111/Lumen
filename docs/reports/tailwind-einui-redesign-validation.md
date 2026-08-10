@@ -1,0 +1,281 @@
+# Tailwind/EinUI redesign validation
+
+Date: 2026-08-09
+
+Task 11 review fix completed: 2026-08-09
+
+Task 12 evidence refresh completed with a performance concern: 2026-08-09
+
+Task 12 performance-method correction completed: 2026-08-09
+
+Task 12 review correction source contract completed: 2026-08-09; evidence is regenerated separately from the clean source commit recorded by each manifest.
+
+## Task 12 evidence inventory and inspection
+
+The refreshed Microsoft Edge 151.0.4129.72 gallery manifest contains 53
+scenarios plus one contact sheet (54 PNG files total). The complete contact
+sheet and full-resolution dark, corrected light, opaque, high-contrast,
+AI-waiting, AI-streaming, completed-answer, isolated answer-error,
+Computer-Use approval, constrained-work-area, and reduced-motion captures were
+inspected. They show the borderless palette surface without a title bar or
+fullscreen application backdrop, retain readable semantic foregrounds, keep
+the composer/footer anchored in constrained height, and preserve the intended
+fallback and motion states. No remaining clipped glow, page overflow,
+transparent click-blocking area, or nested-card regression was found.
+
+The recording manifest contains six fresh WebM files: launcher search,
+settings routing, onboarding, explicit answer submission/retry/dismissal,
+answer streaming/completion/approval controls, and activity/provider states.
+Every recording was decoded and scrubbed through its key transitions using
+FFmpeg contact sheets. The launcher recording covers collapsed appearance,
+downward expansion, local results, keyboard selection, preview/details, scope,
+and open confirmations. The answer recordings cover explicit Enter submission,
+failure isolation, retry, a clicked and asserted streaming Stop transition,
+completion, clicked and asserted approve-once and deny-and-stop transitions,
+collapse, and dismissal. The approval actions use only the stateful development
+gallery seam and never call a production provider or service. Settings,
+onboarding, and provider/activity transitions also completed. Browser video keeps a fixed recording canvas, so collapsed native
+geometry is shown with neutral letterboxing around the simulated `700 x 66`
+viewport; this is a recording-harness limitation, not a product surface.
+
+## Task 12 evidence-driven corrections
+
+Visual inspection caught a real light-theme defect: the upstream transparent
+EinUI recipe kept white foregrounds and near-transparent white rows on the pale
+light glass surface. A raw theme-token contract was RED first, and a computed
+Playwright assertion reproduced `rgb(255, 255, 255)` instead of the semantic
+light foreground. The minimal production correction scopes the command palette
+recipe to Lumen's semantic light-theme foreground, surface, border, divider,
+row, shortcut, and shadow tokens. The focused CSS contract then passed 3/3 and
+the computed light-gallery assertion passed 1/1. The corrected gallery was
+regenerated in full; capture CSS and product behavior were not altered for the
+screenshot.
+
+The first recording run also exposed two deterministic harness races. Settings
+navigation could send `Ctrl+,` before the launcher keyboard listener mounted,
+and the fixed browser viewport could not represent the native collapsed/expanded
+geometry contract. The recorder now waits for the launcher searchbox and changes
+the page viewport at the same transition boundaries owned by the native window
+service. New explicit-answer and approval-state recordings close the prior flow
+coverage gaps. Failed generator runs demonstrated the missing readiness and
+dismissal assertions before the terminal six-recording run passed. The gallery
+registry category is now emitted on every scenario option and consumed directly
+by the capture generator; the manifest no longer relies on a partial duplicated
+ID-to-category heuristic.
+
+## Task 12 performance profile
+
+The initial refresh was correctly retained as RED while its method was
+investigated. Its supposed unpaced input burst was actually 30 awaited
+Playwright `fill` protocol transactions. The trace placed those calls between
+`7650.291 ms` and `9711.737 ms`; several calls took `52.832-121.361 ms`, while
+individual snapshot collection took only `0.6-1.8 ms`. That driver could not
+distinguish renderer work from automation/trace work observed by the page's
+LongTask observer. Both performance runners now execute one page-side
+synchronous input burst using the native `HTMLInputElement` value setter and 30
+bubbled `input` events, plus one page-side 30-event keyboard-selection burst.
+Each runner measures the actual synchronous duration of both callbacks and
+requires it below 16 ms, alongside exactly 30 paint samples, the final
+`rapid-burst-30` value, and one selected row.
+
+The nominal 240 Hz target remains `4.1667 ms`, and the JSON retains raw
+`strict240Hz` input/selection/hover booleans. Release paint checks use one
+observed frame: `max(observed p95 frame interval, nominal 240 Hz frame)`, the
+same cadence-aware rule used by the E2E contract. Hover dispatch and cadence are
+paired directly between the same two animation-frame callbacks. Every hover
+dispatch is also timed synchronously and the maximum must remain below 16 ms,
+so a slow handler cannot be excused by its surrounding frame interval.
+Environment and cadence-measurement eligibility plus the effective
+input/selection and hover budgets are explicit in the JSON.
+
+The browser Long Tasks API only reports tasks of at least 50 ms. Diagnostics
+and generated fields are therefore named `browserLongTasks` and
+`*BrowserLongTasksOver50Ms`, use an explicit 50 ms budget, and require zero
+entries in each measurement window. Those coarse browser observations are
+reported separately and are not claimed as proof of the direct 16 ms guards.
+
+The final corrected Edge 151.0.4129.72 profile on this AMD Radeon 890M / 240 Hz
+host records `passed: true` for source commit
+`4edbb78f545096831c6a657dc37883b95ccb3849`. Edge observed approximately 238 Hz
+(`4.2 ms` median, `8.1 ms` p95). Warm launcher p95 was `3.4 ms`;
+input-to-paint p95 `5.1 ms`; selection-to-paint p95 `2.2 ms`; paired
+hover-to-paint p95 `6.9 ms` with a contemporaneous `10.368 ms` frame p95;
+React commit p95 `2.2 ms`; idle CPU `0.31%`; garbage-collected heap `26.71 MB`;
+and zero settled animation. Effective input/selection and hover budgets were
+respectively `8.1 ms` and `10.368 ms`.
+
+Rapid input and selection each produced 30 samples; input ended at the correct
+value, selection retained exactly one selected row, and their direct
+synchronous durations were `0.9 ms` and `1.6 ms`. Maximum synchronous hover
+dispatch was `1.0 ms`. The rapid-input, rapid-selection, paced-selection, and
+hover windows contained zero browser Long Tasks (50 ms+). Raw strict-240
+results remain visible and are input false, selection true, hover false,
+aggregate false.
+
+Before the paired hover correction, two same-server corrected-burst profiles
+already passed without rapid-input tasks. The first measured input/selection at
+`5.4/5.2 ms`; the retained second measured `5.3/4.2 ms`. An exact E2E run then
+exposed that hover `5.1 ms` was compared with a separately sampled later
+`4.3 ms` cadence, which is frame-phase noise rather than the same measurement
+window. The paired-cadence contract was RED then GREEN, its targeted E2E passed
+1/1, the final profile passed, and the single exact suite passed 34/34. No UI,
+arbitrary tolerance, retry, worker count, port rule, or browser flag changed.
+
+## Task 12 generator and audit command evidence
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `bun run capture:gallery` | 0 | Terminal controlled-server rerun; 53 scenarios plus contact sheet regenerated in 41.8 s. An earlier auto-start run produced all files but required stopping its verified idle orphan Vite process before the retained command exited 0; it is not treated as the clean acceptance run. |
+| `bun run record:interactions` | 0 | Terminal controlled-server rerun; six recordings regenerated in 41.9 s. |
+| initial `bun run profile` | 1 | Terminal and honestly RED; it exposed the protocol-driven rapid-burst method defect. |
+| corrected `bun run profile` pair | 0 / 0 | Two same-server terminal passes; both produced 30 rapid-input samples, the correct final value, and no browser Long Task (50 ms+). |
+| final paired-hover `bun run profile` | 0 | Terminal retained profile with the measurements above and `passed: true`. |
+| review-corrected `bun run capture:gallery` | 0 | Terminal against one retained owned server; regenerated 53 scenarios plus contact sheet from clean source SHA `4edbb78f545096831c6a657dc37883b95ccb3849` in 40.5 s. |
+| review-corrected `bun run record:interactions` | 0 | Terminal against the same server; regenerated six recordings with clicked/asserted Stop, Approve once, and Deny and stop transitions in 44.4 s. |
+| review-corrected `bun run profile` | 0 | Terminal against the same server in 19.4 s; direct synchronous guards passed, all browser Long Task arrays were empty, raw strict-240 values remained visible, and `passed: true`. |
+| exact `bun run test:e2e` | 0 | Terminal; 34/34 passed against one owned IPv4 Vite server. |
+| focused light-theme CSS contract | 0 | Terminal; 3/3 tests passed after the demonstrated RED. |
+| focused light-theme Playwright contract | 0 | Terminal; 1/1 passed after the demonstrated computed-color RED. |
+| forbidden-source `rg` scan | 1 | Expected no-match exit; no forbidden source/dependency reference was found. |
+
+All browser and artifact runners were serialized. The explicitly owned Vite
+tree was stopped after evidence generation and port 1420 was confirmed free.
+The review correction passed typecheck, lint, all 222 unit tests, the 34-test
+exact E2E suite, and the frontend production build. The final
+native verification history is retained below, including the first WiX RED and
+both recovery GREEN commands.
+
+## Acceptance coverage
+
+- `src-tauri/src/window.rs` owns the exact native geometry invariant: collapsed
+  is `700 x 66`, has fixed 66 px min/max height and `resizable: false`; expanded,
+  onboarding, settings, and gallery literal bounds are also asserted. The
+  TypeScript window-service test remains a browser-mirror contract only.
+- The accessibility and search E2E contracts use roles and labels rather than
+  implementation classes. They cover initial composer focus, `Ctrl+K`, explicit
+  Enter submission, a single stable AI answer region, and the gallery Stop
+  control.
+- The DPI E2E matrix covers 100%, 125%, 150%, 175%, and 200% CSS zoom at a
+  constrained `720 x 540` work area. It measures palette, composer, footer, and
+  control rectangles, proves usable input plus real result/answer scrolling,
+  verifies preview-first collapse and one stable answer region, and rejects page
+  horizontal overflow without coupling to Tailwind implementation declarations.
+- Foundation coverage retains the anchored composer as the inner surface opens.
+  The palette host, rather than the document, contains decorative exterior ink.
+- Performance coverage confirms one answer region, no idle animation loop after
+  the finite entry transition settles, and retains the 240 Hz interaction
+  budgets without relaxing thresholds.
+
+## Source adjustments justified by the acceptance REDs
+
+At a 520 px palette width inside the constrained work area, the fixed composer
+controls left the search input zero pixels wide: the `w-full` input flex basis
+competed with the clear button. The input now uses `flex-1 min-w-0`, so it takes
+the remaining composer width. The middle workspace receives the measured 161 px
+allocation and is a `min-h-0` contained flex layer; result/answer content scrolls
+inside it while the composer and footer remain fixed.
+
+The shortcut visibility is an actual palette container query, not a viewport
+breakpoint: a 720 px page can contain a 520 px palette. The secondary label
+truncates inside a 180 px cap while its button `aria-label` retains the complete
+mode name. `App` clips horizontal decorative overflow only at the existing root
+host; the palette remains overflow-visible in normal bounds so its exterior glow
+is not clipped.
+
+## Terminal command evidence
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `bun run typecheck` | 0 | Terminal; TypeScript completed without errors. |
+| `bun run lint` | 0 | Terminal; zero warnings permitted by the command. |
+| `bun run test` | 0 | Terminal review-fix rerun; 36 files and 218 tests passed in 37.58 s. |
+| `bun run test:e2e` | 0 | Terminal review-fix rerun; 33 Playwright tests passed in 96.3 s against one explicitly owned IPv4 Vite server using `reuseExistingServer`. The server tree was then stopped and port 1420 confirmed free. |
+| `bun run build` | 0 | Terminal; production assets emitted. Main CSS asset: `dist/assets/index-DNQkXcTl.css`, 54.02 kB raw / 10.04 kB gzip. |
+| `bun run stage:sidecars` | 0 | Terminal; AgentGateway v1.4.1 checksum verified; Rivet enrichment worker, Rivet 2.3.10 Windows engine, and Computer Use worker staged. |
+| first exact `rtk bun run tauri build` | 1 | Terminal after 160.2 s; sidecars, Vite (2,620 modules), and Rust release (1m19s) completed, then WiX `light.exe` failed while producing the MSI. No MSI existed and NSIS was not reached. This RED remains retained as failure history. |
+| scoped MSI-only verbose recovery | 0 | Terminal after 121.3 s on committed HEAD `705989604c3027161a00b4bbb91acd9749ba9ef6`; emitted `src-tauri/target/release/bundle/msi/Lumen_0.1.0_x64_en-US.msi`. |
+| final exact `rtk cmd /c "bun run tauri build"` | 0 | Terminal after 363.7 s on the same committed HEAD; sidecars verified/staged, Vite built 2,620 modules, Rust release took 1m00s, and both `src-tauri/target/release/bundle/msi/Lumen_0.1.0_x64_en-US.msi` and `src-tauri/target/release/bundle/nsis/Lumen_0.1.0_x64-setup.exe` were emitted. |
+
+The prior terminal native staging failure was resolved by removing only its
+verified ignored `.stage-mingw` temporary directory (888 files / 144,038,222
+logical bytes) before the retained successful run. The earlier Playwright auto-start cleanup did not exit terminally on this host;
+it is not recorded as a pass. The terminal E2E result above used the explicitly
+started, recorded Vite process and did not weaken serial workers or `strictPort`.
+
+## Task 11 review-fix native verification
+
+The exact debug-profile `cargo test --all-features` could not complete on this
+host after serial attempts exhausted the worktree volume (`os error 112`).
+`cargo fmt --all -- --check` and exact
+`cargo clippy --all-targets --all-features -- -D warnings` completed cleanly.
+The accepted disk-safe gate was `cargo test --release --all-features -j 1`,
+which terminally passed with 35 tests passed and 3 ignored. The final review-fix
+reruns completed in 98.5 seconds for clippy and 39.4 seconds for the release test.
+A temporary native
+geometry mutation changing collapsed `max_height` from 66 to 65 produced the
+expected assertion RED in `window::tests::native_geometry_table_matches_each_window_mode_contract`; it was immediately reverted, and the final full release-profile command was green. The TypeScript mirror remains supplemental, not native enforcement.
+
+The fallback used normal `bun install --frozen-lockfile` and
+`bun run stage:sidecars` restoration before release testing. Sandbox cache/network
+attempts were retried with scoped access; `package.json` and `bun.lock` stayed
+unchanged. All sidecars and runtime DLLs were then staged, with AgentGateway
+matching its pinned SHA-256. The subsequent Task 12 native history above retains
+the first WiX failure and the terminal MSI-only and exact full-bundle recoveries;
+the release-profile test itself did not replace that bundle verification.
+
+## Task 11 review-fix frontend verification
+
+The constrained DPI contract first failed because the deterministic answer was
+only 48 px high (`scrollHeight === clientHeight`), so it could not prove internal
+answer scrolling. The constrained gallery fixture now supplies a deterministic
+long streaming answer; the focused role/rectangle/scroll test then passed, and
+the complete DPI specification passed 7/7 in 49.8 seconds. Current typecheck,
+lint, and production build are terminally green; the build transformed 2,620
+modules and retained the 54.02 kB / 10.04 kB gzip CSS asset.
+
+The final focused App, launcher, and metrics run passed 14/14; the complete
+Vitest run passed 218/218. The exact full E2E command passed 33/33 in 96.3
+seconds against one fresh Vite process bound to `127.0.0.1:1420`. The process
+tree was then stopped by its recorded IDs and the strict port was confirmed
+free. No performance threshold, Playwright worker, retry, or port setting was
+changed.
+
+## Performance observations
+
+The isolated selection-commit reruns produced a 2.10 ms p95 (117 and 121
+samples respectively), below the unchanged 3 ms budget. A single 3.40 ms sample
+from the first full run was not reproducible. Hover instrumentation found 80
+`pointerover` dispatches but only four React commits; the focused run measured a
+3.40 ms hover p95 and a 4.60 ms frame p95. No pointer-induced selection, preview,
+or Motion churn was found, so no production hot-path change or budget relaxation
+was made. The only animation seen at initial sampling was the intended finite
+160 ms entry transition; after it settled, the additional 500 ms idle observation
+found no running animation.
+
+One accumulated-suite run delivered a 52 ms long-task entry after the rapid
+input metrics reset even though two isolated warm-launcher runs were clean. A
+deterministic observer test reproduced the boundary: a queued entry beginning at
+99 ms and delivered after a reset at 100 ms was incorrectly counted alongside a
+new 101 ms entry. Diagnostics now retain the reset epoch and accept only entries
+whose `startTime` belongs to the current window. The regression was RED as
+`[52, 52]` versus `[52]`, then GREEN 2/2. After a fresh server restart, the full
+performance specification passed 3/3 twice consecutively, followed by the exact
+33/33 suite above. Thresholds and product UI were unchanged.
+
+## Architecture alignment
+
+The updated architecture documents record Tailwind CSS v4's CSS-first token
+ownership, frozen owned EinUI provenance, the Apps SDK icon bridge, explicit AI
+submission, native-before-inner and inner-before-native transition ordering,
+React Aria ownership, and the absence of the legacy StyleX/Astryx/Phosphor stack.
+Search/security contracts remain unchanged except for the relevant UI boundary
+cross-links.
+
+## Native build artifacts
+
+- `src-tauri/target/release/lumen.exe` was built.
+- `src-tauri/target/release/bundle/msi/Lumen_0.1.0_x64_en-US.msi` was emitted.
+- `src-tauri/target/release/bundle/nsis/Lumen_0.1.0_x64-setup.exe` was emitted.
+- The Vite output includes the 54.02 kB / 10.04 kB gzip main CSS asset and a
+  76.22 kB / 25.43 kB gzip `LumenUiIcon` JavaScript chunk. Release bundles are
+  generated outputs and remain untracked.

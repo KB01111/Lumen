@@ -1,26 +1,8 @@
-import {TrashIcon} from '@phosphor-icons/react';
-import * as stylex from '@stylexjs/stylex';
-
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import {LumenSelect} from '../settings/components/SettingsControls';
 import type {ApplicationOverride} from '../settings/settings.schema';
-
-const styles = stylex.create({
-  row: {
-    minHeight: '58px',
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) auto auto',
-    alignItems: 'center',
-    gap: tokens.space5,
-    padding: tokens.space8,
-    borderBottomColor: tokens.colorBorderSubtle,
-    borderBottomStyle: 'solid',
-    borderBottomWidth: '1px',
-    ':last-child': {borderBottomWidth: 0},
-  },
-});
 
 export function ApplicationOverrideRow({override, onChange, onRemove}: {
   override: ApplicationOverride;
@@ -28,7 +10,7 @@ export function ApplicationOverrideRow({override, onChange, onRemove}: {
   onRemove(): void;
 }) {
   return (
-    <div {...stylex.props(styles.row)}>
+    <div className="grid min-h-[58px] grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-border-subtle p-5 last:border-b-0">
       <LumenText weight="medium">{override.application}</LumenText>
       <LumenSelect
         aria-label={`Policy for ${override.application}`}
@@ -42,7 +24,7 @@ export function ApplicationOverrideRow({override, onChange, onRemove}: {
         onChange={(policy) => onChange({...override, policy})}
       />
       <LumenIconButton aria-label={`Remove ${override.application}`} size="small" variant="quiet" onPress={onRemove}>
-        <TrashIcon aria-hidden="true" size={14} />
+        <LumenUiIcon name="delete" size="small" />
       </LumenIconButton>
     </div>
   );

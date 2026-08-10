@@ -1,8 +1,11 @@
-import {act, render, screen} from '@testing-library/react';
+import {act, render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {LumenMotionProvider} from '../../design-system/MotionProvider';
+import {BrowserWindowService} from '../../platform/window/browser-window-service';
+import type {WindowMode} from '../../platform/window/window-service';
+import {useLauncherStore} from '../launcher/launcher.store';
 import type {RootSelectionService} from './root-selection-service';
 import {OnboardingFlow} from './OnboardingFlow';
 import {useOnboardingStore} from './onboarding.store';
@@ -21,6 +24,18 @@ class DeferredRootService implements RootSelectionService {
   }
 }
 
+class RejectingOnboardingWindowService extends BrowserWindowService {
+  onboardingCalls = 0;
+
+  protected override async performShow(mode: WindowMode) {
+    if (mode === 'onboarding') {
+      this.onboardingCalls += 1;
+      throw new Error('Native onboarding resize failed');
+    }
+    return super.performShow(mode);
+  }
+}
+
 function renderFlow(service: RootSelectionService, reducedMotion = true) {
   return render(
     <LumenMotionProvider reducedMotion={reducedMotion}>
@@ -30,6 +45,7 @@ function renderFlow(service: RootSelectionService, reducedMotion = true) {
 }
 
 afterEach(() => {
+  useLauncherStore.getState().reset();
   useOnboardingStore.getState().reset();
   localStorage.clear();
 });
@@ -109,5 +125,45 @@ describe('OnboardingFlow', () => {
       'data-motion-direction',
       'spatial',
     );
+  });
+
+  it('retains onboarding ownership when the native show request is rejected', async () => {
+    const windowService = new RejectingOnboardingWindowService();
+    render(
+      <LumenMotionProvider reducedMotion>
+        <OnboardingFlow rootService={{chooseRoot: vi.fn()}} windowService={windowService} />
+      </LumenMotionProvider>,
+    );
+
+    await waitFor(() => expect(windowService.onboardingCalls).toBe(1));
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 0)));
+
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'onboarding', visible: true});
+  });
+
+  it('keeps a single primary action and a single labelled back action on reversible scenes', async () => {
+    const user = userEvent.setup();
+    renderFlow({chooseRoot: vi.fn()});
+
+    expect(screen.getAllByTestId('onboarding-primary-action')).toHaveLength(1);
+    expect(screen.queryByTestId('onboarding-back-action')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', {name: 'Begin'}));
+
+    expect(screen.getAllByTestId('onboarding-primary-action')).toHaveLength(1);
+    expect(screen.getAllByTestId('onboarding-back-action')).toHaveLength(1);
+    expect(screen.getByTestId('onboarding-back-action')).toHaveAccessibleName('Back');
+  });
+
+  it('keeps folder selection actionable without competing with the root-step primary action', async () => {
+    const user = userEvent.setup();
+    renderFlow({chooseRoot: vi.fn()});
+
+    await user.click(screen.getByRole('button', {name: 'Begin'}));
+    await user.click(screen.getByRole('button', {name: 'Continue'}));
+
+    const chooseFolder = await screen.findByRole('button', {name: 'Choose folder'});
+    expect(screen.getAllByRole('button').filter((button) => button.dataset.variant === 'primary')).toHaveLength(1);
+    expect(chooseFolder).toHaveAttribute('data-variant', 'subtle');
   });
 });

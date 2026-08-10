@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-08-04T21:58:13.094Z",
-  "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02",
+  "generatedAt": "2026-08-09T15:29:21.982Z",
+  "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849",
   "browser": {
     "name": "Microsoft Edge",
-    "version": "151.0.4129.59"
+    "version": "151.0.4129.72"
   },
   "viewport": {
     "width": 1120,
     "height": 760
   },
-  "count": 46,
+  "count": 53,
   "contactSheet": "artifacts/screenshots/contact-sheet.png",
   "captures": [
     {
@@ -23,7 +23,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "collapsed-focused",
@@ -36,7 +36,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "collapsed-typing",
@@ -49,7 +49,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "expanded-results",
@@ -62,7 +62,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "grouped-results",
@@ -75,7 +75,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "selected-result",
@@ -88,7 +88,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "preview-loading",
@@ -101,7 +101,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "preview-complete",
@@ -114,7 +114,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "preview-failed",
@@ -127,7 +127,72 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+    },
+    {
+      "scenario": "ai-waiting",
+      "label": "AI waiting",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/ai-waiting.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+    },
+    {
+      "scenario": "ai-streaming",
+      "label": "AI streaming",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/ai-streaming.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+    },
+    {
+      "scenario": "ai-complete",
+      "label": "AI complete",
+      "category": "Launcher",
+      "file": "artifacts/screenshots/ai-complete.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+    },
+    {
+      "scenario": "ai-failure-local-results",
+      "label": "AI failure with local results",
+      "category": "Resilience",
+      "file": "artifacts/screenshots/ai-failure-local-results.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+    },
+    {
+      "scenario": "empty-local-with-answer",
+      "label": "Empty local answer retained",
+      "category": "Resilience",
+      "file": "artifacts/screenshots/empty-local-with-answer.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "empty-results",
@@ -140,7 +205,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "no-indexed-root",
@@ -153,7 +218,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "activity-indexing",
@@ -166,7 +231,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "activity-slow",
@@ -179,7 +244,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "activity-gaming",
@@ -192,7 +257,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "activity-fullscreen",
@@ -205,7 +270,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "activity-cinema",
@@ -218,7 +283,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "activity-idle",
@@ -231,7 +296,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "activity-battery",
@@ -244,7 +309,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "activity-user",
@@ -257,7 +322,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "provider-npu",
@@ -270,7 +335,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "provider-gpu",
@@ -283,7 +348,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "provider-cpu",
@@ -296,7 +361,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "provider-unavailable",
@@ -309,7 +374,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "model-missing",
@@ -322,7 +387,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "model-downloading",
@@ -335,7 +400,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "model-loading",
@@ -348,7 +413,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "model-ready",
@@ -361,7 +426,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "model-failed",
@@ -374,7 +439,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "model-fallback-active",
@@ -387,7 +452,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "gateway-starting",
@@ -400,7 +465,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "gateway-ready",
@@ -413,7 +478,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "gateway-unavailable",
@@ -426,7 +491,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "gateway-restarting",
@@ -439,7 +504,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "reranking-unavailable",
@@ -452,7 +517,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "permission-required",
@@ -465,7 +530,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "long-filename",
@@ -478,7 +543,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "unicode-filename",
@@ -491,7 +556,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "large-results",
@@ -504,7 +569,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "theme-light",
@@ -517,7 +582,7 @@
       },
       "colorScheme": "light",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "theme-dark",
@@ -530,7 +595,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "theme-opaque",
@@ -543,7 +608,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "theme-high-contrast",
@@ -556,7 +621,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "theme-reduced-motion",
@@ -569,7 +634,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "settings-general",
@@ -582,7 +647,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "settings-agent-gateway",
@@ -595,7 +660,7 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     },
     {
       "scenario": "onboarding-welcome",
@@ -608,7 +673,33 @@
       },
       "colorScheme": "dark",
       "reducedMotion": true,
-      "gitSha": "7ddbfb532ccddca4b27440a45006d609ef366d02"
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+    },
+    {
+      "scenario": "computer-use-approval",
+      "label": "Computer Use approval",
+      "category": "Computer Use",
+      "file": "artifacts/screenshots/computer-use-approval.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+    },
+    {
+      "scenario": "constrained-work-area",
+      "label": "Constrained work area",
+      "category": "Resilience",
+      "file": "artifacts/screenshots/constrained-work-area.png",
+      "viewport": {
+        "width": 1120,
+        "height": 760
+      },
+      "colorScheme": "dark",
+      "reducedMotion": true,
+      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
     }
   ]
 }

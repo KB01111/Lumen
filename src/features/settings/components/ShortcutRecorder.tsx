@@ -1,7 +1,6 @@
 import {useState, type KeyboardEvent} from 'react';
 
-import {KeyboardIcon} from '@phosphor-icons/react';
-
+import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 
 function displayKey(event: KeyboardEvent) {
@@ -66,7 +65,7 @@ export function ShortcutRecorder({value, onChange, onInvalid}: ShortcutRecorderP
       onKeyDown={handleKeyDown}
       onPress={() => setRecording(true)}
     >
-      <KeyboardIcon aria-hidden="true" size={15} />
+      <LumenUiIcon name="keyboard" size="small" />
       {recording ? 'Press a shortcut' : value}
     </LumenButton>
   );

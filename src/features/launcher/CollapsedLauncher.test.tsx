@@ -1,7 +1,9 @@
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {afterEach, describe, expect, it} from 'vitest';
+import {StrictMode} from 'react';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
+import {readDiagnosticMetrics, resetDiagnosticMetrics} from '../diagnostics/diagnostics.metrics';
 import {BrowserWindowService} from '../../platform/window/browser-window-service';
 import {useLauncherStore} from './launcher.store';
 import {CollapsedLauncher} from './CollapsedLauncher';
@@ -9,12 +11,63 @@ import {useQueryStore} from './query.store';
 import {useScopeStore} from './scope.store';
 
 afterEach(() => {
+  resetDiagnosticMetrics();
+  vi.unstubAllGlobals();
   useLauncherStore.getState().reset();
   useQueryStore.getState().reset();
   useScopeStore.getState().reset();
 });
 
 describe('CollapsedLauncher', () => {
+  it('records 24 launcher-visible samples across 24 hide and show transitions', () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 0;
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      const id = ++nextFrame;
+      frames.set(id, callback);
+      return id;
+    }));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn((id: number) => frames.delete(id)));
+
+    render(<StrictMode><CollapsedLauncher windowService={new BrowserWindowService()} /></StrictMode>);
+    act(() => useLauncherStore.getState().hide());
+    frames.clear();
+    resetDiagnosticMetrics();
+
+    for (let transition = 0; transition < 24; transition += 1) {
+      act(() => useLauncherStore.getState().show('collapsed'));
+      for (const callback of frames.values()) callback(16 + transition);
+      frames.clear();
+      act(() => useLauncherStore.getState().hide());
+    }
+
+    expect(readDiagnosticMetrics().timings.filter((sample) => sample.name === 'launcher-visible')).toHaveLength(24);
+  });
+
+  it('keeps one command-palette surface while a query expands the workspace', async () => {
+    const user = userEvent.setup();
+    render(<CollapsedLauncher windowService={new BrowserWindowService()} />);
+
+    const palette = screen.getByLabelText('Lumen launcher');
+    expect(palette).toHaveAttribute('data-upstream', 'einui-glass-command-palette');
+    expect(palette).toHaveAttribute('data-expanded', 'false');
+    expect(palette.querySelector('[data-einui-slot="composer"]')).toBeInTheDocument();
+    expect(palette.querySelector('[data-einui-slot="workspace"]')).not.toBeInTheDocument();
+    expect(palette.querySelector('[data-einui-layer="surface"]')).toHaveStyle({
+      borderRadius: 'var(--lumen-radius-pill)',
+    });
+
+    await user.type(screen.getByRole('searchbox', {name: 'Search files'}), 'release');
+
+    await waitFor(() => expect(palette).toHaveAttribute('data-expanded', 'true'));
+    expect(palette.querySelector('[data-einui-slot="workspace"]')).toBeInTheDocument();
+    expect(palette.querySelector('[data-einui-slot="scopes"]')).toBeInTheDocument();
+    expect(palette.querySelector('[data-einui-slot="footer"]')).toHaveTextContent('Ready');
+    expect(palette.querySelector('[data-einui-layer="surface"]')).toHaveStyle({
+      borderRadius: 'var(--lumen-radius-surface)',
+    });
+  });
+
   it('commits an IME query only after composition ends', async () => {
     const user = userEvent.setup();
     render(<CollapsedLauncher windowService={new BrowserWindowService()} />);
@@ -56,7 +109,7 @@ describe('CollapsedLauncher', () => {
     await user.type(input, 'report');
     await user.keyboard('{Escape}');
     expect(input).toHaveValue('');
-    expect(useLauncherStore.getState().mode).toBe('collapsed');
+    await waitFor(() => expect(useLauncherStore.getState().mode).toBe('collapsed'));
 
     await user.keyboard('{Escape}');
     await waitFor(() => expect(windowService.snapshot().visible).toBe(false));
@@ -74,9 +127,9 @@ describe('CollapsedLauncher', () => {
     );
 
     expect(screen.getByRole('button', {name: 'Start voice input'})).toBeVisible();
-    expect(
-      await screen.findByRole('tablist', {name: 'Search scopes'}),
-    ).toBeVisible();
+    await waitFor(() => expect(
+      screen.getByRole('tablist', {name: 'Search scopes'}),
+    ).toBeVisible());
     expect(screen.getAllByRole('tab')).toHaveLength(8);
 
     await user.click(screen.getByRole('tab', {name: 'Documents'}));

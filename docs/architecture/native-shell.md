@@ -14,9 +14,11 @@ Lumen runs in one persistent, borderless Tauri 2 window. Closing hides the windo
 
 Rust owns the geometry table. Placement reads the cursor's active monitor work area, converts logical size with that monitor's scale factor, centers horizontally, and places the launcher 18 percent into the remaining vertical space. Changing modes clears old constraints before applying the new size.
 
+The React palette never owns or continuously animates those OS bounds. It requests expanded bounds first and reveals its clipped inner workspace only after that request resolves; it hides the inner workspace before requesting collapsed bounds. Within constrained bounds, the composer and compact footer stay stable while result and answer regions scroll internally and preview collapses before primary results.
+
 ## Material fallback
 
-The transparent Windows window requests Acrylic, then Mica, then Blur through Tauri's native effects list. The web surface always supplies adaptive tint, restrained luminosity, texture, edges, and shadow. If native composition is unavailable—or transparency is disabled—the opaque StyleX theme remains complete and readable.
+The transparent Windows window requests Acrylic, then Mica, then Blur through Tauri's native effects list. The web surface always supplies adaptive tint, restrained luminosity, texture, edges, and shadow. If native composition is unavailable—or transparency is disabled—the opaque Tailwind CSS semantic theme remains complete and readable.
 
 ## Security and plugins
 

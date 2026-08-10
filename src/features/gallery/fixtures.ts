@@ -36,10 +36,17 @@ const standardResults = [
   result('financial-model', 'Forecast model.xlsx', 'C:\\Lumen Demo\\Finance\\Forecast model.xlsx', 'spreadsheet', 'xlsx'),
 ] as const;
 
+const groupedResults = [
+  standardResults[1],
+  standardResults[2],
+  standardResults[4],
+] as const;
+
 let largeResults: readonly SearchResult[] | undefined;
 
 export function galleryResults(set: GalleryResultSet = 'standard'): readonly SearchResult[] {
   switch (set) {
+    case 'grouped': return groupedResults;
     case 'empty': return [];
     case 'permission': return [
       result('private-budget', 'Private budget.xlsx', 'C:\\Finance\\Private budget.xlsx', 'spreadsheet', 'xlsx', 'permissionDenied'),

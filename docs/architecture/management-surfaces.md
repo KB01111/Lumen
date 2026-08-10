@@ -1,6 +1,6 @@
 # Management surfaces
 
-Lumen's first-run and settings experiences are part of the same native React surface as the launcher. They use the shared StyleX tokens, material primitives, motion provider, and React Aria controls; no web-only settings shell or second component library is involved.
+Lumen's first-run and settings experiences are part of the same native React surface as the launcher. They use Tailwind CSS-first semantic tokens, material primitives, the motion provider, and React Aria controls; no web-only settings shell or second component library is involved.
 
 ## Ownership
 
@@ -11,7 +11,7 @@ Lumen's first-run and settings experiences are part of the same native React sur
 - `src/features/settings/settings.store.ts` owns management preferences and the last active settings page.
 - `src/features/activity/activity.store.ts`, `src/features/local-ai/local-ai.store.ts`, `src/features/gateway/gateway.store.ts`, and `src/features/diagnostics/diagnostics.store.ts` own their bounded phase-one state machines.
 
-React Aria Components provides the tabs, switches, selects, sliders, dialogs, and focus semantics. Those controls are styled directly with Lumen primitives rather than wrapped by a second interaction abstraction. Overlay portals are mounted inside the themed application root so confirmation dialogs inherit the active appearance.
+React Aria Components provides the tabs, switches, selects, sliders, dialogs, focus semantics, collection roles, and focus restoration. Those controls are styled directly with Lumen primitives rather than wrapped by a second interaction abstraction. Overlay portals are mounted inside the themed application root so confirmation dialogs inherit the active appearance.
 
 ## Phase-one boundaries
 
@@ -29,7 +29,7 @@ Indexed-root edits are persisted settings and feed the development file adapter.
 
 ## Appearance and accessibility
 
-The application root selects one complete StyleX color/material theme at a time: light, dark, light opaque, dark opaque, or forced high contrast. This avoids partial theme contracts resetting one another. Reduced motion is enforced by the motion provider and a CSS duration override; reduced effects remove decorative noise and lower blur. Typography uses `rem` tokens so Windows/browser text scaling reaches management content. The navigation rail remains fixed while the page panel scrolls independently, including at 200 percent text size.
+The application root selects one complete Tailwind CSS semantic color/material theme at a time: light, dark, light opaque, dark opaque, or forced high contrast. This avoids partial theme contracts resetting one another. Reduced motion is enforced by the motion provider and a CSS duration override; reduced effects remove decorative noise and lower blur. Typography uses `rem` tokens so Windows/browser text scaling reaches management content. The navigation rail remains fixed while the page panel scrolls independently, including at 200 percent text size.
 
 ## Diagnostics sampling
 

@@ -1,7 +1,4 @@
-import * as stylex from '@stylexjs/stylex';
-
 import {LumenText} from '../../../design-system/primitives/LumenText';
-import {tokens} from '../../../design-system/tokens.stylex';
 import {SettingRow} from '../components/SettingRow';
 import {SettingSection} from '../components/SettingSection';
 import {LumenCheckbox, LumenSelect, LumenSlider, LumenSwitch} from '../components/SettingsControls';
@@ -9,10 +6,6 @@ import {SettingsPage} from '../components/SettingsPage';
 import {StatusBadge} from '../components/StatusBadge';
 import type {SearchSettings} from '../settings.schema';
 import {useSettingsStore} from '../settings.store';
-
-const styles = stylex.create({
-  scopes: {display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: tokens.space3, padding: tokens.space8},
-});
 
 const scopes = [
   ['all', 'All'],
@@ -41,7 +34,7 @@ export function SearchPage() {
   return (
     <SettingsPage>
       <SettingSection title="Result scopes" description="Choose which scope tabs stay available in the launcher.">
-        <div {...stylex.props(styles.scopes)}>
+        <div className="grid grid-cols-2 gap-2 p-5">
           {scopes.map(([id, label]) => (
             <LumenCheckbox
               key={id}

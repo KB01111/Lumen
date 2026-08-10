@@ -26,9 +26,23 @@ describe('SettingsShell', () => {
     renderShell();
 
     expect(screen.getByRole('navigation', {name: 'Settings'})).toBeVisible();
+    expect(screen.getAllByRole('navigation', {name: 'Settings'})).toHaveLength(1);
+    expect(screen.getByRole('main', {name: 'Settings content'})).toBeVisible();
+    expect(screen.getAllByRole('main', {name: 'Settings content'})).toHaveLength(1);
     expect(screen.getAllByRole('tab')).toHaveLength(10);
+    expect(screen.getByRole('tab', {name: 'General'})).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('heading', {name: 'General'})).toBeVisible();
-    expect(screen.getByTestId('settings-content')).toHaveStyle({overflowY: 'auto'});
+    expect(screen.getByTestId('settings-content')).toHaveClass('overflow-y-auto');
+    expect(screen.getByTestId('settings-content')).not.toHaveAttribute('style');
+  });
+
+  it('keeps the close action visibly focusable', () => {
+    renderShell();
+
+    expect(screen.getByRole('button', {name: 'Close settings'})).toHaveAttribute(
+      'data-settings-close-action',
+      'true',
+    );
   });
 
   it('changes pages with keyboard tab navigation and persists the route', async () => {

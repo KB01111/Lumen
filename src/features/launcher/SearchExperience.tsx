@@ -28,8 +28,8 @@ import {
   useSelectionStore,
 } from './selection.store';
 import {useSearchController} from './useSearchController';
+import {requestWindowHide, requestWindowShow} from './useLauncherPresentation';
 
-const defaultWindowService = createWindowService();
 const unavailableAnswerService = new UnavailableAnswerService();
 const unavailableComputerUseService = new UnavailableComputerUseService();
 
@@ -61,42 +61,17 @@ export interface SearchExperienceProps {
   onOpenSettings?: () => void;
 }
 
-function useSettledAnswerQuery(onSupersede: () => void) {
-  const [request, setRequest] = useState({query: '', revision: 0});
-
-  useEffect(() => {
-    let pending = 0;
-    const settle = (query: string) => {
-      window.clearTimeout(pending);
-      onSupersede();
-      if (!query.trim()) {
-        setRequest((current) => current.query
-          ? {query: '', revision: current.revision + 1}
-          : current);
-        return;
-      }
-      pending = window.setTimeout(() => {
-        setRequest((current) => ({query, revision: current.revision + 1}));
-      }, 350);
-    };
-    settle(useQueryStore.getState().committed);
-    const unsubscribe = useQueryStore.subscribe((state) => state.committed, settle);
-    return () => {
-      window.clearTimeout(pending);
-      unsubscribe();
-    };
-  }, [onSupersede]);
-
-  return request;
-}
-
 export function SearchExperience({
   service,
   answerService = unavailableAnswerService,
   computerUseService = unavailableComputerUseService,
-  windowService = defaultWindowService,
+  windowService: providedWindowService,
   onOpenSettings,
 }: SearchExperienceProps) {
+  const windowService = useMemo(
+    () => providedWindowService ?? createWindowService(),
+    [providedWindowService],
+  );
   const controller = useSearchController(service);
   const intent = useLauncherStore((state) => state.intent);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
@@ -105,26 +80,22 @@ export function SearchExperience({
   const computerUseSettings = useSettingsStore((state) => state.computerUse);
   const setActiveSettingsPage = useSettingsStore((state) => state.setActivePage);
   const committedQuery = useQueryStore((state) => state.committed);
-  const answerStopRef = useRef<() => void>(() => undefined);
-  const supersedeAnswer = useCallback(() => answerStopRef.current(), []);
-  const answerRequest = useSettledAnswerQuery(supersedeAnswer);
+  const submittedQuery = useQueryStore((state) => state.submitted);
+  const submissionRevision = useQueryStore((state) => state.submissionRevision);
   const answer = useAnswerController(answerService, {
     delayMs: 0,
     mode: runtimeMode,
     cloudConsent: cloudAnswerConsent,
-    query: intent === 'search' ? answerRequest.query : '',
-    restartKey: answerRequest.revision,
+    query: intent === 'search' ? submittedQuery : '',
+    restartKey: submissionRevision,
   });
   const computerUse = useComputerUseController(computerUseService, computerUseSettings);
-  answerStopRef.current = answer.stop;
   const activeScope = useScopeStore((state) => state.activeScope);
   const activeFilters = useScopeStore((state) => state.activeFilters);
   const clearFilters = useScopeStore((state) => state.clearFilters);
   const toggleFilter = useScopeStore((state) => state.toggleFilter);
   const mode = useLauncherStore((state) => state.mode);
   const visible = useLauncherStore((state) => state.visible);
-  const hideLauncher = useLauncherStore((state) => state.hide);
-  const showLauncher = useLauncherStore((state) => state.show);
   const selectStoreResult = useSelectionStore((state) => state.select);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsMounted, setDetailsMounted] = useState(false);
@@ -202,8 +173,8 @@ export function SearchExperience({
     try {
       await service.openFile(fileId);
       await delay(motionTokens.duration.press * 1000);
-      hideLauncher();
-      await windowService.hide();
+      const hidden = await requestWindowHide(windowService);
+      if (!hidden) setActionMessage(`Opened ${result?.name ?? 'file'}, but Lumen could not hide.`);
     } catch (error) {
       setActionMessage(
         error instanceof Error ? error.message : 'The selected file could not be opened.',
@@ -214,7 +185,6 @@ export function SearchExperience({
   }, [
     controller.selectedId,
     controller.results,
-    hideLauncher,
     openingId,
     service,
     windowService,
@@ -246,16 +216,15 @@ export function SearchExperience({
   }, [controller.selectedId]);
 
   const handleRequestHide = useCallback(async () => {
-    hideLauncher();
-    await windowService.hide();
-  }, [hideLauncher, windowService]);
+    await requestWindowHide(windowService);
+  }, [windowService]);
 
   const handleOpenSettings = useCallback(async (page?: 'computer-use') => {
     if (page) setActiveSettingsPage(page);
-    showLauncher('settings');
+    const presentation = requestWindowShow(windowService, 'settings');
     onOpenSettings?.();
-    await windowService.show('settings');
-  }, [onOpenSettings, setActiveSettingsPage, showLauncher, windowService]);
+    await presentation;
+  }, [onOpenSettings, setActiveSettingsPage, windowService]);
 
   const handleStartComputerUse = useCallback(() => {
     void computerUse.start(inputRef.current?.value ?? useQueryStore.getState().committed);
@@ -272,6 +241,7 @@ export function SearchExperience({
   useLumenKeyboard({
     detailsOpen,
     inputRef,
+    intent,
     isExpanded: mode === 'expanded',
     results: intent === 'search' ? controller.results : [],
     selectedId: controller.selectedId,
@@ -309,7 +279,7 @@ export function SearchExperience({
   ]);
 
   return (
-    <div data-launcher-visible={visible} style={{display: 'contents'}}>
+    <div className="contents" data-launcher-visible={visible}>
       <CollapsedLauncher
         expandedContent={intent === 'computer' ? (
           <ComputerUsePanel

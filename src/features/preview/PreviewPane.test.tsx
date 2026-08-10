@@ -5,6 +5,7 @@ import {describe, expect, it, vi} from 'vitest';
 
 import {MemorySearchService} from '../../services/search/memory-search-service';
 import type {FilePreview, PreviewKind} from '../../services/search/search.types';
+import globalStyles from '../../design-system/global.css?raw';
 import {PreviewPane} from './PreviewPane';
 
 function preview(
@@ -23,6 +24,52 @@ function preview(
 }
 
 describe('PreviewPane', () => {
+  it('uses opaque semantic canvas materials for loading, empty, error, content, and dialog surfaces', async () => {
+    const assertOpaqueSurfaceContract = (root: ParentNode) => {
+      const surfaces = [...root.querySelectorAll<HTMLElement>('[data-preview-surface="opaque"]')];
+      expect(surfaces).not.toHaveLength(0);
+      for (const surface of surfaces) {
+        expect(surface).toHaveClass('bg-canvas', 'high-contrast:bg-[Canvas]');
+        expect(surface.className).not.toContain('surface-inset');
+        expect(surface.className).not.toContain('surface-raised');
+      }
+    };
+
+    expect(globalStyles).toMatch(/:root\s*\{[\s\S]*--lumen-canvas:\s*#[0-9a-f]{6};/i);
+    expect(globalStyles).toMatch(/\[data-resolved-theme="dark"\]\s*\{[\s\S]*--lumen-canvas:\s*#[0-9a-f]{6};/i);
+
+    const loadingService = new MemorySearchService();
+    const loading = render(<PreviewPane fileId="loading" reducedMotion service={loadingService} />);
+    assertOpaqueSurfaceContract(loading.container);
+    loading.unmount();
+
+    const empty = render(<PreviewPane fileId={null} reducedMotion service={new MemorySearchService()} />);
+    assertOpaqueSurfaceContract(empty.container);
+    empty.unmount();
+
+    const errorService = new MemorySearchService();
+    const error = render(<PreviewPane fileId="error" reducedMotion service={errorService} />);
+    await act(() => errorService.rejectPreview('error', {
+      code: 'permission-denied', message: 'No preview permission.', recoverable: true,
+    }));
+    assertOpaqueSurfaceContract(error.container);
+    error.unmount();
+
+    const contentService = new MemorySearchService();
+    const content = render(<PreviewPane fileId="content" reducedMotion service={contentService} />);
+    await act(() => contentService.resolvePreview('content', preview('content', 'text', {text: 'Opaque content'})));
+    assertOpaqueSurfaceContract(content.container);
+    content.unmount();
+
+    const dialog = render(
+      <PreviewPane fileId={null} isOpen mode="dialog" reducedMotion service={new MemorySearchService()} />,
+    );
+    assertOpaqueSurfaceContract(dialog.baseElement);
+    const overlay = screen.getByRole('dialog', {name: 'File details'}).parentElement?.parentElement;
+    expect(overlay).toHaveClass('bg-scrim');
+    expect(overlay?.className).not.toContain('bg-black/50');
+  });
+
   it('aborts the previous request and ignores a slow preview after selection changes', async () => {
     const service = new MemorySearchService();
     const {rerender} = render(
@@ -177,4 +224,5 @@ describe('PreviewPane', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(restoreFocusRef.current).toHaveFocus();
   });
+
 });

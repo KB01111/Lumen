@@ -8,6 +8,8 @@ import {withLumenDevServer} from './lib/lumen-dev-server.mjs';
 
 const outputDirectory = path.resolve('artifacts/recordings');
 const viewport = {width: 1120, height: 760};
+const collapsedViewport = {width: 700, height: 66};
+const expandedViewport = {width: 900, height: 620};
 
 async function pause(page, milliseconds = 320) {
   await page.waitForTimeout(milliseconds);
@@ -52,8 +54,12 @@ async function record(baseUrl) {
       title: 'Launcher search, selection, preview, scope, and open',
       flows: ['launcher open', 'typing expansion', 'rapid keyboard selection', 'preview details', 'scope change', 'folder open confirmation', 'file open confirmation'],
     }, async (page) => {
+      await page.setViewportSize(collapsedViewport);
       await page.goto(`${baseUrl}/?onboarded=1&service=memory`);
       const search = page.getByRole('searchbox', {name: 'Search files'});
+      await search.waitFor();
+      await pause(page, 500);
+      await page.setViewportSize(expandedViewport);
       await search.pressSequentially('report', {delay: 70});
       await page.getByRole('grid', {name: 'Search results'}).waitFor();
       await pause(page);
@@ -85,6 +91,7 @@ async function record(baseUrl) {
       flows: ['settings navigation', 'appearance', 'local AI route', 'AgentGateway route', 'activity policy'],
     }, async (page) => {
       await page.goto(`${baseUrl}/?onboarded=1&service=memory`);
+      await page.getByRole('searchbox', {name: 'Search files'}).waitFor();
       await page.keyboard.press('Control+,');
       await page.getByRole('navigation', {name: 'Settings'}).waitFor();
       for (const pageName of ['Appearance', 'Local AI', 'AgentGateway', 'Activity']) {
@@ -93,6 +100,7 @@ async function record(baseUrl) {
         await pause(page, 520);
       }
       await page.getByRole('button', {name: 'Close settings'}).click();
+      await page.setViewportSize(collapsedViewport);
     });
 
     await add({
@@ -116,6 +124,78 @@ async function record(baseUrl) {
         await pause(page, 520);
       }
       await page.getByRole('button', {name: 'Start using Lumen'}).click();
+      await page.setViewportSize(collapsedViewport);
+    });
+
+    await add({
+      id: 'answer-submission',
+      file: 'answer-submission.webm',
+      title: 'Explicit answer submission, isolated failure, retry, and dismissal',
+      flows: ['collapsed launcher', 'typing expansion', 'Enter-to-answer', 'answer failure isolation', 'retry', 'dismissal'],
+    }, async (page) => {
+      await page.setViewportSize(collapsedViewport);
+      await page.goto(`${baseUrl}/?onboarded=1&service=memory`);
+      const search = page.getByRole('searchbox', {name: 'Search files'});
+      await search.waitFor();
+      await pause(page, 500);
+      await page.setViewportSize(expandedViewport);
+      await search.pressSequentially('report', {delay: 70});
+      await page.getByRole('grid', {name: 'Search results'}).waitFor();
+      await pause(page);
+      await search.press('Enter');
+      await page.getByTestId('answer-region').waitFor();
+      await pause(page, 700);
+      await page.getByRole('button', {name: 'Retry answer'}).click();
+      await pause(page, 700);
+      await page.keyboard.press('Escape');
+      await search.waitFor();
+      await page.setViewportSize(collapsedViewport);
+      await pause(page, 500);
+      await page.keyboard.press('Escape');
+      await page.locator('[data-launcher-visible="false"]').waitFor({state: 'attached'});
+    });
+
+    await add({
+      id: 'answer-approval-states',
+      file: 'answer-approval-states.webm',
+      title: 'Streaming, stop, completion, and Computer Use approval controls',
+      flows: ['waiting', 'streaming', 'stop transition', 'completed answer', 'approval pause', 'approve transition', 'deny transition'],
+    }, async (page) => {
+      await page.goto(`${baseUrl}/?gallery=1&scenario=ai-waiting`);
+      const scenarioSelect = page.locator('select[aria-label="Gallery scenario"]');
+      await scenarioSelect.waitFor();
+      await pause(page, 500);
+      await scenarioSelect.selectOption('ai-streaming');
+      await page.getByRole('button', {name: 'Stop answer'}).focus();
+      await pause(page, 650);
+      await page.getByRole('button', {name: 'Stop answer'}).click();
+      await page.getByText('Stopped', {exact: true}).waitFor();
+      await page.getByRole('button', {name: 'Stop answer'}).waitFor({state: 'detached'});
+      await pause(page, 450);
+      await scenarioSelect.selectOption('ai-complete');
+      await page.getByTestId('answer-region').waitFor();
+      await pause(page, 650);
+      await scenarioSelect.selectOption('computer-use-approval');
+      const approval = page.getByRole('alertdialog', {name: 'Approve Computer Use action'});
+      await approval.waitFor();
+      await page.getByRole('button', {name: 'Approve once'}).focus();
+      await pause(page, 450);
+      await page.getByRole('button', {name: 'Approve once'}).click();
+      await page.getByRole('status', {name: 'Working'}).waitFor();
+      await page.getByText('Approved once in the deterministic gallery session').waitFor();
+      await approval.waitFor({state: 'detached'});
+      await pause(page, 650);
+      await scenarioSelect.selectOption('ai-complete');
+      await page.locator('[data-gallery-scenario="ai-complete"]').waitFor();
+      await scenarioSelect.selectOption('computer-use-approval');
+      await approval.waitFor();
+      await page.getByRole('button', {name: 'Deny and stop'}).focus();
+      await pause(page, 450);
+      await page.getByRole('button', {name: 'Deny and stop'}).click();
+      await page.getByRole('status', {name: 'Stopped'}).waitFor();
+      await page.getByText('Denied and stopped in the deterministic gallery session').waitFor();
+      await approval.waitFor({state: 'detached'});
+      await pause(page, 650);
     });
 
     await add({

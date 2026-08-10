@@ -1,12 +1,9 @@
 import type {ReactNode} from 'react';
 import {Suspense, useEffect, useRef, useState} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
 import {motion} from 'motion/react';
 
 import {useLumenMotion} from '../../design-system/MotionProvider';
-import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import type {SearchService} from '../../services/search/search-service';
 import type {
   SearchError,
@@ -15,77 +12,10 @@ import type {
 } from '../../services/search/search.types';
 import {LazyPreviewPane} from '../preview/LazyPreviewPane';
 import {ResultGrid} from '../results/ResultGrid';
-import {useSelectionStore} from './selection.store';
-import type {SearchLifecycle} from './useSearchController';
 import {ContextActions} from './ContextActions';
 import {FilterChips} from './FilterChips';
-
-const styles = stylex.create({
-  root: {
-    minWidth: 0,
-    minHeight: 0,
-    display: 'flex',
-    flex: 1,
-    flexDirection: 'column',
-    overflow: 'hidden',
-    borderTopColor: tokens.colorBorderSubtle,
-    borderTopStyle: 'solid',
-    borderTopWidth: '1px',
-  },
-  instrument: {
-    minWidth: 0,
-    minHeight: 0,
-    display: 'grid',
-    flex: 1,
-    gridTemplateColumns: {
-      default: 'minmax(0, 1fr) minmax(280px, 38%)',
-      '@media (max-width: 759px)': 'minmax(0, 1fr)',
-    },
-    overflow: 'hidden',
-  },
-  results: {
-    minWidth: 0,
-    minHeight: 0,
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  resultsHeader: {
-    minHeight: '34px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.space6,
-    paddingInline: tokens.space8,
-  },
-  preview: {
-    minWidth: 0,
-    minHeight: 0,
-    height: '100%',
-    display: {
-      default: 'block',
-      '@media (max-width: 759px)': 'none',
-    },
-  },
-  previewFallback: {
-    minHeight: '320px',
-    display: 'grid',
-    placeItems: 'center',
-    color: tokens.colorTextTertiary,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeMeta,
-  },
-  hiddenAnnouncement: {
-    position: 'absolute',
-    width: '1px',
-    height: '1px',
-    padding: 0,
-    margin: '-1px',
-    overflow: 'hidden',
-    clip: 'rect(0, 0, 0, 0)',
-    whiteSpace: 'nowrap',
-    borderWidth: 0,
-  },
-});
+import {useSelectionStore} from './selection.store';
+import type {SearchLifecycle} from './useSearchController';
 
 export interface ExpandedWorkspaceProps {
   activeFilters: readonly SearchFilter[];
@@ -128,8 +58,6 @@ function SelectionBoundResults({
   const selectedId = results.some((item) => item.id === requestedSelectedId)
     ? requestedSelectedId
     : results.find((item) => (item.availability ?? 'available') === 'available')?.id ?? null;
-  // Count result-set generations: the first set arrives together with the
-  // workspace reveal, so the row cascade only plays on refinements.
   const generation = useRef(0);
   const previousResults = useRef(results);
   if (previousResults.current !== results) {
@@ -186,13 +114,7 @@ function SelectionBoundPreview({
   const fileId = selectedIdOverride === undefined
     ? settledSelectedId
     : selectedIdOverride;
-  return (
-    <LazyPreviewPane
-      fileId={fileId}
-      reducedMotion={reducedMotion}
-      service={service}
-    />
-  );
+  return <LazyPreviewPane fileId={fileId} reducedMotion={reducedMotion} service={service} />;
 }
 
 function SelectionBoundActions({
@@ -259,8 +181,8 @@ function SelectionAnnouncement({
       ref={announcementRef}
       aria-atomic="true"
       aria-live="polite"
+      className="sr-only"
       data-testid="search-announcement"
-      {...stylex.props(styles.hiddenAnnouncement)}
     >
       {[announcement, selectedResult ? `${selectedResult.name} selected` : '']
         .filter(Boolean)
@@ -270,12 +192,8 @@ function SelectionAnnouncement({
 }
 
 function emptyLabel(lifecycle: SearchLifecycle, error: SearchError | null) {
-  if (lifecycle === 'searching') {
-    return 'Searching local files…';
-  }
-  if (lifecycle === 'error') {
-    return error?.message ?? 'Search could not be completed.';
-  }
+  if (lifecycle === 'searching') return 'Searching local files…';
+  if (lifecycle === 'error') return error?.message ?? 'Search could not be completed.';
   return 'No files found';
 }
 
@@ -304,18 +222,18 @@ export function ExpandedWorkspace({
   return (
     <motion.section
       aria-label="Search workspace"
-      {...stylex.props(styles.root)}
-      initial={reducedMotion ? {opacity: 0} : {opacity: 0, y: -6}}
       animate={{opacity: 1, y: 0}}
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-t border-[color:var(--einui-command-divider)]"
+      initial={reducedMotion ? {opacity: 0} : {opacity: 0, y: -6}}
       transition={{duration: opacityDuration}}
     >
       <FilterChips filters={activeFilters} onClear={onClearFilters} onRemove={onRemoveFilter} />
       {answerPanel}
-      <div {...stylex.props(styles.instrument)}>
-        <section aria-label="Search result list" {...stylex.props(styles.results)}>
-          <header {...stylex.props(styles.resultsHeader)}>
-            <LumenText tone="secondary" variant="meta" weight="medium">Local results</LumenText>
-            <LumenText tone="tertiary" variant="caption">{countLabel}</LumenText>
+      <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden min-[760px]:grid-cols-[minmax(0,1fr)_minmax(280px,38%)]">
+        <section aria-label="Search result list" className="flex min-h-0 min-w-0 flex-col">
+          <header className="flex min-h-[34px] items-center justify-between gap-3 px-4">
+            <span className="font-sans text-xs font-medium text-[color:var(--einui-command-text)]">Local results</span>
+            <span className="font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">{countLabel}</span>
           </header>
           <SelectionBoundResults
             emptyState={emptyLabel(lifecycle, error)}
@@ -327,19 +245,9 @@ export function ExpandedWorkspace({
             onSelectionChange={onSelectionChange}
           />
         </section>
-        <div {...stylex.props(styles.preview)}>
-          <Suspense
-            fallback={(
-              <div aria-label="File preview" {...stylex.props(styles.previewFallback)}>
-                Preparing preview…
-              </div>
-            )}
-          >
-            <SelectionBoundPreview
-              reducedMotion={reducedMotion}
-              selectedId={selectedId}
-              service={service}
-            />
+        <div className="hidden min-h-0 min-w-0 min-[760px]:block">
+          <Suspense fallback={<div aria-label="File preview" className="grid min-h-[320px] place-items-center font-sans text-xs text-[color:var(--einui-command-muted-text)]">Preparing preview…</div>}>
+            <SelectionBoundPreview reducedMotion={reducedMotion} selectedId={selectedId} service={service} />
           </Suspense>
         </div>
       </div>
@@ -351,11 +259,7 @@ export function ExpandedWorkspace({
         onOpen={onOpen}
         onOpenContainingFolder={onOpenContainingFolder}
       />
-      <SelectionAnnouncement
-        announcement={announcement}
-        results={results}
-        selectedId={selectedId}
-      />
+      <SelectionAnnouncement announcement={announcement} results={results} selectedId={selectedId} />
     </motion.section>
   );
 }

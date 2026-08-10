@@ -24,6 +24,44 @@ describe('focused launcher stores', () => {
     expect(useQueryStore.getState().committed).toBe('ルーメン');
   });
 
+  it('updates local search while typing but submits AI only on demand', () => {
+    const query = useQueryStore.getState();
+    query.setDraft('Summarize the release notes');
+    expect(useQueryStore.getState()).toMatchObject({
+      committed: 'Summarize the release notes',
+      submitted: '',
+      submissionRevision: 0,
+    });
+
+    useQueryStore.getState().submit();
+    expect(useQueryStore.getState()).toMatchObject({
+      submitted: 'Summarize the release notes',
+      submissionRevision: 1,
+    });
+  });
+
+  it('does not submit empty or composing text and clears submitted state', () => {
+    useQueryStore.getState().submit();
+    expect(useQueryStore.getState().submissionRevision).toBe(0);
+
+    useQueryStore.getState().startComposition();
+    useQueryStore.getState().setDraft('release notes');
+    useQueryStore.getState().submit();
+    expect(useQueryStore.getState()).toMatchObject({
+      submitted: '',
+      submissionRevision: 0,
+    });
+
+    useQueryStore.getState().endComposition();
+    useQueryStore.getState().submit();
+    useQueryStore.getState().clear();
+    expect(useQueryStore.getState()).toMatchObject({
+      draft: '',
+      committed: '',
+      submitted: '',
+    });
+  });
+
   it('keeps draft, selection, focus region, and preview lifecycle independent', () => {
     useQueryStore.getState().setDraft('report');
     useSelectionStore.getState().select('file-7');

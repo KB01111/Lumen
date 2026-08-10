@@ -1,28 +1,12 @@
 import type {ReactNode, SVGProps} from 'react';
 
-import * as stylex from '@stylexjs/stylex';
+import {cn} from '../../lib/cn';
 
-import {tokens} from '../tokens.stylex';
-
-const styles = stylex.create({
-  icon: {
-    display: 'block',
-    flexShrink: 0,
-    overflow: 'visible',
-  },
-  small: {
-    width: tokens.iconSizeSmall,
-    height: tokens.iconSizeSmall,
-  },
-  medium: {
-    width: tokens.iconSizeMedium,
-    height: tokens.iconSizeMedium,
-  },
-  large: {
-    width: tokens.iconSizeLarge,
-    height: tokens.iconSizeLarge,
-  },
-});
+const iconSizes = {
+  small: 'size-3.5',
+  medium: 'size-[18px]',
+  large: 'size-[22px]',
+} as const;
 
 export interface LumenIconProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
   children: ReactNode;
@@ -37,16 +21,15 @@ export function LumenIcon({
   title,
   ...props
 }: LumenIconProps) {
-  const namedSize = typeof size === 'number' ? undefined : styles[size];
+  const namedSize = typeof size === 'number' ? undefined : iconSizes[size];
   const explicitSize = typeof size === 'number' ? size : undefined;
-  const generatedClassName = stylex.props(styles.icon, namedSize).className;
 
   return (
     <svg
       {...props}
       aria-hidden={title ? undefined : true}
       aria-label={title}
-      className={[generatedClassName, className].filter(Boolean).join(' ')}
+      className={cn('block shrink-0 overflow-visible', namedSize, className)}
       fill="none"
       focusable="false"
       height={explicitSize}

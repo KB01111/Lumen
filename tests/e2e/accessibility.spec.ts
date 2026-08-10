@@ -43,6 +43,23 @@ test('keyboard-only search, selection, details, and focus restoration remain com
   await expect(search).toBeFocused();
 });
 
+test('the keyboard map keeps one labelled composer and answer region available', async ({page}) => {
+  await page.goto('/?onboarded=1&service=memory');
+  const search = page.getByRole('searchbox', {name: 'Search files'});
+  await expect(search).toBeFocused();
+
+  await search.fill('report');
+  await page.keyboard.press('Control+k');
+  await expect(search).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('region', {name: 'AI answer'})).toBeVisible();
+  await expect(page.getByTestId('answer-region')).toHaveCount(1);
+
+  await page.goto('/?gallery=1&scenario=ai-streaming&capture=1');
+  await expect(page.getByRole('button', {name: 'Stop answer'})).toBeEnabled();
+  await expect(page.getByTestId('answer-region')).toHaveCount(1);
+});
+
 test('IME composition does not commit or expand until composition ends', async ({page}) => {
   await page.goto('/?onboarded=1&service=memory');
   const search = page.getByRole('searchbox', {name: 'Search files'});

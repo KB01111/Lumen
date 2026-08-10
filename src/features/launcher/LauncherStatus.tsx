@@ -1,31 +1,8 @@
-import * as stylex from '@stylexjs/stylex';
 import {motion} from 'motion/react';
 
 import {useLumenMotion} from '../../design-system/MotionProvider';
-import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import {activityPresentations} from '../activity/activity.types';
 import {useActivityStore} from '../activity/activity.store';
-
-const styles = stylex.create({
-  status: {
-    display: 'inline-flex',
-    flexShrink: 0,
-    alignItems: 'center',
-    gap: tokens.space3,
-  },
-  dot: {
-    width: '6px',
-    height: '6px',
-    borderRadius: tokens.radiusRound,
-    backgroundColor: tokens.colorSuccess,
-    boxShadow: `0 0 9px ${tokens.colorSuccess}`,
-  },
-  pausedDot: {
-    backgroundColor: tokens.colorWarning,
-    boxShadow: 'none',
-  },
-});
 
 export interface LauncherStatusProps {
   label?: string;
@@ -43,21 +20,26 @@ export function LauncherStatus({label = 'Ready', searching = false}: LauncherSta
       aria-live="polite"
       data-activity-compact={activityActive || undefined}
       data-testid={activityActive ? 'launcher-activity' : undefined}
-      {...stylex.props(styles.status)}
+      className="inline-flex shrink-0 items-center gap-1.5"
     >
       {pulse ? (
         <motion.span
           aria-hidden="true"
-          {...stylex.props(styles.dot)}
+          className="size-1.5 rounded-full bg-success shadow-[0_0_9px_var(--lumen-success)]"
           animate={{opacity: [1, 0.3, 1]}}
           transition={{duration: 1.1, ease: 'easeInOut', repeat: Infinity}}
         />
       ) : (
-        <span aria-hidden="true" {...stylex.props(styles.dot, activityActive && styles.pausedDot)} />
+        <span
+          aria-hidden="true"
+          className={activityActive
+            ? 'size-1.5 rounded-full bg-warning'
+            : 'size-1.5 rounded-full bg-success shadow-[0_0_9px_var(--lumen-success)]'}
+        />
       )}
-      <LumenText tone="tertiary" variant="caption">
+      <span className="text-xs text-[color:var(--einui-command-muted-text)]">
         {activityActive ? activityLabel : label}
-      </LumenText>
+      </span>
     </output>
   );
 }

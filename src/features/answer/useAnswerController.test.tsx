@@ -63,6 +63,30 @@ describe('useAnswerController', () => {
     expect(service.requests.map((item) => item.request.mode)).toEqual(['cloud', 'local']);
   });
 
+  it('cancels the old stream and retries the same explicit submission revision', async () => {
+    const service = new MemoryAnswerService();
+    const {rerender} = renderHook(
+      ({restartKey}) => useAnswerController(service, {
+        delayMs: 0,
+        mode: 'auto',
+        query: 'release notes',
+        restartKey,
+      }),
+      {initialProps: {restartKey: 1}},
+    );
+
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    const firstSignal = service.requests[0]?.signal;
+    rerender({restartKey: 2});
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    expect(firstSignal?.aborted).toBe(true);
+    expect(service.requests.map((item) => item.request.query)).toEqual([
+      'release notes',
+      'release notes',
+    ]);
+  });
+
   it('keeps citations and usage from the current stream only', async () => {
     const service = new MemoryAnswerService();
     const {result, rerender} = renderHook(

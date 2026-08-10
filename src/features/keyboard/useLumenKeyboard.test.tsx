@@ -3,6 +3,11 @@ import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {BrowserWindowService} from '../../platform/window/browser-window-service';
+import type {ComputerUseService} from '../../services/computer-use/computer-use-service';
+import type {
+  ComputerUseEvent,
+  ComputerUseRequest,
+} from '../../services/computer-use/computer-use.types';
 import {MemorySearchService} from '../../services/search/memory-search-service';
 import type {SearchResult} from '../../services/search/search.types';
 import {SearchExperience} from '../launcher/SearchExperience';
@@ -11,6 +16,56 @@ import {usePreviewStore} from '../launcher/preview.store';
 import {useQueryStore} from '../launcher/query.store';
 import {useScopeStore} from '../launcher/scope.store';
 import {useSelectionStore} from '../launcher/selection.store';
+import {useSettingsStore} from '../settings/settings.store';
+
+class KeyboardComputerUseService implements ComputerUseService {
+  private approval?: {approved: boolean; resolve(): void};
+
+  async health() {
+    return {
+      state: 'ready' as const,
+      mode: 'python' as const,
+      browser: 'Microsoft Edge',
+      credentialConfigured: true,
+    };
+  }
+
+  async *stream(
+    request: ComputerUseRequest,
+    signal: AbortSignal,
+  ): AsyncIterable<ComputerUseEvent> {
+    yield {type: 'started', model: request.model, browser: 'Microsoft Edge'};
+    yield {
+      type: 'approvalRequired',
+      approvalId: 'keyboard-approval',
+      explanation: 'Submit the browser form?',
+    };
+    const response = await new Promise<boolean | null>((resolve) => {
+      const onAbort = () => resolve(null);
+      signal.addEventListener('abort', onAbort, {once: true});
+      this.approval = {
+        approved: false,
+        resolve: () => {
+          signal.removeEventListener('abort', onAbort);
+          resolve(this.approval?.approved ?? false);
+        },
+      };
+    });
+    if (response === null) return;
+    yield {type: 'approvalResolved', approvalId: 'keyboard-approval', approved: response};
+    if (!response) {
+      yield {type: 'cancelled'};
+      return;
+    }
+    await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), {once: true}));
+  }
+
+  async respond(_taskId: number, _approvalId: string, approved: boolean) {
+    if (!this.approval) throw new Error('No approval is pending.');
+    this.approval.approved = approved;
+    this.approval.resolve();
+  }
+}
 
 function file(id: string): SearchResult {
   return {
@@ -44,9 +99,91 @@ afterEach(() => {
   useQueryStore.getState().reset();
   useScopeStore.getState().reset();
   useSelectionStore.getState().reset();
+  useSettingsStore.getState().reset();
 });
 
 describe('Lumen keyboard coordination', () => {
+  it('uses DOM order for Computer Use from idle through approval and running controls', async () => {
+    const user = userEvent.setup();
+    const service = new KeyboardComputerUseService();
+    useLauncherStore.getState().setIntent('computer');
+    useSettingsStore.setState((state) => ({
+      computerUse: {...state.computerUse, cloudConsent: true},
+    }));
+    render(
+      <SearchExperience
+        computerUseService={service}
+        service={new MemorySearchService()}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    const input = screen.getByRole('searchbox', {name: 'Describe a browser task'});
+    await user.type(input, 'Review the support form');
+    const run = await screen.findByRole('button', {name: 'Run in Edge'});
+    await waitFor(() => expect(run).toBeEnabled());
+
+    input.focus();
+    await user.tab();
+    expect(screen.getByRole('button', {name: 'Clear search'})).toHaveFocus();
+    await user.tab();
+    expect(run).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    const approve = await screen.findByRole('button', {name: 'Approve once'});
+    const deny = screen.getByRole('button', {name: 'Deny and stop'});
+    const approvalStop = screen.getByRole('button', {name: 'Stop'});
+    input.focus();
+    await user.tab();
+    await user.tab();
+    expect(approve).toHaveFocus();
+    await user.tab();
+    expect(deny).toHaveFocus();
+    await user.tab({shift: true});
+    expect(approve).toHaveFocus();
+    approvalStop.focus();
+    await user.tab({shift: true});
+    expect(deny).toHaveFocus();
+
+    await user.click(approve);
+    await waitFor(() => expect(screen.getByRole('button', {name: 'Stop'})).toBeVisible());
+    input.focus();
+    await user.tab();
+    await user.tab();
+    expect(screen.getByRole('button', {name: 'Stop'})).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByRole('button', {name: 'Run in Edge'})).toBeVisible());
+  });
+
+  it('reaches Deny and stop by keyboard and returns to an idle Run in Edge action', async () => {
+    const user = userEvent.setup();
+    useLauncherStore.getState().setIntent('computer');
+    useSettingsStore.setState((state) => ({
+      computerUse: {...state.computerUse, cloudConsent: true},
+    }));
+    render(
+      <SearchExperience
+        computerUseService={new KeyboardComputerUseService()}
+        service={new MemorySearchService()}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    const input = screen.getByRole('searchbox', {name: 'Describe a browser task'});
+    await user.type(input, 'Review the support form');
+    await user.click(await screen.findByRole('button', {name: 'Run in Edge'}));
+    const deny = await screen.findByRole('button', {name: 'Deny and stop'});
+
+    input.focus();
+    await user.tab();
+    await user.tab();
+    await user.tab();
+    expect(deny).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(screen.getByRole('button', {name: 'Run in Edge'})).toBeVisible());
+  });
+
   it('opens the selected file and hides after tactile confirmation', async () => {
     const user = userEvent.setup();
     const service = new MemorySearchService();
@@ -54,6 +191,11 @@ describe('Lumen keyboard coordination', () => {
     render(<SearchExperience service={service} windowService={windowService} />);
 
     await searchFor(service, user, 'alpha', [file('alpha'), file('beta')]);
+    expect(useLauncherStore.getState().mode).toBe('expanded');
+    await user.keyboard('{Tab}');
+    expect(screen.getByRole('tab', {name: 'All'})).toHaveFocus();
+    await user.keyboard('{Tab}');
+    expect(screen.getByRole('row', {name: /alpha\.tsx/i})).toHaveFocus();
     await user.keyboard('{Enter}');
 
     await waitFor(() => expect(service.openedFiles).toEqual(['alpha']));

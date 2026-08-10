@@ -1,48 +1,6 @@
-import {
-  ArrowSquareOutIcon,
-  FolderOpenIcon,
-  InfoIcon,
-} from '@phosphor-icons/react';
-import * as stylex from '@stylexjs/stylex';
-
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
-import {LumenText} from '../../design-system/primitives/LumenText';
-import {tokens} from '../../design-system/tokens.stylex';
 import type {SearchResult} from '../../services/search/search.types';
-
-const styles = stylex.create({
-  root: {
-    minWidth: 0,
-    minHeight: '46px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.space3,
-    paddingBlock: tokens.space4,
-    paddingInline: tokens.space6,
-    borderTopColor: tokens.colorBorderSubtle,
-    borderTopStyle: 'solid',
-    borderTopWidth: '1px',
-  },
-  context: {
-    minWidth: 0,
-    flex: 1,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  actionLabel: {
-    display: {
-      default: 'inline',
-      '@media (max-width: 759px)': 'none',
-    },
-  },
-  shortcut: {
-    marginInlineStart: tokens.space2,
-    color: tokens.colorTextTertiary,
-    fontFamily: tokens.fontFamilyText,
-    fontSize: tokens.fontSizeCaption,
-  },
-});
 
 export interface ContextActionsProps {
   isOpening?: boolean;
@@ -60,15 +18,13 @@ export function ContextActions({
   onOpenContainingFolder,
 }: ContextActionsProps) {
   return (
-    <div aria-label="Result actions" {...stylex.props(styles.root)}>
-      <LumenText
-        className={stylex.props(styles.context).className}
-        title={result?.path}
-        tone="tertiary"
-        variant="caption"
-      >
+    <div
+      aria-label="Result actions"
+      className="flex min-h-[46px] min-w-0 items-center gap-1.5 border-t border-[color:var(--einui-command-divider)] px-4 py-2"
+    >
+      <span className="min-w-0 flex-1 truncate text-xs text-[color:var(--einui-command-muted-text)]" title={result?.path}>
         {result ? result.name : 'Choose a result for actions'}
-      </LumenText>
+      </span>
       <LumenButton
         aria-label={isOpening ? 'Opening selected result' : 'Open selected result'}
         isDisabled={!result || isOpening}
@@ -76,9 +32,9 @@ export function ContextActions({
         variant="quiet"
         onPress={onOpen}
       >
-        <ArrowSquareOutIcon aria-hidden="true" size={15} />
-        <span {...stylex.props(styles.actionLabel)}>{isOpening ? 'Opening' : 'Open'}</span>
-        <kbd aria-hidden="true" {...stylex.props(styles.shortcut)}>↵</kbd>
+        <LumenUiIcon name="forward" size="small" />
+        <span className="hidden sm:inline">{isOpening ? 'Opening' : 'Open'}</span>
+        <kbd aria-hidden="true" className="ml-1 font-sans text-xs text-[color:var(--einui-command-muted-text)]">↵</kbd>
       </LumenButton>
       <LumenButton
         aria-label="Open containing folder"
@@ -87,8 +43,8 @@ export function ContextActions({
         variant="quiet"
         onPress={onOpenContainingFolder}
       >
-        <FolderOpenIcon aria-hidden="true" size={15} />
-        <span {...stylex.props(styles.actionLabel)}>Folder</span>
+        <LumenUiIcon name="folderOpen" size="small" />
+        <span className="hidden sm:inline">Folder</span>
       </LumenButton>
       <LumenButton
         aria-label="Show file details"
@@ -97,8 +53,8 @@ export function ContextActions({
         variant="quiet"
         onPress={onDetails}
       >
-        <InfoIcon aria-hidden="true" size={15} />
-        <span {...stylex.props(styles.actionLabel)}>Details</span>
+        <LumenUiIcon name="info" size="small" />
+        <span className="hidden sm:inline">Details</span>
       </LumenButton>
     </div>
   );
