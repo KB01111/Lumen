@@ -78,16 +78,25 @@ describe('ResultGrid', () => {
     );
   });
 
-  it('does not expose a disabled or empty collection as a selected row', () => {
+  it('clears a disabled selection so sibling surfaces cannot retain it', () => {
+    const onSelectionChange = vi.fn();
     const {container, rerender} = render(
       <ResultGrid
         results={[file('blocked', {availability: 'permissionDenied'})]}
         selectedId="blocked"
+        onSelectionChange={onSelectionChange}
       />,
     );
 
     expect(container.querySelector('[aria-selected="true"]')).toBeNull();
-    rerender(<ResultGrid results={[]} selectedId="blocked" />);
+    expect(onSelectionChange).toHaveBeenCalledWith(null);
+    rerender(
+      <ResultGrid
+        results={[]}
+        selectedId="blocked"
+        onSelectionChange={onSelectionChange}
+      />,
+    );
     expect(container.querySelector('[aria-selected="true"]')).toBeNull();
   });
 

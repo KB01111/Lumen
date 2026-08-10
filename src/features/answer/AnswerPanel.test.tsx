@@ -60,6 +60,30 @@ describe('AnswerPanel', () => {
     expect(onStop).toHaveBeenCalledOnce();
   });
 
+  it('preserves the typed service error in the stable answer region', () => {
+    render(
+      <AppProviders>
+        <AnswerPanel
+          answer={{
+            phase: 'error',
+            text: '',
+            citations: [],
+            error: 'The local runtime is still loading.',
+          }}
+          mode="local"
+          onModeChange={vi.fn()}
+          onOpenCitation={vi.fn()}
+          onRetry={vi.fn()}
+          onStop={vi.fn()}
+        />
+      </AppProviders>,
+    );
+
+    expect(screen.getByTestId('answer-region')).toHaveTextContent(
+      'The local runtime is still loading.',
+    );
+  });
+
   it.each(['waiting', 'streaming'] as const)(
     'keeps stop available while the answer is %s',
     (phase) => {

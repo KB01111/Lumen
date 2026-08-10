@@ -72,7 +72,7 @@ export function AnswerPanel({
           : answer.phase === 'waiting'
             ? 'Waiting for the query to settle…'
             : answer.phase === 'error'
-              ? 'The answer could not be completed. You can retry without interrupting local search.'
+              ? answer.error ?? 'The answer could not be completed. You can retry without interrupting local search.'
               : 'Preparing an answer…'}
       </div>
       <footer className="flex items-center justify-between gap-3">

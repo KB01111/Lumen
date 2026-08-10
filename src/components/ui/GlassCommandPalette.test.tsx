@@ -8,6 +8,8 @@ import {
   type GlassCommandPaletteProps,
 } from './GlassCommandPalette';
 
+const normalizedPaletteStyles = paletteStyles.replace(/\r\n/g, '\n');
+
 describe('GlassCommandPalette', () => {
   it('renders caller-owned regions without installing a browser shortcut', async () => {
     const addEventListener = vi.spyOn(window, 'addEventListener');
@@ -191,15 +193,15 @@ describe('GlassCommandPalette', () => {
   box-shadow: none;
 }`;
 
-    expect(paletteStyles).toContain('--einui-command-row: Canvas;');
-    expect(paletteStyles).toContain(ordinaryRowRule);
-    expect(paletteStyles).toContain(ordinaryRowNestedRule);
-    expect(paletteStyles).toContain(activeRowRule);
-    expect(paletteStyles).toContain(selectedRowShadowOverride);
-    expect(paletteStyles.indexOf(ordinaryRowRule)).toBeLessThan(paletteStyles.indexOf(activeRowRule));
-    expect(paletteStyles.indexOf('.einui-command-row[aria-selected=\'true\'] {\n  background: var(--einui-command-row-selected);\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);'))
-      .toBeLessThan(paletteStyles.indexOf(selectedRowShadowOverride));
-    expect(paletteStyles).toContain(`
+    expect(normalizedPaletteStyles).toContain('--einui-command-row: Canvas;');
+    expect(normalizedPaletteStyles).toContain(ordinaryRowRule);
+    expect(normalizedPaletteStyles).toContain(ordinaryRowNestedRule);
+    expect(normalizedPaletteStyles).toContain(activeRowRule);
+    expect(normalizedPaletteStyles).toContain(selectedRowShadowOverride);
+    expect(normalizedPaletteStyles.indexOf(ordinaryRowRule)).toBeLessThan(normalizedPaletteStyles.indexOf(activeRowRule));
+    expect(normalizedPaletteStyles.indexOf('.einui-command-row[aria-selected=\'true\'] {\n  background: var(--einui-command-row-selected);\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);'))
+      .toBeLessThan(normalizedPaletteStyles.indexOf(selectedRowShadowOverride));
+    expect(normalizedPaletteStyles).toContain(`
 [data-contrast='high'] .einui-command-row:hover *,
 [data-contrast='high'] .einui-command-row[aria-selected='true'] * {
   color: inherit;

@@ -7,7 +7,14 @@ import {useLauncherStore} from '../features/launcher/launcher.store';
 import {useQueryStore} from '../features/launcher/query.store';
 import {useOnboardingStore} from '../features/onboarding/onboarding.store';
 import {useSettingsStore} from '../features/settings/settings.store';
+import {BrowserWindowService} from '../platform/window/browser-window-service';
 import {App} from './App';
+
+class ReactivatableWindowService extends BrowserWindowService {
+  reactivateCollapsed() {
+    this.publishNativeState({mode: 'collapsed', source: 'shortcut', visible: true});
+  }
+}
 
 afterEach(() => {
   useLauncherStore.getState().reset();
@@ -53,5 +60,45 @@ describe('App', () => {
     expect(screen.getByRole('searchbox', {name: 'Search files'})).toBe(search);
     expect(search).toHaveValue('quarterly report');
     expect(search).toHaveFocus();
+  });
+
+  it('uses the typed unavailable answer service outside the native runtime', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, '', '/?service=memory');
+    render(<App />);
+
+    const search = await screen.findByRole('searchbox', {name: 'Search files'});
+    await user.type(search, 'report');
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByTestId('answer-region')).toHaveTextContent(
+      'The answer runtime is not ready. Local search is still available.',
+    );
+  });
+
+  it('routes the DEV gallery through the app window lifecycle and retains gallery ownership', async () => {
+    const windowService = new ReactivatableWindowService();
+    window.history.replaceState({}, '', '/?gallery=1&scenario=collapsed-idle');
+
+    render(<App windowService={windowService} />);
+
+    expect(await screen.findByRole('region', {name: 'Lumen visual state gallery'})).toBeVisible();
+    await waitFor(() => expect(windowService.snapshot()).toMatchObject({
+      mode: 'gallery',
+      visible: true,
+      width: 1120,
+      height: 760,
+    }));
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'gallery', visible: true});
+
+    act(() => windowService.reactivateCollapsed());
+
+    await waitFor(() => expect(windowService.snapshot()).toMatchObject({
+      mode: 'gallery',
+      visible: true,
+      width: 1120,
+      height: 760,
+    }));
+    expect(useLauncherStore.getState()).toMatchObject({mode: 'gallery', visible: true});
   });
 });

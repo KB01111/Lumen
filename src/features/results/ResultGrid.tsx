@@ -57,6 +57,13 @@ export function ResultGrid({
     ),
     [results],
   );
+
+  useLayoutEffect(() => {
+    if (selectedId !== null && effectiveSelectedId === null) {
+      onSelectionChange?.(null);
+    }
+  }, [effectiveSelectedId, onSelectionChange, selectedId]);
+
   const {isVirtualized, totalSize, virtualItems} = useResultVirtualizer(
     results.length,
     viewportRef,

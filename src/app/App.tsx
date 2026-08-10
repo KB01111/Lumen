@@ -17,6 +17,7 @@ import {useSettingsStore} from '../features/settings/settings.store';
 import {createWindowService} from '../platform/window/tauri-window-service';
 import type {WindowService} from '../platform/window/window-service';
 import {TauriAnswerService} from '../services/answer/tauri-answer-service';
+import {UnavailableAnswerService} from '../services/answer/unavailable-answer-service';
 import {TauriComputerUseService} from '../services/computer-use/tauri-computer-use-service';
 import {UnavailableComputerUseService} from '../services/computer-use/unavailable-computer-use-service';
 import {DevelopmentComputerUseService} from '../services/computer-use/development-computer-use-service';
@@ -79,7 +80,9 @@ function createDefaultSearchService() {
 }
 
 const defaultSearchService = createDefaultSearchService();
-const defaultAnswerService = new TauriAnswerService();
+const defaultAnswerService = isNativeRuntime()
+  ? new TauriAnswerService()
+  : new UnavailableAnswerService();
 const developmentComputerUse = import.meta.env.DEV &&
   new URLSearchParams(window.location.search).get('computerUse') === 'memory';
 const defaultComputerUseService = developmentComputerUse
@@ -167,7 +170,7 @@ export function App({windowService = appWindowService}: AppProps = {}) {
   const [foundationAppearance, setFoundationAppearance] = useState(0);
   const launcherMode = useLauncherStore((state) => state.mode);
 
-  useNativeLauncherLifecycle(windowService);
+  useNativeLauncherLifecycle(windowService, galleryPreview ? 'gallery' : null);
 
   useEffect(() => {
     if (!foundationPreview) {
@@ -257,7 +260,7 @@ export function App({windowService = appWindowService}: AppProps = {}) {
     >
       <main className="grid h-full w-full items-stretch overflow-x-clip bg-transparent p-1.5">
         {galleryPreview && VisualStateGallery ? (
-          <Suspense fallback={null}><VisualStateGallery /></Suspense>
+          <Suspense fallback={null}><VisualStateGallery windowService={windowService} /></Suspense>
         ) : foundationPreview ? (
           <LumenSurface
             aria-label="Lumen launcher"

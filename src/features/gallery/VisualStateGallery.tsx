@@ -3,7 +3,7 @@ import {useCallback, useEffect, useLayoutEffect, useMemo, useState} from 'react'
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {BrowserWindowService} from '../../platform/window/browser-window-service';
-import {createWindowService} from '../../platform/window/tauri-window-service';
+import type {WindowService} from '../../platform/window/window-service';
 import {ActivityStatus} from '../activity/ActivityStatus';
 import {AnswerPanel} from '../answer/AnswerPanel';
 import type {AnswerState} from '../answer/useAnswerController';
@@ -27,7 +27,7 @@ import {galleryScenarios, getGalleryScenario} from './scenarios';
 import type {GalleryAnswerState, GalleryLauncherState, GalleryScenario, GalleryScenarioId} from './gallery.types';
 
 const galleryWindowService = new BrowserWindowService();
-const nativeGalleryWindowService = createWindowService();
+const standaloneGalleryWindowService = new BrowserWindowService();
 
 const galleryRootService: RootSelectionService = {async chooseRoot() { return null; }};
 const textScales = [100, 125, 150, 175, 200] as const;
@@ -215,7 +215,13 @@ function ScenarioSurface({scenario}: {scenario: GalleryScenario}) {
   }
 }
 
-export function VisualStateGallery() {
+export interface VisualStateGalleryProps {
+  windowService?: WindowService;
+}
+
+export function VisualStateGallery({
+  windowService = standaloneGalleryWindowService,
+}: VisualStateGalleryProps = {}) {
   const parameters = useMemo(() => new URLSearchParams(window.location.search), []);
   const scenario = getGalleryScenario(parameters.get('scenario'));
   const matrix = parameters.get('matrix') === '1';
@@ -224,8 +230,9 @@ export function VisualStateGallery() {
   const scale = textScales.includes(parsedScale as (typeof textScales)[number]) ? parsedScale : 100;
 
   useEffect(() => {
-    void nativeGalleryWindowService.show('gallery');
-  }, []);
+    useLauncherStore.getState().show('gallery');
+    void windowService.show('gallery').catch(() => undefined);
+  }, [windowService]);
 
   useEffect(() => {
     const original = document.documentElement.style.fontSize;

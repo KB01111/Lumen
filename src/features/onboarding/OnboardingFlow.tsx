@@ -9,6 +9,7 @@ import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
+import {useLauncherStore} from '../launcher/launcher.store';
 import {requestWindowShow} from '../launcher/useLauncherPresentation';
 import {OnboardingScene} from './OnboardingScene';
 import {
@@ -115,7 +116,8 @@ export function OnboardingFlow({
   const step = onboardingSteps[currentIndex] ?? 'welcome';
 
   useEffect(() => {
-    void requestWindowShow(windowService, 'onboarding');
+    useLauncherStore.getState().show('onboarding');
+    void windowService.show('onboarding').catch(() => undefined);
   }, [windowService]);
 
   useEffect(() => {

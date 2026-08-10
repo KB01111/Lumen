@@ -66,6 +66,7 @@ export async function requestWindowHide(windowService: WindowService) {
 function reconcileNativeLauncherEvent(
   windowService: WindowService,
   event: WindowStateEvent,
+  routeOwnedMode: WindowMode | null,
 ) {
   if (event.source === 'command') return;
   if (!event.visible) {
@@ -73,10 +74,11 @@ function reconcileNativeLauncherEvent(
     return;
   }
   const currentMode = useLauncherStore.getState().mode;
-  const ownedSurface = currentMode === 'onboarding' || currentMode === 'settings' ||
-    currentMode === 'gallery'
-    ? currentMode
-    : null;
+  const ownedSurface = routeOwnedMode ?? (
+    currentMode === 'onboarding' || currentMode === 'settings' || currentMode === 'gallery'
+      ? currentMode
+      : null
+  );
   const targetMode = ownedSurface ?? (useQueryStore.getState().committed
     ? 'expanded'
     : 'collapsed');
@@ -85,10 +87,14 @@ function reconcileNativeLauncherEvent(
 }
 
 /** App-level native close/shortcut/second-instance reconciliation. */
-export function useNativeLauncherLifecycle(windowService: WindowService) {
+export function useNativeLauncherLifecycle(
+  windowService: WindowService,
+  routeOwnedMode: WindowMode | null = null,
+) {
   useEffect(
-    () => windowService.subscribe((event) => reconcileNativeLauncherEvent(windowService, event)),
-    [windowService],
+    () => windowService.subscribe((event) =>
+      reconcileNativeLauncherEvent(windowService, event, routeOwnedMode)),
+    [routeOwnedMode, windowService],
   );
 }
 

@@ -67,7 +67,7 @@ test('keeps local results available when the browser answer route fails', async 
 
   await search.press('Enter');
   await expect(page.getByTestId('answer-region')).toContainText(
-    'The answer could not be completed.',
+    'The answer runtime is not ready. Local search is still available.',
   );
   await expect(page.getByRole('row')).toHaveCount(3);
   await expect(page.getByRole('row', {name: /Quarterly report/i})).toHaveAttribute(
