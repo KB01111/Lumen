@@ -1,4 +1,5 @@
 import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
+import type {CSSProperties} from 'react';
 
 import {LumenMark} from '../design-system/icons/LumenMark';
 import {LumenSurface} from '../design-system/primitives/LumenSurface';
@@ -15,7 +16,8 @@ import {useOnboardingStore} from '../features/onboarding/onboarding.store';
 import {createIndexedRoot} from '../features/settings/indexed-root';
 import {useSettingsStore} from '../features/settings/settings.store';
 import {createWindowService} from '../platform/window/tauri-window-service';
-import type {WindowService} from '../platform/window/window-service';
+import {windowGeometry} from '../platform/window/window-service';
+import type {WindowMode, WindowService} from '../platform/window/window-service';
 import {TauriAnswerService} from '../services/answer/tauri-answer-service';
 import {UnavailableAnswerService} from '../services/answer/unavailable-answer-service';
 import {TauriComputerUseService} from '../services/computer-use/tauri-computer-use-service';
@@ -247,6 +249,23 @@ export function App({windowService = appWindowService}: AppProps = {}) {
   const onboardingPending = !foundationPreview && !galleryPreview &&
     onboardingMode === 'persisted' &&
     !onboardingHydrated;
+  const browserWindowMode: WindowMode = galleryPreview
+    ? 'gallery'
+    : showOnboarding
+      ? 'onboarding'
+      : foundationPreview
+        ? 'collapsed'
+        : launcherMode;
+  const browserWindowStyle: CSSProperties | undefined = import.meta.env.DEV && !isNativeRuntime()
+    ? {
+        height: `min(100%, ${windowGeometry[browserWindowMode].height}px)`,
+        left: '50%',
+        position: 'absolute',
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: `min(100%, ${windowGeometry[browserWindowMode].width}px)`,
+      }
+    : undefined;
 
   const closeSettings = useCallback(() => {
     const targetMode = useQueryStore.getState().committed ? 'expanded' : 'collapsed';
@@ -272,7 +291,11 @@ export function App({windowService = appWindowService}: AppProps = {}) {
       )}
       forceHighContrast={galleryPresentation?.forceHighContrast}
     >
-      <main className="grid h-full w-full items-stretch overflow-x-clip bg-transparent p-1.5">
+      <main
+        className="grid h-full min-h-0 min-w-0 w-full grid-rows-[minmax(0,1fr)] items-stretch overflow-x-clip bg-transparent p-1.5"
+        data-browser-window-mode={browserWindowStyle ? browserWindowMode : undefined}
+        style={browserWindowStyle}
+      >
         {galleryPreview && VisualStateGallery ? (
           <Suspense fallback={null}><VisualStateGallery windowService={windowService} /></Suspense>
         ) : foundationPreview ? (
