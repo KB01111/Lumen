@@ -122,7 +122,7 @@ export function CollapsedLauncher({
     windowServiceRef.current = providedWindowService ?? createWindowService();
   }
   const windowService = providedWindowService ?? windowServiceRef.current;
-  const committedQuery = useQueryStore((state) => state.committed);
+  const hasCommittedQuery = useQueryStore((state) => state.committed.length > 0);
   const clearQuery = useQueryStore((state) => state.clear);
   const visible = useLauncherStore((state) => state.visible);
   const intent = useLauncherStore((state) => state.intent);
@@ -141,7 +141,7 @@ export function CollapsedLauncher({
   previousVisible.current = visible;
   const inputRef = providedInputRef ?? fallbackInputRef;
   const {expanded, presentationError} = useLauncherPresentation({
-    hasContent: committedQuery.length > 0,
+    hasContent: hasCommittedQuery,
     reducedMotion,
     windowService,
   });

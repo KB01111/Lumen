@@ -87,14 +87,14 @@ async function record(baseUrl) {
     await add({
       id: 'settings-routing',
       file: 'settings-routing.webm',
-      title: 'Settings navigation and provider routes',
-      flows: ['settings navigation', 'appearance', 'local AI route', 'AgentGateway route', 'activity policy'],
+      title: 'Settings navigation and operational routes',
+      flows: ['settings navigation', 'appearance', 'local AI route', 'AgentGateway route', 'privacy controls'],
     }, async (page) => {
       await page.goto(`${baseUrl}/?onboarded=1&service=memory`);
       await page.getByRole('searchbox', {name: 'Search files'}).waitFor();
       await page.keyboard.press('Control+,');
       await page.getByRole('navigation', {name: 'Settings'}).waitFor();
-      for (const pageName of ['Appearance', 'Local AI', 'AgentGateway', 'Activity']) {
+      for (const pageName of ['Appearance', 'Local AI', 'AgentGateway', 'Privacy']) {
         await page.getByRole('tab', {name: pageName, exact: true}).click();
         await page.getByRole('heading', {name: pageName, exact: true}).waitFor();
         await pause(page, 520);
@@ -107,19 +107,17 @@ async function record(baseUrl) {
       id: 'onboarding',
       file: 'onboarding.webm',
       title: 'Onboarding scene progression',
-      flows: ['welcome', 'privacy', 'root selection', 'shortcut', 'indexing', 'local AI', 'exact search', 'activity', 'completion'],
+      flows: ['welcome', 'root selection', 'shortcut', 'answer mode', 'initial indexing', 'completion'],
     }, async (page) => {
       await page.goto(`${baseUrl}/?onboarding=1`);
       await page.getByRole('heading', {name: 'Everything, within reach'}).waitFor();
       await pause(page, 650);
       await page.getByRole('button', {name: 'Begin'}).click();
       await pause(page, 520);
-      await page.getByRole('button', {name: 'Continue'}).click();
-      await pause(page, 520);
       await page.getByRole('button', {name: 'Choose folder'}).click();
       await page.getByText('C:\\Projects\\Lumen Demo').waitFor();
       await pause(page, 520);
-      for (let index = 0; index < 5; index += 1) {
+      for (let index = 0; index < 2; index += 1) {
         await page.getByRole('button', {name: 'Continue'}).click();
         await pause(page, 520);
       }

@@ -2,6 +2,7 @@ import {useLayoutEffect, useRef, type RefObject} from 'react';
 import {motion, useMotionValue, useSpring} from 'motion/react';
 
 import {motionTokens} from '../../design-system/motion';
+import {useSelectionStore} from '../launcher/selection.store';
 import {comfortableResultHeight} from './useResultVirtualizer';
 
 export interface SelectionCapsuleProps {
@@ -53,12 +54,14 @@ export function SelectionCapsule({
         observer.observe(selected);
       }
     };
-    const handlePreview = (event: Event) => updateSelection((event as CustomEvent<string | null>).detail);
     updateSelection(selectedId);
-    window.addEventListener('lumen:selection-preview', handlePreview);
+    const unsubscribe = useSelectionStore.subscribe(
+      (state) => state.selectedId,
+      updateSelection,
+    );
     return () => {
       observer?.disconnect();
-      window.removeEventListener('lumen:selection-preview', handlePreview);
+      unsubscribe();
     };
   }, [containerRef, height, opacity, rowHeight, selectedId, springY, targetY]);
 

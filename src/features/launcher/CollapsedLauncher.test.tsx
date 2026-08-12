@@ -118,7 +118,7 @@ describe('CollapsedLauncher', () => {
     expect(useLauncherStore.getState().visible).toBe(false);
   });
 
-  it('exposes named controls and all eight scopes when expanded', async () => {
+  it('exposes named controls and all implemented scopes when expanded', async () => {
     const user = userEvent.setup();
     useQueryStore.getState().setDraft('docs');
     render(
@@ -132,7 +132,7 @@ describe('CollapsedLauncher', () => {
     await waitFor(() => expect(
       screen.getByRole('tablist', {name: 'Search scopes'}),
     ).toBeVisible());
-    expect(screen.getAllByRole('tab')).toHaveLength(8);
+    expect(screen.getAllByRole('tab')).toHaveLength(6);
 
     await user.click(screen.getByRole('tab', {name: 'Documents'}));
     expect(useScopeStore.getState().activeScope).toBe('documents');
@@ -147,7 +147,7 @@ describe('CollapsedLauncher', () => {
     render(<CollapsedLauncher windowService={new BrowserWindowService()} />);
 
     await waitFor(() => expect(screen.getByRole('tablist', {name: 'Search scopes'})).toBeVisible());
-    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['All', 'Documents', 'Recent']);
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['All', 'Documents']);
   });
 
   it('switches to an explicit browser-agent task without exposing file scopes', async () => {

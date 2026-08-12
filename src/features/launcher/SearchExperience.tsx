@@ -1,4 +1,12 @@
-import {Suspense, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+} from 'react';
 
 import {motionTokens} from '../../design-system/motion';
 import {createWindowService} from '../../platform/window/tauri-window-service';
@@ -24,7 +32,6 @@ import {useQueryStore} from './query.store';
 import {useScopeStore} from './scope.store';
 import {
   readSelectionIntent,
-  rememberSelectionIntent,
   useSelectionStore,
 } from './selection.store';
 import {useSearchController} from './useSearchController';
@@ -32,6 +39,14 @@ import {requestWindowHide, requestWindowShow} from './useLauncherPresentation';
 
 const unavailableAnswerService = new UnavailableAnswerService();
 const unavailableComputerUseService = new UnavailableComputerUseService();
+const queryDebounceMs = 80;
+
+function QueryBoundComputerUsePanel(
+  props: Omit<ComponentProps<typeof ComputerUsePanel>, 'draftTask'>,
+) {
+  const draftTask = useQueryStore((state) => state.committed);
+  return <ComputerUsePanel {...props} draftTask={draftTask} />;
+}
 
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
@@ -81,7 +96,6 @@ export function SearchExperience({
   const computerUseSettings = useSettingsStore((state) => state.computerUse);
   const previewsEnabled = useSettingsStore((state) => state.privacy.previewsEnabled);
   const setActiveSettingsPage = useSettingsStore((state) => state.setActivePage);
-  const committedQuery = useQueryStore((state) => state.committed);
   const submittedQuery = useQueryStore((state) => state.submitted);
   const submissionRevision = useQueryStore((state) => state.submissionRevision);
   const answer = useAnswerController(answerService, {
@@ -104,21 +118,14 @@ export function SearchExperience({
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const pendingSelectionFrame = useRef(0);
-  const pendingSelectionTimer = useRef(0);
-
-  useEffect(() => () => {
-    window.cancelAnimationFrame(pendingSelectionFrame.current);
-    window.clearTimeout(pendingSelectionTimer.current);
-  }, []);
 
   useEffect(() => {
-    let pendingFrame = 0;
+    let pendingQuery = 0;
     const scheduleQuery = (query: string) => {
-      window.cancelAnimationFrame(pendingFrame);
-      pendingFrame = window.requestAnimationFrame(() => controller.setQuery(
+      window.clearTimeout(pendingQuery);
+      pendingQuery = window.setTimeout(() => controller.setQuery(
         intent === 'search' ? query : '',
-      ));
+      ), queryDebounceMs);
     };
     scheduleQuery(useQueryStore.getState().committed);
     const unsubscribe = useQueryStore.subscribe(
@@ -126,7 +133,7 @@ export function SearchExperience({
       scheduleQuery,
     );
     return () => {
-      window.cancelAnimationFrame(pendingFrame);
+      window.clearTimeout(pendingQuery);
       unsubscribe();
     };
   }, [controller.setQuery, intent]);
@@ -137,9 +144,6 @@ export function SearchExperience({
   useEffect(
     () => {
       selectStoreResult(controller.selectedId);
-      window.dispatchEvent(new CustomEvent('lumen:selection-preview', {
-        detail: controller.selectedId,
-      }));
     },
     [controller.selectedId, selectStoreResult],
   );
@@ -153,14 +157,8 @@ export function SearchExperience({
   const handleSelect = useCallback((fileId: string | null) => {
     const startedAt = performance.now();
     controller.rememberSelection(fileId);
-    rememberSelectionIntent(fileId);
-    window.dispatchEvent(new CustomEvent('lumen:selection-preview', {detail: fileId}));
+    selectStoreResult(fileId);
     measureAfterPaint('selection-paint', startedAt);
-    window.cancelAnimationFrame(pendingSelectionFrame.current);
-    window.clearTimeout(pendingSelectionTimer.current);
-    pendingSelectionFrame.current = window.requestAnimationFrame(() => {
-      pendingSelectionTimer.current = window.setTimeout(() => selectStoreResult(fileId), 0);
-    });
   }, [controller.rememberSelection, selectStoreResult]);
 
   const handleOpen = useCallback(async (requestedId?: string) => {
@@ -287,10 +285,9 @@ export function SearchExperience({
     <div className="contents" data-launcher-visible={visible}>
       <CollapsedLauncher
         expandedContent={intent === 'computer' ? (
-          <ComputerUsePanel
+          <QueryBoundComputerUsePanel
             cloudConsent={computerUseSettings.cloudConsent}
             controller={computerUse}
-            draftTask={committedQuery}
             onOpenSettings={() => void handleOpenSettings('computer-use')}
             onStart={handleStartComputerUse}
           />

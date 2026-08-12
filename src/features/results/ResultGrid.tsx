@@ -5,6 +5,7 @@ import {motion} from 'motion/react';
 import {motionTokens} from '../../design-system/motion';
 import type {SearchResult} from '../../services/search/search.types';
 import {useAppearanceStore} from '../../state/appearance.store';
+import {useSelectionStore} from '../launcher/selection.store';
 import {ResultRow} from './ResultRow';
 import {SelectionCapsule} from './SelectionCapsule';
 import {
@@ -105,12 +106,11 @@ export function ResultGrid({
         else row.removeAttribute('data-selected');
       }
     };
-    const handlePreview = (event: Event) => {
-      applySelection((event as CustomEvent<string | null>).detail);
-    };
     applySelection(effectiveSelectedId);
-    window.addEventListener('lumen:selection-preview', handlePreview);
-    return () => window.removeEventListener('lumen:selection-preview', handlePreview);
+    return useSelectionStore.subscribe(
+      (state) => state.selectedId,
+      applySelection,
+    );
   }, [effectiveSelectedId]);
 
   const handleSelectionChange = (selection: Selection) => {

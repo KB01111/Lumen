@@ -1,3 +1,5 @@
+import type {Ref} from 'react';
+
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import type {SearchResult} from '../../services/search/search.types';
@@ -5,6 +7,7 @@ import type {SearchResult} from '../../services/search/search.types';
 export interface ContextActionsProps {
   isOpening?: boolean;
   result: SearchResult | null;
+  resultLabelRef?: Ref<HTMLSpanElement>;
   onDetails(): void;
   onOpen(): void;
   onOpenContainingFolder(): void;
@@ -13,6 +16,7 @@ export interface ContextActionsProps {
 export function ContextActions({
   isOpening = false,
   result,
+  resultLabelRef,
   onDetails,
   onOpen,
   onOpenContainingFolder,
@@ -22,7 +26,11 @@ export function ContextActions({
       aria-label="Result actions"
       className="flex min-h-[46px] min-w-0 items-center gap-1.5 border-t border-[color:var(--einui-command-divider)] px-4 py-2"
     >
-      <span className="min-w-0 flex-1 truncate text-xs text-[color:var(--einui-command-muted-text)]" title={result?.path}>
+      <span
+        ref={resultLabelRef}
+        className="min-w-0 flex-1 truncate text-xs text-[color:var(--einui-command-muted-text)]"
+        title={result?.path}
+      >
         {result ? result.name : 'Choose a result for actions'}
       </span>
       <LumenButton

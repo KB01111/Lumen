@@ -21,6 +21,8 @@ pub enum IndexError {
     Poisoned,
     #[error("An index integer exceeded SQLite's signed 64-bit range")]
     IntegerOverflow,
+    // Kept for the exact-vector storage API, which is exercised before an embedding producer ships.
+    #[allow(dead_code)]
     #[error("Invalid vector input: {0}")]
     InvalidVector(String),
     #[error("Semantic search is unavailable: {0}")]
@@ -245,6 +247,7 @@ pub struct EnrichmentJobRecord {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[allow(dead_code)]
 pub struct EmbeddingHit {
     pub stable_id: String,
     pub chunk_id: i64,
@@ -284,6 +287,7 @@ pub struct IndexDatabase {
     connection: Mutex<Connection>,
     vector_error: Option<String>,
     vector_runtime: Option<VectorRuntimeInfo>,
+    #[allow(dead_code)]
     vector_dimension: Mutex<Option<usize>>,
     history_enabled: AtomicBool,
 }
@@ -326,6 +330,7 @@ impl IndexDatabase {
         })
     }
 
+    #[allow(dead_code)]
     fn encode_vector(dimension: usize, values: &[f32]) -> IndexResult<Vec<u8>> {
         if dimension == 0 {
             return Err(IndexError::InvalidVector(
@@ -350,6 +355,7 @@ impl IndexDatabase {
             .collect())
     }
 
+    #[allow(dead_code)]
     fn ensure_vector_dimension(
         &self,
         connection: &Connection,
@@ -380,6 +386,7 @@ impl IndexDatabase {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn upsert_embedding(
         &self,
         chunk_id: i64,
@@ -417,6 +424,7 @@ impl IndexDatabase {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn search_embeddings(
         &self,
         model: &str,
@@ -901,6 +909,8 @@ mod tests {
             )
             .unwrap();
         assert_eq!(database.search("quarterly", 10).unwrap().len(), 1);
+        database.set_history_enabled(true);
+        database.record_user_query("quarterly", true).unwrap();
 
         let deleted = database.delete_indexed_content().unwrap();
 

@@ -28,10 +28,11 @@ test('completes search, selection, details, folder, and open without a pointer',
     'data-selected',
     'true',
   );
-  await expect(page.getByLabel('File preview')).toContainText('Release summary');
+  await expect(page.getByLabel('File preview')).not.toBeAttached();
 
   await page.keyboard.press('Alt+Enter');
   await expect(page.getByRole('dialog', {name: 'File details'})).toBeVisible();
+  await expect(page.getByRole('dialog', {name: 'File details'})).toContainText('Release summary');
   await page.keyboard.press('Escape');
   await expect(search).toBeFocused();
 

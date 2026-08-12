@@ -137,7 +137,7 @@ async function profile(baseUrl) {
     await resetMetrics(page);
     for (let index = 1; index <= 30; index += 1) {
       await search.fill(`report-${index}`);
-      await waitForSamples(page, 'input-paint', index);
+      await waitForSamples(page, 'input-response', index);
       await page.waitForTimeout(40);
     }
     await search.fill('report');
@@ -145,12 +145,12 @@ async function profile(baseUrl) {
     const refresh = await measureRefresh(page);
     const inputMetrics = await readMetrics(page);
     const inputSamples = inputMetrics.timings
-      .filter((sample) => sample.name === 'input-paint')
+      .filter((sample) => sample.name === 'input-response')
       .map((sample) => sample.durationMs);
 
     await resetMetrics(page);
     const rapidBurst = await dispatchRapidInputBurst(search);
-    await waitForSamples(page, 'input-paint', 30);
+    await waitForSamples(page, 'input-response', 30);
     await page.waitForTimeout(100);
     const rapidBurstMetrics = await readMetrics(page);
     const rapidBurstFinalValue = await search.inputValue();
@@ -233,7 +233,7 @@ async function profile(baseUrl) {
 
     const measured = {
       warmLauncherP95Ms: percentile(warmSamples, 0.95),
-      inputToPaintP95Ms: percentile(inputSamples, 0.95),
+      inputResponseP95Ms: percentile(inputSamples, 0.95),
       selectionToPaintP95Ms: percentile(selectionSamples, 0.95),
       hoverToPaintP95Ms: percentile(hoverToPaintSamples, 0.95),
       hoverFrameIntervalP95Ms: percentile(hoverFrameIntervals, 0.95),
@@ -248,7 +248,7 @@ async function profile(baseUrl) {
       medianFrameIntervalMs: refresh.medianFrameIntervalMs,
       p95FrameIntervalMs: refresh.p95FrameIntervalMs,
       rapidBurstInputSamples: rapidBurstMetrics.timings
-        .filter((sample) => sample.name === 'input-paint').length,
+        .filter((sample) => sample.name === 'input-response').length,
       rapidBurstFinalValue,
       rapidBurstSynchronousDurationMs: rapidBurst.synchronousDurationMs,
       rapidBurstBrowserLongTasksOver50Ms: rapidBurstMetrics.browserLongTasks,
@@ -267,7 +267,7 @@ async function profile(baseUrl) {
       targetFrameBudgetMs,
     );
     const strict240Hz = {
-      input: measured.inputToPaintP95Ms < targetFrameBudgetMs,
+      input: measured.inputResponseP95Ms < targetFrameBudgetMs,
       selection: measured.selectionToPaintP95Ms < targetFrameBudgetMs,
       hover: measured.hoverToPaintP95Ms < targetFrameBudgetMs,
     };
@@ -287,7 +287,7 @@ async function profile(baseUrl) {
       nominal240HzPaintFrameMs: targetFrameBudgetMs,
       effectivePaintFrameBudgetMs,
       effectiveHoverFrameBudgetMs,
-      inputToPaintP95Ms: effectivePaintFrameBudgetMs,
+      inputResponseP95Ms: effectivePaintFrameBudgetMs,
       selectionToPaintP95Ms: effectivePaintFrameBudgetMs,
       hoverToPaintP95Ms: effectiveHoverFrameBudgetMs,
       ordinaryReactCommitP95Ms: 3,
@@ -299,7 +299,7 @@ async function profile(baseUrl) {
     };
     const checks = {
       warmLauncher: measured.warmLauncherP95Ms < budgets.warmLauncherP95Ms,
-      input: measured.inputToPaintP95Ms < budgets.inputToPaintP95Ms,
+      input: measured.inputResponseP95Ms < budgets.inputResponseP95Ms,
       selection: measured.selectionToPaintP95Ms < budgets.selectionToPaintP95Ms,
       hover: measured.hoverToPaintP95Ms < budgets.hoverToPaintP95Ms,
       hoverSynchronousDispatch: measured.hoverSynchronousDispatchMaxMs < budgets.synchronousWorkMs,
@@ -338,7 +338,7 @@ async function profile(baseUrl) {
       passed: Object.values(checks).every(Boolean),
       samples: {
         warmLauncherMs: warmSamples,
-        inputToPaintMs: inputSamples,
+        inputResponseMs: inputSamples,
         selectionToPaintMs: selectionSamples,
         hoverToPaintMs: hoverToPaintSamples,
         hoverFrameIntervalMs: hoverFrameIntervals,

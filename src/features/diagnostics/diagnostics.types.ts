@@ -1,5 +1,5 @@
 export interface TimingSample {
-  name: 'launcher-visible' | 'input-paint' | 'selection-paint' | 'other';
+  name: 'launcher-visible' | 'input-response' | 'selection-paint' | 'other';
   durationMs: number;
   timestamp: number;
 }

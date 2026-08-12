@@ -9,7 +9,7 @@ import {
 
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
-import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
+import {captureTiming} from '../diagnostics/diagnostics.metrics';
 import {useQueryStore} from './query.store';
 import type {LauncherIntent} from './launcher.store';
 
@@ -113,7 +113,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
       if (clearWrapperRef.current) {
         clearWrapperRef.current.hidden = value.length === 0;
       }
-      measureAfterPaint('input-paint', startedAt);
+      captureTiming('input-response', performance.now() - startedAt);
       commitAfterInputPaint(value);
     };
 

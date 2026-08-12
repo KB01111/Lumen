@@ -1,5 +1,5 @@
 import type {ReactNode} from 'react';
-import {Suspense, useEffect, useRef, useState} from 'react';
+import {Suspense, useEffect, useLayoutEffect, useRef, useState} from 'react';
 
 import {motion} from 'motion/react';
 
@@ -135,15 +135,34 @@ function SelectionBoundActions({
   onOpen(fileId?: string): void;
   onOpenContainingFolder(): void;
 }) {
-  const storedSelectedId = useSelectionStore((state) => state.selectedId);
+  const resultLabelRef = useRef<HTMLSpanElement>(null);
+  const storedSelectedId = useSelectionStore.getState().selectedId;
   const selectedId = selectedIdOverride === undefined
     ? storedSelectedId
     : selectedIdOverride;
-  const result = results.find((item) => item.id === selectedId) ?? null;
+  const result = results.find((item) => item.id === selectedId) ??
+    results.find((item) => (item.availability ?? 'available') === 'available') ??
+    null;
+  useLayoutEffect(() => {
+    if (selectedIdOverride !== undefined) return;
+    const updateLabel = (fileId: string | null) => {
+      const selectedResult = results.find((item) => item.id === fileId) ?? null;
+      if (resultLabelRef.current) {
+        resultLabelRef.current.textContent = selectedResult?.name ?? 'Choose a result for actions';
+        resultLabelRef.current.title = selectedResult?.path ?? '';
+      }
+    };
+    updateLabel(useSelectionStore.getState().selectedId);
+    return useSelectionStore.subscribe(
+      (state) => state.selectedId,
+      updateLabel,
+    );
+  }, [results, selectedIdOverride]);
   return (
     <ContextActions
       isOpening={isOpening}
       result={result}
+      resultLabelRef={resultLabelRef}
       onDetails={onDetails}
       onOpen={onOpen}
       onOpenContainingFolder={onOpenContainingFolder}
@@ -161,14 +180,14 @@ function SelectionAnnouncement({
   selectedId?: string | null;
 }) {
   const announcementRef = useRef<HTMLDivElement>(null);
-  const storedSelectedId = useSelectionStore((state) => state.selectedId);
+  const storedSelectedId = useSelectionStore.getState().selectedId;
   const selectedId = selectedIdOverride === undefined
     ? storedSelectedId
     : selectedIdOverride;
   const selectedResult = results.find((result) => result.id === selectedId);
   useEffect(() => {
-    const announcePreviewSelection = (event: Event) => {
-      const fileId = (event as CustomEvent<string | null>).detail;
+    if (selectedIdOverride !== undefined) return;
+    const announceSelection = (fileId: string | null) => {
       const result = results.find((item) => item.id === fileId);
       if (announcementRef.current) {
         announcementRef.current.textContent = [announcement, result ? `${result.name} selected` : '']
@@ -176,9 +195,12 @@ function SelectionAnnouncement({
           .join('. ');
       }
     };
-    window.addEventListener('lumen:selection-preview', announcePreviewSelection);
-    return () => window.removeEventListener('lumen:selection-preview', announcePreviewSelection);
-  }, [announcement, results]);
+    announceSelection(useSelectionStore.getState().selectedId);
+    return useSelectionStore.subscribe(
+      (state) => state.selectedId,
+      announceSelection,
+    );
+  }, [announcement, results, selectedIdOverride]);
   return (
     <div
       ref={announcementRef}

@@ -36,7 +36,7 @@ The machine-readable result for source commit `4edbb78f545096831c6a657dc37883b95
 ## Render-path findings
 
 - The search input is uncontrolled, so visible typing is not gated on global React state.
-- Query work commits after input paint and stale searches are aborted/ignored by request ID.
+- Direct input response is measured independently; debounced query work aborts or ignores stale searches by request ID.
 - Keyboard selection intent and the capsule paint directly; selection-dependent React and preview work settle afterward.
 - Preview selection is coalesced and stale preview work is abortable.
 - Result-row accessibility selection attributes are updated with the same selection intent.

@@ -23,8 +23,8 @@ describe('measureAfterPaint', () => {
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
     vi.spyOn(performance, 'now').mockReturnValue(26);
 
-    measureAfterPaint('input-paint', 10);
-    measureAfterPaint('input-paint', 12);
+    measureAfterPaint('input-response', 10);
+    measureAfterPaint('input-response', 12);
     for (const frame of frames) frame(26);
 
     expect(readDiagnosticMetrics().timings.map(({durationMs}) => durationMs)).toEqual([16, 14]);

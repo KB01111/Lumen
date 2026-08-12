@@ -13,7 +13,6 @@ import {PersistenceNotice} from './components/PersistenceNotice';
 import {AppearancePage} from './pages/AppearancePage';
 import {AgentGatewayPage} from './pages/AgentGatewayPage';
 import {ComputerUsePage} from './pages/ComputerUsePage';
-import {ActivityPage} from './pages/ActivityPage';
 import {DiagnosticsPage} from './pages/DiagnosticsPage';
 import {GeneralPage} from './pages/GeneralPage';
 import {IndexedRootsPage} from './pages/IndexedRootsPage';
@@ -37,7 +36,6 @@ function defaultPageContent(page: SettingsPageId) {
     case 'local-ai': return <LocalAiPage />;
     case 'agent-gateway': return <AgentGatewayPage />;
     case 'computer-use': return <ComputerUsePage />;
-    case 'activity': return <ActivityPage />;
     case 'privacy': return <PrivacyPage />;
     case 'diagnostics': return <DiagnosticsPage />;
     default: return null;
@@ -96,16 +94,16 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
       </header>
       <Tabs
         orientation="vertical"
-        selectedKey={activePage}
+        selectedKey={page.id}
         onSelectionChange={handleSelectionChange}
         className="grid min-h-0 min-w-0 grid-cols-[minmax(176px,260px)_minmax(0,1fr)]"
       >
         <div className="min-h-0 min-w-0 overflow-y-auto border-r border-border-subtle bg-surface-inset"><SettingsNav /></div>
         <main aria-label="Settings content" className="min-h-0 min-w-0 overflow-y-auto" data-testid="settings-content">
-          <TabPanel key={activePage} id={activePage}>
+          <TabPanel key={page.id} id={page.id}>
           <AnimatePresence initial={false} mode="wait">
             <motion.div
-              key={activePage}
+              key={page.id}
               className="mx-auto grid w-full max-w-[760px] content-start gap-8 px-8 py-8"
               initial={{opacity: 0, x: reducedMotion ? 0 : 10}}
               animate={{opacity: 1, x: 0}}
@@ -117,7 +115,7 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
                 <LumenText tone="secondary">{page.description}</LumenText>
               </div>
               <PersistenceNotice />
-              {pages?.[activePage] ?? defaultPageContent(activePage) ?? (
+              {pages?.[page.id] ?? defaultPageContent(page.id) ?? (
                 <div className="rounded-surface border border-border-subtle bg-surface-inset p-6">
                   <LumenText tone="secondary">
                     Lumen keeps this area focused on the controls that belong to {page.label.toLowerCase()}.
