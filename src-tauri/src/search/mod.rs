@@ -16,8 +16,37 @@ use tauri::{AppHandle, Runtime, State};
 pub(crate) use index::{EnrichmentJobRecord, IndexedHit};
 pub use indexing::IndexRuntime;
 pub use types::{
-    BasicPreview, FileListResponse, FileRecord, FilenameSearchResponse, SearchFailure,
+    BasicPreview, FileKind, FileListResponse, FileRecord, FilenameSearchResponse, SearchFailure,
 };
+
+pub(crate) fn indexed_file_metadata(
+    index: &IndexRuntime,
+    stable_id: &str,
+) -> Result<FileRecord, SearchFailure> {
+    let (root, path) = index.file_location(stable_id)?.ok_or_else(|| {
+        SearchFailure::new(
+            "not-found",
+            "The indexed file is no longer available.",
+            None,
+        )
+    })?;
+    metadata::get_file_metadata_impl(&root, &path)
+}
+
+pub(crate) fn open_indexed_file<R: Runtime>(
+    app: &AppHandle<R>,
+    index: &IndexRuntime,
+    stable_id: &str,
+) -> Result<(), SearchFailure> {
+    let (root, path) = index.file_location(stable_id)?.ok_or_else(|| {
+        SearchFailure::new(
+            "not-found",
+            "The indexed file is no longer available.",
+            None,
+        )
+    })?;
+    opening::open_file_impl(app, &root, &path)
+}
 
 #[tauri::command]
 pub async fn list_files(root: String) -> Result<FileListResponse, SearchFailure> {
@@ -109,7 +138,7 @@ mod privacy_tests {
 }
 
 #[cfg(test)]
-mod test_support {
+pub(crate) mod test_support {
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};

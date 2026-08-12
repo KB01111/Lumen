@@ -139,6 +139,15 @@ impl IndexRuntime {
             .map_err(|error| search_failure("build answer context", error))
     }
 
+    pub(crate) fn file_location(
+        &self,
+        stable_id: &str,
+    ) -> Result<Option<(PathBuf, PathBuf)>, SearchFailure> {
+        self.database
+            .file_location(stable_id)
+            .map_err(|error| search_failure("resolve an indexed file", error))
+    }
+
     pub(crate) fn pending_enrichment(
         &self,
     ) -> Result<Vec<super::EnrichmentJobRecord>, SearchFailure> {
@@ -320,6 +329,14 @@ impl IndexRuntime {
         };
         self.set_status(status.clone());
         Ok(status)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn synchronize_for_test(
+        &self,
+        roots: Vec<IndexRootRequest>,
+    ) -> Result<IndexStatus, SearchFailure> {
+        self.synchronize_with_content(roots, true)
     }
 }
 

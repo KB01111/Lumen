@@ -745,6 +745,23 @@ impl IndexDatabase {
         Ok(hits)
     }
 
+    pub fn file_location(&self, stable_id: &str) -> IndexResult<Option<(PathBuf, PathBuf)>> {
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        connection
+            .query_row(
+                "SELECT root_path, path FROM files WHERE stable_id = ?1",
+                [stable_id],
+                |row| {
+                    Ok((
+                        PathBuf::from(row.get::<_, String>(0)?),
+                        PathBuf::from(row.get::<_, String>(1)?),
+                    ))
+                },
+            )
+            .optional()
+            .map_err(IndexError::from)
+    }
+
     pub fn record_user_query(&self, query: &str, successful: bool) -> IndexResult<()> {
         let query = query.trim();
         if !successful || query.is_empty() || !self.history_enabled.load(Ordering::SeqCst) {

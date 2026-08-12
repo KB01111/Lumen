@@ -11,6 +11,7 @@ import {useGatewayStore} from './gateway.store';
 import type {GatewayState, HardwareState, ModelState} from './gateway.types';
 import {nativeAiService} from '../../services/ai/native-ai-service';
 import {providerRegistryService} from '../../services/ai/provider-registry-service';
+import {mcpService} from '../../services/ai/mcp-service';
 
 function renderPage(children: React.ReactNode) {
   return render(<AppProviders appearance={{mode: 'dark', transparency: 'disabled', effects: 'reduced', motion: 'reduced'}}>{children}</AppProviders>);
@@ -86,7 +87,8 @@ describe('AgentGateway states and controls', () => {
     expect(await screen.findByText('Files MCP preview exposed 3 tools.')).toBeVisible();
   });
 
-  it('does not expose simulated MCP or permission controls in the native app', async () => {
+  it('exposes live MCP status and native executor permissions', async () => {
+    const user = userEvent.setup();
     vi.spyOn(nativeAiService, 'gatewayHealth').mockResolvedValue({
       state: 'ready', version: '1.0.0', interactivePort: 8080, enrichmentPort: 8081,
       adminPort: 8082, cloudCredentialConfigured: false,
@@ -108,14 +110,30 @@ describe('AgentGateway states and controls', () => {
         {alias: 'lumen.answer.cloud', capability: 'answer', providerId: 'openai', modelId: 'openai:gpt-5-mini', status: 'needsConsent', baseUrl: null, upstreamModel: null},
       ],
     });
+    vi.spyOn(mcpService, 'list').mockResolvedValue({
+      services: [{id: 'lumen-local', name: 'Lumen local tools', status: 'connected', tools: ['files.search', 'files.metadata', 'files.open']}],
+      permissions: [
+        {id: 'files.search', label: 'Search indexed files', description: 'Search file names in the confined local index.', access: 'allow'},
+        {id: 'files.metadata', label: 'Read file metadata', description: 'Read bounded metadata for a selected indexed file.', access: 'allow'},
+        {id: 'files.open', label: 'Open files', description: 'Open a selected indexed file.', access: 'ask'},
+      ],
+    });
+    const setPermission = vi.spyOn(mcpService, 'setPermission').mockResolvedValue({
+      id: 'files.open', label: 'Open files', description: 'Open a selected indexed file.', access: 'deny',
+    });
 
     renderPage(<AgentGatewayPage nativeRuntime />);
 
     expect(await screen.findByText(/AgentGateway 1.0.0/)).toBeVisible();
     expect(screen.getByText('lumen.answer.local')).toBeVisible();
     expect(screen.getByLabelText('Model for lumen.answer.cloud')).toBeDisabled();
-    expect(screen.queryByRole('region', {name: 'MCP services'})).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', {name: 'Tool permissions'})).not.toBeInTheDocument();
+    expect(screen.getByRole('region', {name: 'MCP services'})).toBeVisible();
+    expect(screen.getByText('3 confined local tools')).toBeVisible();
+    expect(screen.getByRole('region', {name: 'Tool permissions'})).toBeVisible();
+    expect(screen.getByLabelText('Permission for Open files')).toBeVisible();
+    await user.click(screen.getByLabelText('Permission for Open files'));
+    await user.click(await screen.findByRole('option', {name: 'Deny'}));
+    expect(setPermission).toHaveBeenCalledWith('files.open', 'deny');
     expect(screen.queryByRole('button', {name: /Preview/})).not.toBeInTheDocument();
   });
 });

@@ -54,6 +54,9 @@ pub fn run() {
             app.manage(window::RuntimePreferences::load(&settings_path));
             app.manage(privacy::PrivacyRuntime::load(&settings_path));
             app.manage(activity::ActivityRuntime::load(&settings_path));
+            app.manage(gateway::mcp::McpRuntime::load(
+                data_directory.join("mcp-permissions.json"),
+            ));
             let history_enabled = privacy::load_history_enabled(&settings_path);
             let development_sidecar = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("binaries/agentgateway-x86_64-pc-windows-msvc.exe");
@@ -163,6 +166,9 @@ pub fn run() {
             gateway::registry::list_provider_registry,
             gateway::registry::set_provider_route,
             gateway::registry::test_provider_route,
+            gateway::mcp::list_mcp_services,
+            gateway::mcp::set_tool_permission,
+            gateway::mcp::invoke_lumen_tool,
             gateway::enrichment::enrichment_health,
             gateway::enrichment::enrichment_queue_status,
             gateway::enrichment::pause_enrichment,

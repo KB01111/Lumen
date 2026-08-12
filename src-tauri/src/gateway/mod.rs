@@ -3,6 +3,7 @@ mod config;
 pub mod credentials;
 pub mod enrichment;
 pub mod local_runtime;
+pub mod mcp;
 pub mod registry;
 pub mod supervisor;
 

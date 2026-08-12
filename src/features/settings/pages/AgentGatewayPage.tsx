@@ -22,6 +22,12 @@ import {
   type ProviderRegistrySnapshot,
   type ProviderRouteUpdate,
 } from '../../../services/ai/provider-registry-service';
+import {
+  mcpService,
+  toolAccessSchema,
+  toolIdSchema,
+  type McpRegistrySnapshot,
+} from '../../../services/ai/mcp-service';
 
 export function AgentGatewayPage({nativeRuntime}: {nativeRuntime?: boolean} = {}) {
   const gatewayState = useGatewayStore((state) => state.gatewayState);
@@ -41,19 +47,22 @@ export function AgentGatewayPage({nativeRuntime}: {nativeRuntime?: boolean} = {}
   const [health, setHealth] = useState<GatewayHealth>();
   const [enrichment, setEnrichment] = useState<EnrichmentHealth>();
   const [registry, setRegistry] = useState<ProviderRegistrySnapshot>();
+  const [mcpRegistry, setMcpRegistry] = useState<McpRegistrySnapshot>();
   const [credential, setCredential] = useState('');
   const [credentialProvider, setCredentialProvider] = useState<ProviderId>('openai');
   const [nativeMessage, setNativeMessage] = useState('');
   const refresh = useCallback(async () => {
     if (!native) return;
-    const [gateway, worker, providerRegistry] = await Promise.all([
+    const [gateway, worker, providerRegistry, liveMcp] = await Promise.all([
       nativeAiService.gatewayHealth(),
       nativeAiService.enrichmentHealth(),
       providerRegistryService.list(),
+      mcpService.list(),
     ]);
     setHealth(gateway);
     setEnrichment(worker);
     setRegistry(providerRegistry);
+    setMcpRegistry(liveMcp);
   }, [native]);
   useEffect(() => {
     void refresh().catch((error: unknown) => setNativeMessage(String(error)));
@@ -129,6 +138,18 @@ export function AgentGatewayPage({nativeRuntime}: {nativeRuntime?: boolean} = {}
       setNativeMessage(error instanceof Error ? error.message : 'The provider route could not be tested.');
     }
   };
+  const setNativePermission = async (id: string, access: 'ask' | 'allow' | 'deny') => {
+    const toolId = toolIdSchema.safeParse(id);
+    const toolAccess = toolAccessSchema.safeParse(access);
+    if (!toolId.success || !toolAccess.success) return;
+    try {
+      await mcpService.setPermission(toolId.data, toolAccess.data);
+      setMcpRegistry(await mcpService.list());
+      setNativeMessage('Tool permission applied.');
+    } catch (error) {
+      setNativeMessage(error instanceof Error ? error.message : 'The tool permission could not be changed.');
+    }
+  };
 
   return (
     <SettingsPage>
@@ -187,6 +208,25 @@ export function AgentGatewayPage({nativeRuntime}: {nativeRuntime?: boolean} = {}
           )}
         </div>
       </SettingSection>
+      {native && mcpRegistry ? (
+        <>
+          <SettingSection title="MCP services" description="Local services and tool counts reported by the native executor.">
+            {mcpRegistry.services.map((service) => (
+              <div key={service.id} className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
+                <McpIcon className="text-accent" size={20} />
+                <div className="grid gap-1">
+                  <LumenText weight="medium">{service.name}</LumenText>
+                  <LumenText tone="tertiary" variant="meta">{service.tools.length} confined local tools</LumenText>
+                </div>
+                <StatusBadge tone={service.status === 'connected' ? 'success' : 'warning'}>{service.status === 'connected' ? 'Connected' : 'Unavailable'}</StatusBadge>
+              </div>
+            ))}
+          </SettingSection>
+          <SettingSection title="Tool permissions" description="Permissions are enforced by the native executor for every invocation.">
+            <ToolPermissionList permissions={mcpRegistry.permissions} onChange={(id, access) => void setNativePermission(id, access)} />
+          </SettingSection>
+        </>
+      ) : null}
       {native ? (
         <SettingSection title="Durable enrichment queue" description="Rivet Actors owns idempotent OCR and transcription job leases when its Windows engine is healthy.">
           <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
