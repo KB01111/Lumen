@@ -72,12 +72,14 @@ export function SearchExperience({
     () => providedWindowService ?? createWindowService(),
     [providedWindowService],
   );
-  const controller = useSearchController(service);
+  const activeFilters = useScopeStore((state) => state.activeFilters);
+  const controller = useSearchController(service, activeFilters);
   const intent = useLauncherStore((state) => state.intent);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
   const cloudAnswerConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
   const updateAi = useSettingsStore((state) => state.updateAi);
   const computerUseSettings = useSettingsStore((state) => state.computerUse);
+  const previewsEnabled = useSettingsStore((state) => state.privacy.previewsEnabled);
   const setActiveSettingsPage = useSettingsStore((state) => state.setActivePage);
   const committedQuery = useQueryStore((state) => state.committed);
   const submittedQuery = useQueryStore((state) => state.submitted);
@@ -91,7 +93,6 @@ export function SearchExperience({
   });
   const computerUse = useComputerUseController(computerUseService, computerUseSettings);
   const activeScope = useScopeStore((state) => state.activeScope);
-  const activeFilters = useScopeStore((state) => state.activeFilters);
   const clearFilters = useScopeStore((state) => state.clearFilters);
   const toggleFilter = useScopeStore((state) => state.toggleFilter);
   const mode = useLauncherStore((state) => state.mode);
@@ -207,13 +208,17 @@ export function SearchExperience({
   }, [controller.results, controller.selectedId, service]);
 
   const handleShowDetails = useCallback(() => {
+    if (!previewsEnabled) {
+      setActionMessage('File previews are disabled in Privacy settings.');
+      return;
+    }
     const fileId = readSelectionIntent() ?? controller.selectedId;
     if (fileId) {
       setDetailsFileId(fileId);
       setDetailsMounted(true);
       setDetailsOpen(true);
     }
-  }, [controller.selectedId]);
+  }, [controller.selectedId, previewsEnabled]);
 
   const handleRequestHide = useCallback(async () => {
     await requestWindowHide(windowService);
@@ -306,6 +311,7 @@ export function SearchExperience({
             error={controller.error}
             lifecycle={controller.lifecycle}
             openingId={openingId}
+            previewAllowed={previewsEnabled}
             results={controller.results}
             service={service}
             onClearFilters={clearFilters}
@@ -331,7 +337,7 @@ export function SearchExperience({
         windowService={windowService}
         onComputerSubmit={handleSubmitComputerUse}
       />
-      {detailsMounted ? (
+      {detailsMounted && previewsEnabled ? (
         <Suspense fallback={null}>
           <LazyPreviewPane
             fileId={detailsFileId}

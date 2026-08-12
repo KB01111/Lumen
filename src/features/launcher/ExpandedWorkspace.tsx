@@ -26,6 +26,7 @@ export interface ExpandedWorkspaceProps {
   error: SearchError | null;
   lifecycle: SearchLifecycle;
   openingId: string | null;
+  previewAllowed?: boolean;
   results: readonly SearchResult[];
   selectedId?: string | null;
   service: SearchService;
@@ -206,6 +207,7 @@ export function ExpandedWorkspace({
   error,
   lifecycle,
   openingId,
+  previewAllowed = true,
   results,
   selectedId,
   service,
@@ -220,9 +222,9 @@ export function ExpandedWorkspace({
   const preview = useAppearanceStore((state) => state.preview);
   const atMinimumPreviewWidth = useMediaPreference('(min-width: 760px)');
   const atAutomaticPreviewWidth = useMediaPreference('(min-width: 900px)');
-  const showInlinePreview = preview === 'always'
+  const showInlinePreview = previewAllowed && (preview === 'always'
     ? atMinimumPreviewWidth
-    : preview === 'automatic' && atAutomaticPreviewWidth;
+    : preview === 'automatic' && atAutomaticPreviewWidth);
   const countLabel = lifecycle === 'searching'
     ? 'Searching'
     : `${results.length} ${results.length === 1 ? 'result' : 'results'}`;

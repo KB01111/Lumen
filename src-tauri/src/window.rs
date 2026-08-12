@@ -1,8 +1,8 @@
-use std::sync::Mutex;
+use std::{fs, path::Path, sync::Mutex};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
-    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewWindow,
+    AppHandle, Emitter, LogicalSize, Manager, Monitor, PhysicalPosition, State, WebviewWindow,
     window::{Color, Effect, EffectsBuilder},
 };
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -78,6 +78,118 @@ struct LauncherPosition {
 }
 
 pub struct ShortcutRegistration(pub Mutex<String>);
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MonitorBehavior {
+    #[default]
+    Active,
+    Primary,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CloseBehavior {
+    #[default]
+    Hide,
+    Quit,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct RuntimePreferenceValues {
+    monitor_behavior: MonitorBehavior,
+    close_behavior: CloseBehavior,
+}
+
+impl Default for RuntimePreferenceValues {
+    fn default() -> Self {
+        Self {
+            monitor_behavior: MonitorBehavior::Active,
+            close_behavior: CloseBehavior::Hide,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct RuntimePreferences(Mutex<RuntimePreferenceValues>);
+
+impl RuntimePreferences {
+    pub fn load(path: &Path) -> Self {
+        let general = fs::read_to_string(path)
+            .ok()
+            .and_then(|contents| serde_json::from_str::<serde_json::Value>(&contents).ok())
+            .and_then(|settings| settings.get("management")?.get("general").cloned());
+        let values = RuntimePreferenceValues {
+            monitor_behavior: general
+                .as_ref()
+                .and_then(|value| value.get("monitorBehavior"))
+                .and_then(|value| serde_json::from_value(value.clone()).ok())
+                .unwrap_or_default(),
+            close_behavior: general
+                .as_ref()
+                .and_then(|value| value.get("closeBehavior"))
+                .and_then(|value| serde_json::from_value(value.clone()).ok())
+                .unwrap_or_default(),
+        };
+        Self(Mutex::new(values))
+    }
+
+    pub fn monitor_behavior(&self) -> MonitorBehavior {
+        self.0
+            .lock()
+            .map(|values| values.monitor_behavior)
+            .unwrap_or_default()
+    }
+
+    pub fn close_behavior(&self) -> CloseBehavior {
+        self.0
+            .lock()
+            .map(|values| values.close_behavior)
+            .unwrap_or_default()
+    }
+
+    pub fn set_monitor_behavior(&self, behavior: MonitorBehavior) -> Result<(), String> {
+        self.0
+            .lock()
+            .map_err(|_| "Window preference state is unavailable.".to_owned())?
+            .monitor_behavior = behavior;
+        Ok(())
+    }
+
+    pub fn set_close_behavior(&self, behavior: CloseBehavior) -> Result<(), String> {
+        self.0
+            .lock()
+            .map_err(|_| "Window preference state is unavailable.".to_owned())?
+            .close_behavior = behavior;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MonitorCandidate {
+    Active,
+    Primary,
+}
+
+const fn monitor_candidate_order(behavior: MonitorBehavior) -> [MonitorCandidate; 2] {
+    match behavior {
+        MonitorBehavior::Active => [MonitorCandidate::Active, MonitorCandidate::Primary],
+        MonitorBehavior::Primary => [MonitorCandidate::Primary, MonitorCandidate::Active],
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CloseAction {
+    Hide,
+    Exit,
+}
+
+pub(crate) const fn close_action(behavior: CloseBehavior) -> CloseAction {
+    match behavior {
+        CloseBehavior::Hide => CloseAction::Hide,
+        CloseBehavior::Quit => CloseAction::Exit,
+    }
+}
 
 pub const fn geometry_for(mode: WindowMode) -> WindowGeometry {
     match mode {
@@ -180,16 +292,38 @@ fn apply_geometry(window: &WebviewWindow, geometry: WindowGeometry) -> Result<()
         .map_err(|error| error.to_string())
 }
 
-fn place_on_active_monitor(window: &WebviewWindow, geometry: WindowGeometry) -> Result<(), String> {
-    let cursor = window
-        .cursor_position()
-        .map_err(|error| error.to_string())?;
-    let monitor = window
-        .monitor_from_point(cursor.x, cursor.y)
-        .map_err(|error| error.to_string())?
-        .or(window
-            .current_monitor()
-            .map_err(|error| error.to_string())?);
+fn monitor_for_candidate(
+    window: &WebviewWindow,
+    candidate: MonitorCandidate,
+) -> Result<Option<Monitor>, String> {
+    match candidate {
+        MonitorCandidate::Primary => window.primary_monitor().map_err(|error| error.to_string()),
+        MonitorCandidate::Active => {
+            let cursor_monitor = window
+                .cursor_position()
+                .ok()
+                .and_then(|cursor| window.monitor_from_point(cursor.x, cursor.y).ok().flatten());
+            if cursor_monitor.is_some() {
+                Ok(cursor_monitor)
+            } else {
+                window.current_monitor().map_err(|error| error.to_string())
+            }
+        }
+    }
+}
+
+fn place_on_preferred_monitor(
+    window: &WebviewWindow,
+    geometry: WindowGeometry,
+    behavior: MonitorBehavior,
+) -> Result<(), String> {
+    let mut monitor = None;
+    for candidate in monitor_candidate_order(behavior) {
+        monitor = monitor_for_candidate(window, candidate)?;
+        if monitor.is_some() {
+            break;
+        }
+    }
 
     let Some(monitor) = monitor else {
         return Ok(());
@@ -241,8 +375,12 @@ fn show_window(
     source: WindowStateSource,
 ) -> Result<WindowStateEvent, String> {
     let geometry = geometry_for(mode);
+    let monitor_behavior = window
+        .try_state::<RuntimePreferences>()
+        .map(|preferences| preferences.monitor_behavior())
+        .unwrap_or_default();
     apply_geometry(window, geometry)?;
-    place_on_active_monitor(window, geometry)?;
+    place_on_preferred_monitor(window, geometry, monitor_behavior)?;
     window.show().map_err(|error| error.to_string())?;
     window.set_focus().map_err(|error| error.to_string())?;
     window
@@ -314,9 +452,84 @@ pub fn set_lumen_shortcut(app: AppHandle, accelerator: String) -> Result<(), Str
     Ok(())
 }
 
+#[tauri::command]
+pub fn set_monitor_behavior(
+    preferences: State<'_, RuntimePreferences>,
+    behavior: MonitorBehavior,
+) -> Result<(), String> {
+    preferences.set_monitor_behavior(behavior)
+}
+
+#[tauri::command]
+pub fn set_close_behavior(
+    preferences: State<'_, RuntimePreferences>,
+    behavior: CloseBehavior,
+) -> Result<(), String> {
+    preferences.set_close_behavior(behavior)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn runtime_lifecycle_preferences_load_persisted_values_and_fail_safe() {
+        let directory = std::env::temp_dir().join(format!("lumen-window-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("lumen.settings.json");
+
+        let missing = RuntimePreferences::load(&path);
+        assert_eq!(missing.monitor_behavior(), MonitorBehavior::Active);
+        assert_eq!(missing.close_behavior(), CloseBehavior::Hide);
+
+        std::fs::write(
+            &path,
+            r#"{"management":{"general":{"monitorBehavior":"primary","closeBehavior":"quit"}}}"#,
+        )
+        .unwrap();
+        let persisted = RuntimePreferences::load(&path);
+        assert_eq!(persisted.monitor_behavior(), MonitorBehavior::Primary);
+        assert_eq!(persisted.close_behavior(), CloseBehavior::Quit);
+
+        std::fs::write(
+            &path,
+            r#"{"management":{"general":{"monitorBehavior":"nearest","closeBehavior":false}}}"#,
+        )
+        .unwrap();
+        let invalid = RuntimePreferences::load(&path);
+        assert_eq!(invalid.monitor_behavior(), MonitorBehavior::Active);
+        assert_eq!(invalid.close_behavior(), CloseBehavior::Hide);
+
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn lifecycle_commands_reject_unknown_enum_values_and_apply_valid_values() {
+        assert!(serde_json::from_value::<MonitorBehavior>(serde_json::json!("nearest")).is_err());
+        assert!(serde_json::from_value::<CloseBehavior>(serde_json::json!("minimize")).is_err());
+
+        let preferences = RuntimePreferences::default();
+        preferences
+            .set_monitor_behavior(MonitorBehavior::Primary)
+            .unwrap();
+        preferences.set_close_behavior(CloseBehavior::Quit).unwrap();
+        assert_eq!(preferences.monitor_behavior(), MonitorBehavior::Primary);
+        assert_eq!(preferences.close_behavior(), CloseBehavior::Quit);
+    }
+
+    #[test]
+    fn lifecycle_preferences_drive_monitor_and_close_branches() {
+        assert_eq!(
+            monitor_candidate_order(MonitorBehavior::Active),
+            [MonitorCandidate::Active, MonitorCandidate::Primary]
+        );
+        assert_eq!(
+            monitor_candidate_order(MonitorBehavior::Primary),
+            [MonitorCandidate::Primary, MonitorCandidate::Active]
+        );
+        assert_eq!(close_action(CloseBehavior::Hide), CloseAction::Hide);
+        assert_eq!(close_action(CloseBehavior::Quit), CloseAction::Exit);
+    }
 
     #[test]
     fn native_geometry_table_matches_each_window_mode_contract() {

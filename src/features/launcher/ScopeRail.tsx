@@ -1,3 +1,4 @@
+import {useEffect, useMemo} from 'react';
 import {Tab, TabList, TabPanel, Tabs} from 'react-aria-components';
 
 import {motion} from 'motion/react';
@@ -5,6 +6,7 @@ import {motion} from 'motion/react';
 import {useLumenMotion} from '../../design-system/MotionProvider';
 import {cn} from '../../lib/cn';
 import type {SearchScope} from '../../services/search/search.types';
+import {useSettingsStore} from '../settings/settings.store';
 import {useScopeStore} from './scope.store';
 
 export const searchScopes: ReadonlyArray<{id: SearchScope; label: string}> = [
@@ -22,6 +24,17 @@ export function ScopeRail() {
   const {layoutTransition} = useLumenMotion();
   const activeScope = useScopeStore((state) => state.activeScope);
   const setScope = useScopeStore((state) => state.setScope);
+  const enabledScopeIds = useSettingsStore((state) => state.search.enabledScopes);
+  const enabledScopes = useMemo(
+    () => searchScopes.filter((scope) => enabledScopeIds.includes(scope.id)),
+    [enabledScopeIds],
+  );
+
+  useEffect(() => {
+    if (!enabledScopeIds.includes(activeScope)) {
+      setScope(enabledScopes[0]?.id ?? 'all');
+    }
+  }, [activeScope, enabledScopeIds, enabledScopes, setScope]);
 
   return (
     <Tabs
@@ -29,7 +42,7 @@ export function ScopeRail() {
       selectedKey={activeScope}
       onSelectionChange={(key) => setScope(key as SearchScope)}
     >
-      <TabList aria-label="Search scopes" className="flex items-center gap-1 overflow-x-auto px-4 py-2 [scrollbar-width:none]" items={searchScopes}>
+      <TabList aria-label="Search scopes" className="flex items-center gap-1 overflow-x-auto px-4 py-2 [scrollbar-width:none]" items={enabledScopes}>
         {(scope) => (
           <Tab
             id={scope.id}
@@ -58,7 +71,7 @@ export function ScopeRail() {
           </Tab>
         )}
       </TabList>
-      {searchScopes.map((scope) => (
+      {enabledScopes.map((scope) => (
         <TabPanel key={scope.id} className="hidden" id={scope.id} />
       ))}
     </Tabs>

@@ -80,5 +80,15 @@ describe('useSearchController', () => {
     expect(result.current.selectedId).toBeNull();
     expect(service.requests).toHaveLength(1);
   });
+
+  it('sends active filters with the request', () => {
+    const service = new MemorySearchService();
+    const filters = [{id: 'extension-md', label: 'Markdown', value: 'md'}];
+    const {result} = renderHook(() => useSearchController(service, filters));
+
+    act(() => result.current.setQuery('release'));
+
+    expect(service.requests[0]?.request.filters).toEqual(filters);
+  });
 });
 

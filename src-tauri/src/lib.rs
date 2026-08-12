@@ -47,9 +47,9 @@ pub fn run() {
         .setup(|app| {
             let data_directory = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_directory)?;
-            app.manage(consent::PersistedConsent::new(
-                data_directory.join("lumen.settings.json"),
-            ));
+            let settings_path = data_directory.join("lumen.settings.json");
+            app.manage(consent::PersistedConsent::new(settings_path.clone()));
+            app.manage(window::RuntimePreferences::load(&settings_path));
             let development_sidecar = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("binaries/agentgateway-x86_64-pc-windows-msvc.exe");
             let packaged_sidecar = app.path().resource_dir()?.join("agentgateway.exe");
@@ -152,15 +152,23 @@ pub fn run() {
             window::hide_lumen_window,
             window::focus_lumen_input,
             window::set_lumen_shortcut,
+            window::set_monitor_behavior,
+            window::set_close_behavior,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                if window.hide().is_ok() {
-                    let _ = window::emit_hidden_from_app(
-                        window.app_handle(),
-                        window::WindowStateSource::Close,
-                    );
+                let preferences = window.state::<window::RuntimePreferences>();
+                match window::close_action(preferences.close_behavior()) {
+                    window::CloseAction::Hide => {
+                        api.prevent_close();
+                        if window.hide().is_ok() {
+                            let _ = window::emit_hidden_from_app(
+                                window.app_handle(),
+                                window::WindowStateSource::Close,
+                            );
+                        }
+                    }
+                    window::CloseAction::Exit => window.app_handle().exit(0),
                 }
             }
         })
