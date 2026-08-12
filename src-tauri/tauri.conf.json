@@ -45,7 +45,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": "nsis",
     "externalBin": ["binaries/agentgateway", "binaries/lumen-enrichment", "binaries/lumen-rivet-engine", "binaries/lumen-computer-use"],
     "resources": {
       "binaries/libstdc++-6.dll": "libstdc++-6.dll",
