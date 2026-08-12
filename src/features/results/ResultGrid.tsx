@@ -4,9 +4,14 @@ import {motion} from 'motion/react';
 
 import {motionTokens} from '../../design-system/motion';
 import type {SearchResult} from '../../services/search/search.types';
+import {useAppearanceStore} from '../../state/appearance.store';
 import {ResultRow} from './ResultRow';
 import {SelectionCapsule} from './SelectionCapsule';
-import {useResultVirtualizer} from './useResultVirtualizer';
+import {
+  comfortableResultHeight,
+  compactResultHeight,
+  useResultVirtualizer,
+} from './useResultVirtualizer';
 
 interface VirtualResult {
   id: string;
@@ -39,6 +44,8 @@ export function ResultGrid({
   onSelectionChange,
   onAction,
 }: ResultGridProps) {
+  const density = useAppearanceStore((state) => state.density);
+  const rowHeight = density === 'compact' ? compactResultHeight : comfortableResultHeight;
   const viewportRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const selectedResult = results.find((result) => result.id === selectedId);
@@ -69,6 +76,7 @@ export function ResultGrid({
     viewportRef,
     (index) => results[index]?.id ?? String(index),
     maxHeight,
+    rowHeight,
   );
   const visibleResults = useMemo<readonly VirtualResult[]>(
     () => virtualItems.flatMap((item) => {
@@ -132,6 +140,7 @@ export function ResultGrid({
       <SelectionCapsule
         containerRef={viewportRef}
         reducedMotion={reducedMotion}
+        rowHeight={rowHeight}
         selectedId={effectiveSelectedId}
       />
       {isVirtualized ? (

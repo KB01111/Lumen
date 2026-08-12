@@ -48,6 +48,19 @@ describe('Lumen primitives', () => {
     expect(surface.querySelectorAll('[aria-hidden="true"]')).toHaveLength(3);
   });
 
+  it('keeps authored layout children directly owned by the surface', () => {
+    render(
+      <LumenSurface aria-label="Shell">
+        <header>Header</header>
+        <main>Main</main>
+      </LumenSurface>,
+    );
+
+    const surface = screen.getByLabelText('Shell');
+    expect(screen.getByRole('banner').parentElement).toBe(surface);
+    expect(screen.getByRole('main').parentElement).toBe(surface);
+  });
+
   it('suppresses literal inset shadows under app-controlled high contrast', () => {
     render(
       <>

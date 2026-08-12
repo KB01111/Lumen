@@ -33,11 +33,6 @@ export function measureAfterPaint(name: TimingSample['name'], startedAt: number)
     if (cancelled) return;
     const end = performance.now();
     const duration = end - startedAt;
-    try {
-      performance.measure(`lumen:${name}`, {start: startedAt, end});
-    } catch {
-      // User Timing can be unavailable in constrained WebViews; the local sample still remains useful.
-    }
     captureTiming(name, duration);
   };
   if (typeof requestAnimationFrame === 'function') {

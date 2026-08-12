@@ -3,8 +3,10 @@ import {Suspense, useEffect, useRef, useState} from 'react';
 
 import {motion} from 'motion/react';
 
+import {useMediaPreference} from '../../app/AppProviders';
 import {useLumenMotion} from '../../design-system/MotionProvider';
 import type {SearchService} from '../../services/search/search-service';
+import {useAppearanceStore} from '../../state/appearance.store';
 import type {
   SearchError,
   SearchFilter,
@@ -215,6 +217,12 @@ export function ExpandedWorkspace({
   onSelectionChange,
 }: ExpandedWorkspaceProps) {
   const {opacityDuration, reducedMotion} = useLumenMotion();
+  const preview = useAppearanceStore((state) => state.preview);
+  const atMinimumPreviewWidth = useMediaPreference('(min-width: 760px)');
+  const atAutomaticPreviewWidth = useMediaPreference('(min-width: 900px)');
+  const showInlinePreview = preview === 'always'
+    ? atMinimumPreviewWidth
+    : preview === 'automatic' && atAutomaticPreviewWidth;
   const countLabel = lifecycle === 'searching'
     ? 'Searching'
     : `${results.length} ${results.length === 1 ? 'result' : 'results'}`;
@@ -229,7 +237,9 @@ export function ExpandedWorkspace({
     >
       <FilterChips filters={activeFilters} onClear={onClearFilters} onRemove={onRemoveFilter} />
       {answerPanel}
-      <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden min-[760px]:grid-cols-[minmax(0,1fr)_minmax(280px,38%)]">
+      <div className={showInlinePreview
+        ? 'grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(280px,38%)] overflow-hidden'
+        : 'grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden'}>
         <section aria-label="Search result list" className="flex min-h-0 min-w-0 flex-col">
           <header className="flex min-h-[34px] items-center justify-between gap-3 px-4">
             <span className="font-sans text-xs font-medium text-[color:var(--einui-command-text)]">Local results</span>
@@ -245,11 +255,11 @@ export function ExpandedWorkspace({
             onSelectionChange={onSelectionChange}
           />
         </section>
-        <div className="hidden min-h-0 min-w-0 min-[760px]:block">
+        {showInlinePreview ? <div className="min-h-0 min-w-0">
           <Suspense fallback={<div aria-label="File preview" className="grid min-h-[320px] place-items-center font-sans text-xs text-[color:var(--einui-command-muted-text)]">Preparing preview…</div>}>
             <SelectionBoundPreview reducedMotion={reducedMotion} selectedId={selectedId} service={service} />
           </Suspense>
-        </div>
+        </div> : null}
       </div>
       <SelectionBoundActions
         isOpening={openingId !== null}

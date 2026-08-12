@@ -25,6 +25,8 @@ describe('SettingsShell', () => {
   it('exposes all ten pages in one persistent navigation rail', () => {
     renderShell();
 
+    const surface = screen.getByLabelText('Lumen settings');
+    const header = screen.getByRole('banner');
     expect(screen.getByRole('navigation', {name: 'Settings'})).toBeVisible();
     expect(screen.getAllByRole('navigation', {name: 'Settings'})).toHaveLength(1);
     expect(screen.getByRole('main', {name: 'Settings content'})).toBeVisible();
@@ -34,6 +36,8 @@ describe('SettingsShell', () => {
     expect(screen.getByRole('heading', {name: 'General'})).toBeVisible();
     expect(screen.getByTestId('settings-content')).toHaveClass('overflow-y-auto');
     expect(screen.getByTestId('settings-content')).not.toHaveAttribute('style');
+    expect(header.parentElement).toBe(surface);
+    expect(screen.getByRole('navigation', {name: 'Settings'}).parentElement?.parentElement?.parentElement).toBe(surface);
   });
 
   it('keeps the close action visibly focusable', () => {

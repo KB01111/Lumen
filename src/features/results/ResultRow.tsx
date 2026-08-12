@@ -72,7 +72,7 @@ export function ResultRow({
       aria-label={accessibilityLabel(result)}
       aria-posinset={positionIndex === undefined ? undefined : positionIndex + 1}
       aria-setsize={totalCount}
-      className="relative z-20 grid min-h-[58px] min-w-0 cursor-default grid-cols-[36px_minmax(0,1fr)_minmax(72px,auto)] items-center gap-3 rounded-control border border-transparent px-4 text-[color:var(--einui-command-text)] outline-none transition-[background-color,color,transform] duration-[90ms] ease-standard data-[hovered]:bg-[var(--einui-command-row-hover)] data-[focus-visible]:ring-2 data-[focus-visible]:ring-[var(--lumen-focus)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-65 data-[opening]:scale-[.992] min-[760px]:grid-cols-[36px_minmax(0,1fr)_auto_minmax(72px,auto)_42px]"
+      className="relative z-20 grid min-h-[var(--lumen-result-row-height)] min-w-0 cursor-default grid-cols-[36px_minmax(0,1fr)_minmax(72px,auto)] items-center gap-3 rounded-control border border-transparent px-4 text-[color:var(--einui-command-text)] outline-none transition-[background-color,color,transform] duration-[90ms] ease-standard data-[hovered]:bg-[var(--einui-command-row-hover)] data-[focus-visible]:ring-2 data-[focus-visible]:ring-[var(--lumen-focus)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-65 data-[opening]:scale-[.992] min-[760px]:grid-cols-[36px_minmax(0,1fr)_auto_minmax(72px,auto)_42px]"
       data-opening={isOpening || undefined}
       data-result-id={result.id}
       isDisabled={isDisabled}

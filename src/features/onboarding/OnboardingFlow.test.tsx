@@ -51,6 +51,14 @@ afterEach(() => {
 });
 
 describe('OnboardingFlow', () => {
+  it('lets the surface own the onboarding grid rows directly', () => {
+    renderFlow({chooseRoot: vi.fn()});
+
+    const surface = screen.getByLabelText('Welcome to Lumen');
+    expect(screen.getByRole('banner').parentElement).toBe(surface);
+    expect(screen.getByTestId('onboarding-primary-action').closest('footer')?.parentElement).toBe(surface);
+  });
+
   it('completes all eight scenes with a selected root and shortcut', async () => {
     const user = userEvent.setup();
     const service = new DeferredRootService();

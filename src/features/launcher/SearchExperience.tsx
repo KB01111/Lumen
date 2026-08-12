@@ -293,7 +293,7 @@ export function SearchExperience({
           <ExpandedWorkspace
             activeFilters={activeFilters}
             announcement={announcement}
-            answerPanel={(
+            answerPanel={submittedQuery.trim() ? (
               <AnswerPanel
                 answer={answer}
                 mode={runtimeMode}
@@ -302,7 +302,7 @@ export function SearchExperience({
                 onRetry={answer.retry}
                 onStop={answer.stop}
               />
-            )}
+            ) : null}
             error={controller.error}
             lifecycle={controller.lifecycle}
             openingId={openingId}

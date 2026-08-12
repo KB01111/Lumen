@@ -84,6 +84,7 @@ describe('SearchExperience answer submission', () => {
       service.requests.some(({request}) => request.query === 'release'),
     ).toBe(true));
     expect(answers.requests).toHaveLength(0);
+    expect(screen.queryByRole('region', {name: 'AI answer'})).not.toBeInTheDocument();
   });
 
   it('submits one answer request only for plain Enter in the composer', async () => {
@@ -103,6 +104,8 @@ describe('SearchExperience answer submission', () => {
     await user.keyboard('{Enter}');
 
     await waitFor(() => expect(answers.requests).toHaveLength(1));
+    expect(await screen.findByRole('region', {name: 'AI answer'})).toBeVisible();
+    expect(screen.getAllByTestId('answer-region')).toHaveLength(1);
     expect(answers.requests[0]?.request).toMatchObject({
       query: 'summarize the release',
       mode: 'auto',

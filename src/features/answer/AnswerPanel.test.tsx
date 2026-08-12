@@ -6,6 +6,24 @@ import {AppProviders} from '../../app/AppProviders';
 import {AnswerPanel} from './AnswerPanel';
 
 describe('AnswerPanel', () => {
+  it('does not offer answer actions before a submission exists', () => {
+    render(
+      <AppProviders>
+        <AnswerPanel
+          answer={{phase: 'idle', text: '', citations: []}}
+          mode="auto"
+          onModeChange={vi.fn()}
+          onOpenCitation={vi.fn()}
+          onRetry={vi.fn()}
+          onStop={vi.fn()}
+        />
+      </AppProviders>,
+    );
+
+    expect(screen.queryByRole('button', {name: 'Retry answer'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: 'Copy answer'})).not.toBeInTheDocument();
+  });
+
   it('exposes the actual route and lets the user switch execution mode', async () => {
     const user = userEvent.setup();
     const onModeChange = vi.fn();
@@ -101,6 +119,26 @@ describe('AnswerPanel', () => {
       );
 
       expect(screen.getByRole('button', {name: 'Stop answer'})).toBeEnabled();
+    },
+  );
+
+  it.each(['error', 'cancelled', 'completed'] as const)(
+    'offers retry after the answer is %s',
+    (phase) => {
+      render(
+        <AppProviders>
+          <AnswerPanel
+            answer={{phase, text: phase === 'completed' ? 'Done.' : '', citations: []}}
+            mode="auto"
+            onModeChange={vi.fn()}
+            onOpenCitation={vi.fn()}
+            onRetry={vi.fn()}
+            onStop={vi.fn()}
+          />
+        </AppProviders>,
+      );
+
+      expect(screen.getByRole('button', {name: 'Retry answer'})).toBeEnabled();
     },
   );
 

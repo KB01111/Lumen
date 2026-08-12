@@ -1,8 +1,9 @@
 import {render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {describe, expect, it, vi} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import type {SearchResult} from '../../services/search/search.types';
+import {appearanceStore} from '../../state/appearance.store';
 import {ResultGrid} from './ResultGrid';
 
 function file(id: string, overrides: Partial<SearchResult> = {}): SearchResult {
@@ -23,6 +24,19 @@ function file(id: string, overrides: Partial<SearchResult> = {}): SearchResult {
 }
 
 describe('ResultGrid', () => {
+  afterEach(() => appearanceStore.setState({density: 'comfortable'}));
+
+  it('renders compact rows with the compact virtual canvas height', async () => {
+    appearanceStore.setState({density: 'compact'});
+    const results = Array.from({length: 10_000}, (_, index) => file(`file-${index}`));
+    const {container} = render(
+      <ResultGrid results={results} selectedId="file-0" maxHeight={400} />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('grid', {name: 'Search results'})).toHaveStyle({height: '460000px'}));
+    expect(container.querySelector('[data-result-id]')).toHaveClass('min-h-[var(--lumen-result-row-height)]');
+  });
+
   it('keeps the selected file when a result is inserted above it', () => {
     const {rerender} = render(
       <ResultGrid results={[file('a'), file('b')]} selectedId="b" />,

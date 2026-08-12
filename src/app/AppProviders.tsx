@@ -25,7 +25,7 @@ function readMedia(query: string) {
   return typeof window.matchMedia === 'function' && window.matchMedia(query).matches;
 }
 
-function useMediaPreference(query: string) {
+export function useMediaPreference(query: string) {
   return useSyncExternalStore(
     (onChange) => subscribeToMedia(query, onChange),
     () => readMedia(query),
@@ -51,6 +51,7 @@ export function AppProviders({
   const storedTransparency = useAppearanceStore((state) => state.transparency);
   const storedEffects = useAppearanceStore((state) => state.effects);
   const storedMotion = useAppearanceStore((state) => state.motion);
+  const storedDensity = useAppearanceStore((state) => state.density);
   const hydrateAppearance = useAppearanceStore((state) => state.hydrate);
   const storedAppearance = useMemo<AppearancePreferences>(
     () => ({
@@ -115,6 +116,7 @@ export function AppProviders({
         data-transparency={resolvedAppearance.transparency}
         data-contrast={highContrast ? 'high' : 'standard'}
         data-effects={resolvedAppearance.effects}
+        data-density={storedDensity}
         data-motion={resolvedAppearance.motion}
         data-reduced-motion={reducedMotion}
       >

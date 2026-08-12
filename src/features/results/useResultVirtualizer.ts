@@ -4,17 +4,19 @@ import {useVirtualizer} from '@tanstack/react-virtual';
 
 export const resultVirtualizationThreshold = 120;
 export const comfortableResultHeight = 58;
+export const compactResultHeight = 46;
 
 export function useResultVirtualizer(
   count: number,
   scrollRef: RefObject<HTMLDivElement | null>,
   getItemKey: (index: number) => string,
   viewportHeight: number,
+  rowHeight = comfortableResultHeight,
 ) {
   const virtualizer = useVirtualizer({
     count,
     enabled: count > resultVirtualizationThreshold,
-    estimateSize: () => comfortableResultHeight,
+    estimateSize: () => rowHeight,
     getScrollElement: () => scrollRef.current,
     getItemKey,
     initialRect: {width: 800, height: viewportHeight},
