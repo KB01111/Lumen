@@ -97,7 +97,10 @@ export function PrivacyPage({
     try {
       const native = await localDataService.getNativeDiagnostics();
       const payload = prepareExport(native);
-      setMessage(`${payload.filename} is prepared in memory for review.`);
+      const result = await localDataService.exportDiagnostics(payload.contents);
+      setMessage(result.saved
+        ? `Saved ${result.fileName ?? payload.filename}.`
+        : 'Diagnostic export cancelled.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Diagnostics could not be prepared.');
     } finally {

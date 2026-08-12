@@ -139,6 +139,7 @@ pub fn run() {
             search::indexing::get_search_history_status,
             search::indexing::get_native_diagnostics,
             privacy::set_previews_enabled,
+            privacy::export_diagnostics,
             gateway::answer::start_answer,
             gateway::answer::cancel_answer,
             gateway::supervisor::gateway_health,

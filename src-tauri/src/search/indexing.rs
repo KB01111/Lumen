@@ -22,6 +22,16 @@ pub struct IndexRootRequest {
     pub path: String,
     #[serde(default)]
     pub cloud_enrichment: bool,
+    #[serde(default)]
+    pub exclusions: Vec<String>,
+    #[serde(default)]
+    pub include_hidden: bool,
+    #[serde(default = "default_max_file_size_mb")]
+    pub max_file_size_mb: u64,
+}
+
+fn default_max_file_size_mb() -> u64 {
+    256
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -212,7 +222,22 @@ impl IndexRuntime {
             let root = canonicalize_root(Path::new(&requested_root.path))?;
             let root_key = root.to_string_lossy().into_owned();
             inventory.entry(root_key.clone()).or_default();
-            let outcome = traversal::traverse(&root)?;
+            let max_file_size_bytes = requested_root
+                .max_file_size_mb
+                .checked_mul(1024 * 1024)
+                .ok_or_else(|| {
+                    SearchFailure::new(
+                        "invalid-root",
+                        "The maximum indexed file size is invalid.",
+                        None,
+                    )
+                })?;
+            let policy = traversal::TraversalPolicy::new(
+                requested_root.exclusions,
+                requested_root.include_hidden,
+                max_file_size_bytes,
+            )?;
+            let outcome = traversal::traverse_with_policy(&root, &policy)?;
             skipped_items = skipped_items.saturating_add(outcome.warnings.len() as u64);
             for record in outcome.records {
                 if self.generation.load(Ordering::SeqCst) != generation {
@@ -381,6 +406,9 @@ mod tests {
             .synchronize(vec![IndexRootRequest {
                 path: fixture.root().to_string_lossy().into_owned(),
                 cloud_enrichment: false,
+                exclusions: Vec::new(),
+                include_hidden: false,
+                max_file_size_mb: 256,
             }])
             .unwrap();
 
@@ -430,6 +458,9 @@ mod tests {
             .synchronize(vec![IndexRootRequest {
                 path: fixture.root().to_string_lossy().into_owned(),
                 cloud_enrichment: false,
+                exclusions: Vec::new(),
+                include_hidden: false,
+                max_file_size_mb: 256,
             }])
             .unwrap();
         assert_eq!(private.queued_enrichment, 0);
@@ -438,6 +469,9 @@ mod tests {
             .synchronize(vec![IndexRootRequest {
                 path: fixture.root().to_string_lossy().into_owned(),
                 cloud_enrichment: true,
+                exclusions: Vec::new(),
+                include_hidden: false,
+                max_file_size_mb: 256,
             }])
             .unwrap();
         assert_eq!(consented.queued_enrichment, 1);

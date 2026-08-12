@@ -55,7 +55,13 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
     try {
       const status = await nativeAiService.synchronizeRoots(nextRoots
         .filter((root) => !root.paused)
-        .map((root) => ({path: root.path, cloudEnrichment: cloudIds.includes(root.id)})));
+        .map((root) => ({
+          path: root.path,
+          cloudEnrichment: cloudIds.includes(root.id),
+          exclusions: root.exclusions,
+          includeHidden: root.includeHidden,
+          maxFileSizeMb: root.maxFileSizeMb,
+        })));
       setNotice({text: status.message, tone: 'info'});
       return true;
     } catch (error) {

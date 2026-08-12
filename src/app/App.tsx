@@ -67,6 +67,9 @@ function createDefaultSearchService() {
           id: root.id,
           path: root.path,
           cloudEnrichment: settings.ai.cloudEnrichedRootIds.includes(root.id),
+          exclusions: root.exclusions,
+          includeHidden: root.includeHidden,
+          maxFileSizeMb: root.maxFileSizeMb,
         }));
       if (configuredRoots.length > 0) {
         return configuredRoots;
@@ -76,6 +79,9 @@ function createDefaultSearchService() {
         id: `onboarding:${onboardingRoot}`,
         path: onboardingRoot,
         cloudEnrichment: false,
+        exclusions: [],
+        includeHidden: false,
+        maxFileSizeMb: 256,
       }] : [];
     },
     getSearchPreferences: () => {
@@ -237,6 +243,9 @@ export function App({windowService = appWindowService}: AppProps = {}) {
       await nativeAiService.synchronizeRoots(current.roots.filter((item) => !item.paused).map((item) => ({
         path: item.path,
         cloudEnrichment: current.ai.cloudEnrichedRootIds.includes(item.id),
+        exclusions: item.exclusions,
+        includeHidden: item.includeHidden,
+        maxFileSizeMb: item.maxFileSizeMb,
       })));
     }
     return true;

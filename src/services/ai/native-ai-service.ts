@@ -52,6 +52,9 @@ export interface IndexStatus {
 export interface IndexRootInput {
   path: string;
   cloudEnrichment: boolean;
+  exclusions: string[];
+  includeHidden: boolean;
+  maxFileSizeMb: number;
 }
 
 export function isNativeRuntime() {

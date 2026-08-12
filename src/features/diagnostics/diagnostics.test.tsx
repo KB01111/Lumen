@@ -86,6 +86,7 @@ describe('diagnostics privacy', () => {
       clearSearchHistory: vi.fn(async () => ({entryCount: 0})),
       deleteIndexData: vi.fn(async () => ({deletedFiles: 0, deletedChunks: 0})),
       getNativeDiagnostics: vi.fn(async () => ({})),
+      exportDiagnostics: vi.fn(async () => ({saved: false})),
     };
     renderPage(<PrivacyPage localDataService={localDataService} />);
 
@@ -106,6 +107,7 @@ describe('diagnostics privacy', () => {
       clearSearchHistory: vi.fn(async () => ({entryCount: 0})),
       deleteIndexData: vi.fn(async () => ({deletedFiles: 4, deletedChunks: 9})),
       getNativeDiagnostics: vi.fn(async () => ({})),
+      exportDiagnostics: vi.fn(async () => ({saved: false})),
     };
     renderPage(<PrivacyPage localDataService={localDataService} />);
 
@@ -118,5 +120,27 @@ describe('diagnostics privacy', () => {
 
     await waitFor(() => expect(localDataService.deleteIndexData).toHaveBeenCalledOnce());
     expect(screen.getByText(/4 files and 9 chunks/)).toBeVisible();
+  });
+
+  it('exports the sanitized snapshot through the native save operation', async () => {
+    const user = userEvent.setup();
+    const localDataService = {
+      setPreviewsEnabled: vi.fn(async () => undefined),
+      getHistoryStatus: vi.fn(async () => ({entryCount: 0, enabled: true})),
+      clearSearchHistory: vi.fn(async () => ({entryCount: 0})),
+      deleteIndexData: vi.fn(async () => ({deletedFiles: 0, deletedChunks: 0})),
+      getNativeDiagnostics: vi.fn(async () => ({vector: {available: true}})),
+      exportDiagnostics: vi.fn(async (contents: string) => {
+        expect(contents).not.toContain('C:\\');
+        return {saved: true, fileName: 'lumen-diagnostics.json'};
+      }),
+    };
+    renderPage(<PrivacyPage localDataService={localDataService} />);
+
+    await user.click(screen.getByRole('button', {name: 'Export'}));
+    await user.click(screen.getByRole('button', {name: 'Prepare sanitized export'}));
+
+    await waitFor(() => expect(localDataService.exportDiagnostics).toHaveBeenCalledOnce());
+    expect(screen.getByText('Saved lumen-diagnostics.json.')).toBeVisible();
   });
 });

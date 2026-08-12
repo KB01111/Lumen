@@ -7,7 +7,12 @@ use std::{
     },
 };
 
+use tauri::AppHandle;
 use tauri::State;
+use tauri_plugin_dialog::DialogExt;
+
+use serde::Serialize;
+use serde_json::{Map, Value};
 
 use crate::search::SearchFailure;
 
@@ -71,6 +76,111 @@ pub fn load_history_enabled(path: &Path) -> bool {
     persisted_bool(path, "general", "historyEnabled").unwrap_or(true)
 }
 
+fn sensitive_key(key: &str) -> bool {
+    let key = key.to_ascii_lowercase();
+    [
+        "api_key",
+        "apikey",
+        "authorization",
+        "body",
+        "content",
+        "credential",
+        "password",
+        "prompt",
+        "query",
+        "secret",
+        "text",
+        "token",
+    ]
+    .iter()
+    .any(|candidate| key.contains(candidate))
+}
+
+fn contains_windows_path(value: &str) -> bool {
+    value.starts_with("\\\\")
+        || value
+            .as_bytes()
+            .windows(3)
+            .any(|part| part[0].is_ascii_alphabetic() && part[1] == b':' && part[2] == b'\\')
+}
+
+fn sanitize_diagnostics(value: Value) -> Value {
+    match value {
+        Value::Array(values) => {
+            Value::Array(values.into_iter().map(sanitize_diagnostics).collect())
+        }
+        Value::Object(values) => Value::Object(
+            values
+                .into_iter()
+                .map(|(key, value)| {
+                    let value = if sensitive_key(&key) {
+                        Value::String("[redacted]".to_owned())
+                    } else {
+                        sanitize_diagnostics(value)
+                    };
+                    (key, value)
+                })
+                .collect::<Map<_, _>>(),
+        ),
+        Value::String(value) if contains_windows_path(&value) => {
+            Value::String("[local-path]".to_owned())
+        }
+        Value::String(value)
+            if value.to_ascii_lowercase().contains("authorization:")
+                || value.to_ascii_lowercase().contains("bearer ") =>
+        {
+            Value::String("[redacted]".to_owned())
+        }
+        value => value,
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagnosticsExportResult {
+    saved: bool,
+    file_name: Option<String>,
+}
+
+#[tauri::command]
+pub fn export_diagnostics(
+    app: AppHandle,
+    contents: String,
+) -> Result<DiagnosticsExportResult, String> {
+    const MAX_EXPORT_BYTES: usize = 256 * 1024;
+    if contents.len() > MAX_EXPORT_BYTES {
+        return Err("The diagnostics snapshot is too large to export.".to_owned());
+    }
+    let parsed = serde_json::from_str::<Value>(&contents)
+        .map_err(|_| "The diagnostics snapshot is invalid.".to_owned())?;
+    let sanitized = serde_json::to_string_pretty(&sanitize_diagnostics(parsed))
+        .map_err(|_| "The diagnostics snapshot could not be prepared.".to_owned())?;
+    let selected = app
+        .dialog()
+        .file()
+        .add_filter("JSON", &["json"])
+        .set_file_name("lumen-diagnostics.json")
+        .blocking_save_file();
+    let Some(selected) = selected else {
+        return Ok(DiagnosticsExportResult {
+            saved: false,
+            file_name: None,
+        });
+    };
+    let path = selected
+        .into_path()
+        .map_err(|_| "The selected export location is unavailable.".to_owned())?;
+    fs::write(&path, sanitized)
+        .map_err(|_| "The diagnostics snapshot could not be saved.".to_owned())?;
+    Ok(DiagnosticsExportResult {
+        saved: true,
+        file_name: path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(ToOwned::to_owned),
+    })
+}
+
 #[tauri::command]
 pub fn set_previews_enabled(state: State<'_, PrivacyRuntime>, enabled: bool) {
     state.set_previews_enabled(enabled);
@@ -120,5 +230,32 @@ mod tests {
 
         assert_eq!(error.code, "permission-denied");
         assert_eq!(error.path, None);
+    }
+
+    #[test]
+    fn diagnostic_export_sanitizer_removes_paths_prompts_and_credentials() {
+        let sanitized = sanitize_diagnostics(serde_json::json!({
+            "appVersion": "0.1.0",
+            "authorization": "Bearer private-token",
+            "nested": {
+                "prompt": "Summarize my file",
+                "message": "Failed at C:\\Users\\Kevin\\Private\\note.txt",
+                "unc": "\\\\server\\private\\report.pdf"
+            }
+        }));
+        let serialized = serde_json::to_string(&sanitized).unwrap();
+
+        assert!(serialized.contains("0.1.0"));
+        for forbidden in [
+            "private-token",
+            "Summarize",
+            "Kevin",
+            "server",
+            "report.pdf",
+        ] {
+            assert!(!serialized.contains(forbidden), "leaked {forbidden}");
+        }
+        assert!(serialized.contains("[redacted]"));
+        assert!(serialized.contains("[local-path]"));
     }
 }

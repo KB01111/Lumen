@@ -79,7 +79,14 @@ interface KnownFile {
 
 export interface DevelopmentFileSearchServiceOptions {
   getRoots(): readonly string[];
-  getRootConfigurations?(): readonly {id: string; path: string; cloudEnrichment: boolean}[];
+  getRootConfigurations?(): readonly {
+    id: string;
+    path: string;
+    cloudEnrichment: boolean;
+    exclusions: string[];
+    includeHidden: boolean;
+    maxFileSizeMb: number;
+  }[];
   getSearchPreferences?(): {filenamePriority: number; recency: 'low' | 'balanced' | 'high'};
   invoke?: InvokeCommand;
 }
@@ -456,11 +463,17 @@ export class DevelopmentFileSearchService implements SearchService {
       id: normalizedPath(path),
       path,
       cloudEnrichment: false,
+      exclusions: [],
+      includeHidden: false,
+      maxFileSizeMb: 256,
     }));
-    const signature = JSON.stringify(configuredRoots.map((root) => [
-      normalizedPath(root.path),
-      root.cloudEnrichment,
-    ]));
+    const signature = JSON.stringify(configuredRoots.map((root) => ({
+      path: normalizedPath(root.path),
+      cloudEnrichment: root.cloudEnrichment,
+      exclusions: root.exclusions,
+      includeHidden: root.includeHidden,
+      maxFileSizeMb: root.maxFileSizeMb,
+    })));
     if (signature === this.synchronizedRootSignature && !this.pendingRootSignature) {
       return Promise.resolve();
     }
@@ -475,6 +488,9 @@ export class DevelopmentFileSearchService implements SearchService {
         roots: configuredRoots.map((root) => ({
           path: root.path,
           cloudEnrichment: root.cloudEnrichment,
+          exclusions: root.exclusions,
+          includeHidden: root.includeHidden,
+          maxFileSizeMb: root.maxFileSizeMb,
         })),
       });
       this.synchronizedRootSignature = signature;

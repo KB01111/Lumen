@@ -87,6 +87,34 @@ describe('DevelopmentFileSearchService', () => {
     expect(invoke).toHaveBeenCalledWith('search_indexed', {query: 'read', limit: 500});
   });
 
+  it('sends every configured root policy to native synchronization', async () => {
+    const invoke = vi.fn(async (command: string) => command === 'search_filenames'
+      ? {...rustResponse(), items: [], total: 0}
+      : command === 'search_indexed' ? [] : undefined);
+    const service = new DevelopmentFileSearchService({
+      getRoots: () => ['C:\\Projects'],
+      getRootConfigurations: () => [{
+        id: 'projects',
+        path: 'C:\\Projects',
+        cloudEnrichment: true,
+        exclusions: ['cache', '*.tmp'],
+        includeHidden: true,
+        maxFileSizeMb: 64,
+      }],
+      invoke,
+    });
+
+    await service.search(request);
+
+    expect(invoke).toHaveBeenCalledWith('synchronize_index_roots', {roots: [{
+      path: 'C:\\Projects',
+      cloudEnrichment: true,
+      exclusions: ['cache', '*.tmp'],
+      includeHidden: true,
+      maxFileSizeMb: 64,
+    }]});
+  });
+
   it('maps Tauri filename matches into stable SearchResult values', async () => {
     const invoke = vi.fn(async () => rustResponse());
     const service = new DevelopmentFileSearchService({getRoots: () => ['C:\\Projects'], invoke});
