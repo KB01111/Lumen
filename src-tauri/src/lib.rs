@@ -97,8 +97,17 @@ pub fn run() {
             )?;
             let _ = enrichment.start();
             app.manage(enrichment);
+            let packaged_vector = app.path().resource_dir()?.join("vector.dll");
+            let development_vector =
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/vector.dll");
+            let vector_extension = if packaged_vector.is_file() {
+                packaged_vector
+            } else {
+                development_vector
+            };
             app.manage(search::IndexRuntime::open(
                 &data_directory.join("lumen-index.sqlite3"),
+                &vector_extension,
             )?);
             app.manage(window::ShortcutRegistration(Mutex::new(
                 "Alt+Space".to_owned(),

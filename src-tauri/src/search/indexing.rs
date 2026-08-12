@@ -63,9 +63,9 @@ fn stable_id(root: &Path, path: &Path) -> String {
 }
 
 impl IndexRuntime {
-    pub fn open(path: &Path) -> Result<Self, SearchFailure> {
-        let database =
-            IndexDatabase::open(path).map_err(|error| search_failure("open the index", error))?;
+    pub fn open(path: &Path, vector_extension: &Path) -> Result<Self, SearchFailure> {
+        let database = IndexDatabase::open(path, vector_extension)
+            .map_err(|error| search_failure("open the index", error))?;
         let (indexed_items, queued_enrichment) = database
             .counts()
             .map_err(|error| search_failure("read index status", error))?;
@@ -294,7 +294,8 @@ mod tests {
         let fixture = SearchFixture::new("index-runtime-consent");
         fixture.file("scan.png", &[0, 1, 2]);
         let database_path = fixture.root().join("index.sqlite");
-        let runtime = IndexRuntime::open(&database_path).unwrap();
+        let vector_extension = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/vector.dll");
+        let runtime = IndexRuntime::open(&database_path, &vector_extension).unwrap();
 
         let private = runtime
             .synchronize(vec![IndexRootRequest {

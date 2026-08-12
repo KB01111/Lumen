@@ -3,6 +3,7 @@ import {copyFile, mkdir, readFile, rename, rm, stat, writeFile} from 'node:fs/pr
 import {dirname, join} from 'node:path';
 
 import {stageComputerUse} from './stage-computer-use';
+import {stageSqliteVector} from './stage-sqlite-vector';
 
 const version = 'v1.4.1';
 const asset = 'agentgateway-windows-amd64.exe';
@@ -114,6 +115,7 @@ async function main() {
   await rm(runtimeStage, {recursive: true, force: true});
   console.log('Staged the Rivet 2.3.10 Windows engine.');
   await stageComputerUse();
+  await stageSqliteVector();
 }
 
 await main();

@@ -1,15 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, Once};
+use std::sync::Mutex;
 
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
-use sqlite_vec::sqlite3_vec_init;
 
 use super::root_policy::canonicalize_confined;
 use super::types::SearchFailure;
-
-static REGISTER_SQLITE_VEC: Once = Once::new();
 
 #[derive(Debug, thiserror::Error)]
 pub enum IndexError {
@@ -21,21 +18,50 @@ pub enum IndexError {
     Poisoned,
     #[error("An index integer exceeded SQLite's signed 64-bit range")]
     IntegerOverflow,
+    #[error("Invalid vector input: {0}")]
+    InvalidVector(String),
+    #[error("Semantic search is unavailable: {0}")]
+    VectorUnavailable(String),
 }
 
 type IndexResult<T> = std::result::Result<T, IndexError>;
 
-fn register_sqlite_vec() {
-    REGISTER_SQLITE_VEC.call_once(|| unsafe {
-        rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute::<
-            *const (),
-            unsafe extern "C" fn(
-                *mut rusqlite::ffi::sqlite3,
-                *mut *mut std::ffi::c_char,
-                *const rusqlite::ffi::sqlite3_api_routines,
-            ) -> std::ffi::c_int,
-        >(sqlite3_vec_init as *const ())));
-    });
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VectorRuntimeInfo {
+    pub version: String,
+    pub backend: String,
+}
+
+const SQLITE_VECTOR_VERSION: &str = "1.0.0";
+
+fn validate_vector_runtime(info: VectorRuntimeInfo) -> IndexResult<VectorRuntimeInfo> {
+    if info.version != SQLITE_VECTOR_VERSION {
+        return Err(IndexError::VectorUnavailable(
+            "pinned sqlite-vector runtime version mismatch".to_owned(),
+        ));
+    }
+    Ok(info)
+}
+
+pub fn register_or_load_sqlite_vector(
+    connection: &Connection,
+    extension: &Path,
+) -> IndexResult<VectorRuntimeInfo> {
+    unsafe { connection.load_extension_enable()? };
+    let load_result = unsafe { connection.load_extension(extension, None::<&str>) };
+    let disable_result = connection.load_extension_disable();
+    load_result?;
+    disable_result?;
+
+    let info = connection
+        .query_row("SELECT vector_version(), vector_backend()", [], |row| {
+            Ok(VectorRuntimeInfo {
+                version: row.get(0)?,
+                backend: row.get(1)?,
+            })
+        })
+        .map_err(IndexError::from)?;
+    validate_vector_runtime(info)
 }
 
 fn configure(connection: &Connection) -> rusqlite::Result<()> {
@@ -50,7 +76,25 @@ fn configure(connection: &Connection) -> rusqlite::Result<()> {
 
 fn migrate(connection: &Connection) -> rusqlite::Result<()> {
     let version: u32 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-    if version >= 1 {
+    if version >= 2 {
+        return Ok(());
+    }
+
+    if version == 1 {
+        connection.execute_batch(
+            "BEGIN IMMEDIATE;
+             CREATE TABLE vector_embeddings (
+               chunk_id INTEGER PRIMARY KEY REFERENCES chunks(id) ON DELETE CASCADE,
+               embedding BLOB NOT NULL,
+               embedding_model TEXT NOT NULL,
+               dimension INTEGER NOT NULL CHECK(dimension > 0),
+               distance_metric TEXT NOT NULL CHECK(distance_metric = 'cosine'),
+               content_hash TEXT NOT NULL,
+               index_revision INTEGER NOT NULL
+             );
+             PRAGMA user_version = 2;
+             COMMIT;",
+        )?;
         return Ok(());
     }
 
@@ -89,9 +133,14 @@ fn migrate(connection: &Connection) -> rusqlite::Result<()> {
            body,
            tokenize = 'unicode61 remove_diacritics 2'
          );
-         CREATE VIRTUAL TABLE chunk_embeddings USING vec0(
-           chunk_id INTEGER PRIMARY KEY,
-           embedding FLOAT[768]
+         CREATE TABLE vector_embeddings (
+           chunk_id INTEGER PRIMARY KEY REFERENCES chunks(id) ON DELETE CASCADE,
+           embedding BLOB NOT NULL,
+           embedding_model TEXT NOT NULL,
+           dimension INTEGER NOT NULL CHECK(dimension > 0),
+           distance_metric TEXT NOT NULL CHECK(distance_metric = 'cosine'),
+           content_hash TEXT NOT NULL,
+           index_revision INTEGER NOT NULL
          );
          CREATE TABLE enrichment_jobs (
            id INTEGER PRIMARY KEY,
@@ -129,7 +178,7 @@ fn migrate(connection: &Connection) -> rusqlite::Result<()> {
          );
          CREATE INDEX chunks_file_id ON chunks(file_id);
          CREATE INDEX enrichment_jobs_status ON enrichment_jobs(status, not_before);
-         PRAGMA user_version = 1;
+         PRAGMA user_version = 2;
          COMMIT;",
     )
 }
@@ -185,30 +234,186 @@ pub struct EnrichmentJobRecord {
     pub route: String,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct EmbeddingHit {
+    pub stable_id: String,
+    pub chunk_id: i64,
+    pub distance: f64,
+}
+
 pub struct IndexDatabase {
     connection: Mutex<Connection>,
+    vector_error: Option<String>,
+    vector_dimension: Mutex<Option<usize>>,
 }
 
 impl IndexDatabase {
-    pub fn open(path: &Path) -> IndexResult<Self> {
-        register_sqlite_vec();
+    pub fn open(path: &Path, extension: &Path) -> IndexResult<Self> {
         let connection = Connection::open(path)?;
+        let vector_error = register_or_load_sqlite_vector(&connection, extension)
+            .err()
+            .map(|_| "pinned sqlite-vector runtime could not be loaded".to_owned());
         configure(&connection)?;
         migrate(&connection)?;
         Ok(Self {
             connection: Mutex::new(connection),
+            vector_error,
+            vector_dimension: Mutex::new(None),
         })
     }
 
     #[cfg(test)]
     fn open_memory() -> IndexResult<Self> {
-        register_sqlite_vec();
         let connection = Connection::open_in_memory()?;
+        let extension = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/vector.dll");
+        register_or_load_sqlite_vector(&connection, &extension)?;
         configure(&connection)?;
         migrate(&connection)?;
         Ok(Self {
             connection: Mutex::new(connection),
+            vector_error: None,
+            vector_dimension: Mutex::new(None),
         })
+    }
+
+    fn encode_vector(dimension: usize, values: &[f32]) -> IndexResult<Vec<u8>> {
+        if dimension == 0 {
+            return Err(IndexError::InvalidVector(
+                "dimension must be greater than zero".to_owned(),
+            ));
+        }
+        if values.len() != dimension {
+            return Err(IndexError::InvalidVector(format!(
+                "expected {dimension} values, got {}",
+                values.len()
+            )));
+        }
+        if values.iter().any(|value| !value.is_finite()) {
+            return Err(IndexError::InvalidVector(
+                "values must be finite".to_owned(),
+            ));
+        }
+
+        Ok(values
+            .iter()
+            .flat_map(|value| value.to_le_bytes())
+            .collect())
+    }
+
+    fn ensure_vector_dimension(
+        &self,
+        connection: &Connection,
+        dimension: usize,
+    ) -> IndexResult<()> {
+        if let Some(error) = &self.vector_error {
+            return Err(IndexError::VectorUnavailable(error.clone()));
+        }
+        let mut initialized = self
+            .vector_dimension
+            .lock()
+            .map_err(|_| IndexError::Poisoned)?;
+        if let Some(active) = *initialized {
+            if active != dimension {
+                return Err(IndexError::InvalidVector(format!(
+                    "active dimension is {active}, requested {dimension}"
+                )));
+            }
+            return Ok(());
+        }
+        let options = format!("type=FLOAT32,dimension={dimension},distance=COSINE");
+        connection.query_row(
+            "SELECT vector_init('vector_embeddings', 'embedding', ?1)",
+            [options],
+            |_| Ok(()),
+        )?;
+        *initialized = Some(dimension);
+        Ok(())
+    }
+
+    pub fn upsert_embedding(
+        &self,
+        chunk_id: i64,
+        model: &str,
+        dimension: usize,
+        content_hash: &str,
+        revision: u64,
+        values: &[f32],
+    ) -> IndexResult<()> {
+        let encoded = Self::encode_vector(dimension, values)?;
+        let dimension_sql = i64::try_from(dimension).map_err(|_| IndexError::IntegerOverflow)?;
+        let revision_sql = i64::try_from(revision).map_err(|_| IndexError::IntegerOverflow)?;
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        self.ensure_vector_dimension(&connection, dimension)?;
+        connection.execute(
+            "INSERT INTO vector_embeddings
+             (chunk_id, embedding, embedding_model, dimension, distance_metric, content_hash, index_revision)
+             VALUES (?1, vector_as_f32(?2, ?3), ?4, ?3, 'cosine', ?5, ?6)
+             ON CONFLICT(chunk_id) DO UPDATE SET
+               embedding = excluded.embedding,
+               embedding_model = excluded.embedding_model,
+               dimension = excluded.dimension,
+               distance_metric = excluded.distance_metric,
+               content_hash = excluded.content_hash,
+               index_revision = excluded.index_revision",
+            params![
+                chunk_id,
+                encoded,
+                dimension_sql,
+                model,
+                content_hash,
+                revision_sql
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn search_embeddings(
+        &self,
+        model: &str,
+        dimension: usize,
+        query: &[f32],
+        limit: usize,
+    ) -> IndexResult<Vec<EmbeddingHit>> {
+        let encoded = Self::encode_vector(dimension, query)?;
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        let dimension_sql = i64::try_from(dimension).map_err(|_| IndexError::IntegerOverflow)?;
+        let limit_sql = i64::try_from(limit).map_err(|_| IndexError::IntegerOverflow)?;
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        self.ensure_vector_dimension(&connection, dimension)?;
+        let scan_limit: i64 =
+            connection.query_row("SELECT count(*) FROM vector_embeddings", [], |row| {
+                row.get(0)
+            })?;
+        if scan_limit == 0 {
+            return Ok(Vec::new());
+        }
+        let mut statement = connection.prepare(
+            "SELECT files.stable_id, chunks.id, scan.distance
+             FROM vector_full_scan(
+               'vector_embeddings', 'embedding', vector_as_f32(?1, ?2), ?3
+             ) AS scan
+             JOIN vector_embeddings ON vector_embeddings.rowid = scan.rowid
+             JOIN chunks ON chunks.id = vector_embeddings.chunk_id
+             JOIN files ON files.id = chunks.file_id
+             WHERE vector_embeddings.embedding_model = ?4
+               AND vector_embeddings.dimension = ?2
+             ORDER BY scan.distance ASC, chunks.id ASC
+             LIMIT ?5",
+        )?;
+        let rows = statement.query_map(
+            params![encoded, dimension_sql, scan_limit, model, limit_sql],
+            |row| {
+                Ok(EmbeddingHit {
+                    stable_id: row.get(0)?,
+                    chunk_id: row.get(1)?,
+                    distance: row.get(2)?,
+                })
+            },
+        )?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(IndexError::from)
     }
 
     pub fn upsert_document(
@@ -258,7 +463,7 @@ impl IndexDatabase {
 
         let (file_id, revision) = if let Some((file_id, _, _, _, _, old_revision)) = existing {
             transaction.execute(
-                "DELETE FROM chunk_embeddings
+                "DELETE FROM vector_embeddings
                  WHERE chunk_id IN (SELECT id FROM chunks WHERE file_id = ?1)",
                 [file_id],
             )?;
@@ -466,7 +671,7 @@ impl IndexDatabase {
             })
             .try_fold(0_u64, |removed, (file_id, _, _)| {
                 transaction.execute(
-                    "DELETE FROM chunk_embeddings WHERE chunk_id IN
+                    "DELETE FROM vector_embeddings WHERE chunk_id IN
                      (SELECT id FROM chunks WHERE file_id = ?1)",
                     [file_id],
                 )?;
@@ -523,7 +728,7 @@ impl IndexDatabase {
     pub fn delete_all(&self) -> IndexResult<()> {
         let mut connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
         let transaction = connection.transaction()?;
-        transaction.execute("DELETE FROM chunk_embeddings", [])?;
+        transaction.execute("DELETE FROM vector_embeddings", [])?;
         transaction.execute("DELETE FROM search_fts", [])?;
         transaction.execute("DELETE FROM answer_cache", [])?;
         transaction.execute("DELETE FROM enrichment_artifacts", [])?;
@@ -539,6 +744,278 @@ impl IndexDatabase {
 mod tests {
     use super::*;
     use crate::search::test_support::SearchFixture;
+
+    #[test]
+    fn sqlite_vector_runtime_is_pinned() {
+        let connection = Connection::open_in_memory().unwrap();
+        let extension = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/vector.dll");
+        let info = register_or_load_sqlite_vector(&connection, &extension).unwrap();
+
+        assert_eq!(info.version, "1.0.0");
+        assert!(!info.backend.is_empty());
+    }
+
+    #[test]
+    fn sqlite_vector_runtime_rejects_version_drift() {
+        let error = validate_vector_runtime(VectorRuntimeInfo {
+            version: "1.0.1".to_owned(),
+            backend: "generic".to_owned(),
+        })
+        .unwrap_err()
+        .to_string();
+
+        assert_eq!(
+            error,
+            "Semantic search is unavailable: pinned sqlite-vector runtime version mismatch"
+        );
+    }
+
+    #[test]
+    fn migrates_vec0_to_sqlite_vector_rows() {
+        let fixture = SearchFixture::new("vec0-migration");
+        let database_path = fixture.root().join("index.sqlite");
+        let connection = Connection::open(&database_path).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE files (
+                   id INTEGER PRIMARY KEY,
+                   stable_id TEXT NOT NULL UNIQUE
+                 );
+                 CREATE TABLE chunks (
+                   id INTEGER PRIMARY KEY,
+                   file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+                   text TEXT NOT NULL
+                 );
+                 CREATE VIRTUAL TABLE search_fts USING fts5(file_id UNINDEXED, chunk_id UNINDEXED, body);
+                 CREATE TABLE chunk_embeddings_info(key TEXT PRIMARY KEY, value ANY);
+                 CREATE TABLE chunk_embeddings_chunks(chunk_id INTEGER PRIMARY KEY);
+                 CREATE TABLE chunk_embeddings_rowids(rowid INTEGER PRIMARY KEY);
+                 CREATE TABLE chunk_embeddings_vector_chunks00(rowid INTEGER PRIMARY KEY, vectors BLOB NOT NULL);
+                 INSERT INTO files(id, stable_id) VALUES (1, 'kept-file');
+                 INSERT INTO chunks(id, file_id, text) VALUES (11, 1, 'kept text');
+                 INSERT INTO search_fts(file_id, chunk_id, body) VALUES (1, 11, 'kept text');
+                 INSERT INTO chunk_embeddings_vector_chunks00(rowid, vectors) VALUES (11, x'00000000');
+                 PRAGMA user_version = 1;
+                 PRAGMA writable_schema = ON;
+                 INSERT INTO sqlite_schema(type, name, tbl_name, rootpage, sql)
+                 VALUES (
+                   'table',
+                   'chunk_embeddings',
+                   'chunk_embeddings',
+                   0,
+                   'CREATE VIRTUAL TABLE chunk_embeddings USING vec0(chunk_id INTEGER PRIMARY KEY, embedding FLOAT[768])'
+                 );
+                 PRAGMA writable_schema = RESET;",
+            )
+            .unwrap();
+        drop(connection);
+
+        let extension = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/vector.dll");
+        let database = IndexDatabase::open(&database_path, &extension).unwrap();
+        {
+            let connection = database.connection.lock().unwrap();
+            let version: u32 = connection
+                .query_row("PRAGMA user_version", [], |row| row.get(0))
+                .unwrap();
+            let embedding_sql: String = connection
+                .query_row(
+                    "SELECT sql FROM sqlite_schema WHERE name = 'vector_embeddings'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            let legacy_sql: String = connection
+                .query_row(
+                    "SELECT sql FROM sqlite_schema WHERE name = 'chunk_embeddings'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            let kept_rows: u32 = connection
+                .query_row(
+                    "SELECT count(*) FROM files
+                     JOIN chunks ON chunks.file_id = files.id
+                     JOIN search_fts ON CAST(search_fts.chunk_id AS INTEGER) = chunks.id",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            let vector_rows: u32 = connection
+                .query_row("SELECT count(*) FROM vector_embeddings", [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            let legacy_shadow_tables: u32 = connection
+                .query_row(
+                    "SELECT count(*) FROM sqlite_schema
+                     WHERE name GLOB 'chunk_embeddings_*'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            let integrity: String = connection
+                .query_row("PRAGMA integrity_check", [], |row| row.get(0))
+                .unwrap();
+
+            assert_eq!(version, 2);
+            assert_eq!(kept_rows, 1);
+            assert!(!embedding_sql.contains("VIRTUAL TABLE"));
+            assert!(legacy_sql.contains("VIRTUAL TABLE"));
+            assert_eq!(vector_rows, 0);
+            assert_eq!(legacy_shadow_tables, 4);
+            assert_eq!(integrity, "ok");
+        }
+        drop(database);
+
+        let reopened = IndexDatabase::open(&database_path, &extension).unwrap();
+        let connection = reopened.connection.lock().unwrap();
+        assert_eq!(
+            connection
+                .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
+                .unwrap(),
+            2
+        );
+    }
+
+    fn chunk_id(database: &IndexDatabase, stable_id: &str) -> i64 {
+        database
+            .connection
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT chunks.id FROM chunks
+                 JOIN files ON files.id = chunks.file_id
+                 WHERE files.stable_id = ?1",
+                [stable_id],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn exact_vector_search() {
+        let fixture = SearchFixture::new("exact-vector-search");
+        let database = IndexDatabase::open_memory().unwrap();
+        for (stable_id, name) in [
+            ("a", "a.txt"),
+            ("b", "b.txt"),
+            ("c", "c.txt"),
+            ("other", "other.txt"),
+        ] {
+            let path = fixture.file(name, stable_id.as_bytes());
+            database
+                .upsert_document(
+                    fixture.root(),
+                    &document(path, stable_id, &format!("hash-{stable_id}"), stable_id),
+                )
+                .unwrap();
+        }
+
+        let a = chunk_id(&database, "a");
+        let b = chunk_id(&database, "b");
+        let c = chunk_id(&database, "c");
+        let other = chunk_id(&database, "other");
+        database
+            .upsert_embedding(a, "model-a", 3, "hash-a", 1, &[1.0, 0.0, 0.0])
+            .unwrap();
+        database
+            .upsert_embedding(b, "model-a", 3, "hash-b", 1, &[0.8, 0.2, 0.0])
+            .unwrap();
+        database
+            .upsert_embedding(c, "model-a", 3, "hash-c", 1, &[0.0, 1.0, 0.0])
+            .unwrap();
+        database
+            .upsert_embedding(other, "model-b", 3, "hash-other", 1, &[1.0, 0.0, 0.0])
+            .unwrap();
+
+        let hits = database
+            .search_embeddings("model-a", 3, &[1.0, 0.0, 0.0], 2)
+            .unwrap();
+        assert_eq!(
+            hits.iter()
+                .map(|hit| hit.stable_id.as_str())
+                .collect::<Vec<_>>(),
+            ["a", "b"]
+        );
+        assert!(hits[0].distance <= hits[1].distance);
+        assert!(
+            database
+                .search_embeddings("model-a", 3, &[1.0, 0.0, 0.0], 0)
+                .unwrap()
+                .is_empty()
+        );
+
+        database
+            .upsert_embedding(c, "model-a", 3, "hash-c", 1, &[0.9, 0.1, 0.0])
+            .unwrap();
+        let updated = database
+            .search_embeddings("model-a", 3, &[0.0, 1.0, 0.0], 3)
+            .unwrap();
+        assert_ne!(updated[0].stable_id, "c");
+
+        database
+            .connection
+            .lock()
+            .unwrap()
+            .execute("DELETE FROM chunks WHERE id = ?1", [b])
+            .unwrap();
+        let after_delete = database
+            .search_embeddings("model-a", 3, &[1.0, 0.0, 0.0], 10)
+            .unwrap();
+        assert!(!after_delete.iter().any(|hit| hit.stable_id == "b"));
+
+        assert!(
+            database
+                .upsert_embedding(a, "model-a", 0, "hash-a", 1, &[])
+                .is_err()
+        );
+        assert!(
+            database
+                .upsert_embedding(a, "model-a", 3, "hash-a", 1, &[1.0, 0.0])
+                .is_err()
+        );
+        assert!(
+            database
+                .upsert_embedding(a, "model-a", 3, "hash-a", 1, &[f32::NAN, 0.0, 0.0])
+                .is_err()
+        );
+        assert!(
+            database
+                .search_embeddings("model-a", 3, &[f32::INFINITY, 0.0, 0.0], 1)
+                .is_err()
+        );
+        assert!(
+            database
+                .search_embeddings("model-a", 2, &[1.0, 0.0, 0.0], 1)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn lexical_search_survives_an_unavailable_vector_runtime() {
+        let fixture = SearchFixture::new("vector-fallback");
+        let database_path = fixture.root().join("index.sqlite");
+        let missing_extension = fixture.root().join("missing-vector.dll");
+        let database = IndexDatabase::open(&database_path, &missing_extension).unwrap();
+        let path = fixture.file("fallback.txt", b"lexical fallback");
+        database
+            .upsert_document(
+                fixture.root(),
+                &document(path, "fallback", "hash-fallback", "lexical fallback"),
+            )
+            .unwrap();
+
+        assert_eq!(
+            database.search("lexical", 1).unwrap()[0].stable_id,
+            "fallback"
+        );
+        let error = database
+            .search_embeddings("model-a", 3, &[1.0, 0.0, 0.0], 1)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("pinned sqlite-vector runtime could not be loaded"));
+        assert!(!error.contains(&fixture.root().to_string_lossy().into_owned()));
+    }
 
     fn document(path: PathBuf, stable_id: &str, hash: &str, text: &str) -> IndexedDocument {
         IndexedDocument {
@@ -563,8 +1040,8 @@ mod tests {
         let version: u32 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        let vec_version: String = connection
-            .query_row("SELECT vec_version()", [], |row| row.get(0))
+        let vector_version: String = connection
+            .query_row("SELECT vector_version()", [], |row| row.get(0))
             .unwrap();
         let tables: Vec<String> = connection
             .prepare(
@@ -577,11 +1054,11 @@ mod tests {
             .map(|row| row.unwrap())
             .collect();
 
-        assert_eq!(version, 1);
-        assert!(!vec_version.is_empty());
+        assert_eq!(version, 2);
+        assert_eq!(vector_version, "1.0.0");
         for expected in [
             "answer_cache",
-            "chunk_embeddings",
+            "vector_embeddings",
             "chunks",
             "enrichment_artifacts",
             "enrichment_jobs",
