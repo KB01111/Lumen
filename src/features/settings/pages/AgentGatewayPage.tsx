@@ -5,6 +5,7 @@ import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {GatewayStatusPanel} from '../../gateway/GatewayStatusPanel';
+import {ProviderRegistryList} from '../../gateway/ProviderRegistryList';
 import {useGatewayStore} from '../../gateway/gateway.store';
 import {ProviderRouteList} from '../../gateway/ProviderRouteList';
 import {ToolPermissionList} from '../../gateway/ToolPermissionList';
@@ -12,9 +13,15 @@ import {ConfirmationDialog} from '../components/ConfirmationDialog';
 import {SettingSection} from '../components/SettingSection';
 import {SettingsCallout, SettingsPage} from '../components/SettingsPage';
 import {StatusBadge} from '../components/StatusBadge';
-import {LumenTextField} from '../components/SettingsControls';
+import {LumenSelect, LumenTextField} from '../components/SettingsControls';
 import {useSettingsStore} from '../settings.store';
 import {isNativeRuntime, nativeAiService, type EnrichmentHealth, type GatewayHealth} from '../../../services/ai/native-ai-service';
+import {
+  providerRegistryService,
+  type ProviderId,
+  type ProviderRegistrySnapshot,
+  type ProviderRouteUpdate,
+} from '../../../services/ai/provider-registry-service';
 
 export function AgentGatewayPage({nativeRuntime}: {nativeRuntime?: boolean} = {}) {
   const gatewayState = useGatewayStore((state) => state.gatewayState);
@@ -33,16 +40,20 @@ export function AgentGatewayPage({nativeRuntime}: {nativeRuntime?: boolean} = {}
   const native = nativeRuntime ?? isNativeRuntime();
   const [health, setHealth] = useState<GatewayHealth>();
   const [enrichment, setEnrichment] = useState<EnrichmentHealth>();
+  const [registry, setRegistry] = useState<ProviderRegistrySnapshot>();
   const [credential, setCredential] = useState('');
+  const [credentialProvider, setCredentialProvider] = useState<ProviderId>('openai');
   const [nativeMessage, setNativeMessage] = useState('');
   const refresh = useCallback(async () => {
     if (!native) return;
-    const [gateway, worker] = await Promise.all([
+    const [gateway, worker, providerRegistry] = await Promise.all([
       nativeAiService.gatewayHealth(),
       nativeAiService.enrichmentHealth(),
+      providerRegistryService.list(),
     ]);
     setHealth(gateway);
     setEnrichment(worker);
+    setRegistry(providerRegistry);
   }, [native]);
   useEffect(() => {
     void refresh().catch((error: unknown) => setNativeMessage(String(error)));
@@ -51,8 +62,10 @@ export function AgentGatewayPage({nativeRuntime}: {nativeRuntime?: boolean} = {}
     const saved = await setCloudAnswerConsent(granted);
     if (!saved) {
       setNativeMessage('Cloud consent was not changed because the device setting could not be saved.');
+    } else if (native) {
+      await refresh();
     }
-  }, [setCloudAnswerConsent]);
+  }, [native, refresh, setCloudAnswerConsent]);
   const grantCloudConsent = useCallback(() => {
     void changeCloudConsent(true);
   }, [changeCloudConsent]);
@@ -80,24 +93,40 @@ export function AgentGatewayPage({nativeRuntime}: {nativeRuntime?: boolean} = {}
   const saveCredential = async () => {
     if (!credential.trim()) return;
     try {
-      await nativeAiService.saveCredential('openai', credential);
+      await nativeAiService.saveCredential(credentialProvider, credential);
       await nativeAiService.restartGateway();
       await refresh();
-      setNativeMessage('OpenAI credential saved in Windows Credential Manager.');
+      setNativeMessage(`${registry?.providers.find((provider) => provider.id === credentialProvider)?.label ?? 'Provider'} credential saved in Windows Credential Manager.`);
     } catch (error) {
-      setNativeMessage(`The OpenAI credential could not be saved or activated: ${error instanceof Error ? error.message : String(error)}`);
+      setNativeMessage(`The provider credential could not be saved or activated: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setCredential('');
     }
   };
   const deleteCredential = async () => {
     try {
-      await nativeAiService.deleteCredential('openai');
+      await nativeAiService.deleteCredential(credentialProvider);
       await refresh();
-      setNativeMessage('OpenAI credential removed.');
+      setNativeMessage(`${registry?.providers.find((provider) => provider.id === credentialProvider)?.label ?? 'Provider'} credential removed.`);
     } catch (error) {
-      setNativeMessage(`The OpenAI credential may still be configured: ${error instanceof Error ? error.message : String(error)}`);
+      setNativeMessage(`The provider credential may still be configured: ${error instanceof Error ? error.message : String(error)}`);
       await refresh().catch(() => undefined);
+    }
+  };
+  const setNativeRoute = async (update: ProviderRouteUpdate) => {
+    try {
+      const result = await providerRegistryService.setRoute(update);
+      setNativeMessage(result.message);
+      await refresh();
+    } catch (error) {
+      setNativeMessage(error instanceof Error ? error.message : 'The provider route could not be changed.');
+    }
+  };
+  const testNativeRoute = async (alias: string) => {
+    try {
+      setNativeMessage((await providerRegistryService.testRoute(alias)).message);
+    } catch (error) {
+      setNativeMessage(error instanceof Error ? error.message : 'The provider route could not be tested.');
     }
   };
 
@@ -111,24 +140,21 @@ export function AgentGatewayPage({nativeRuntime}: {nativeRuntime?: boolean} = {}
       </SettingsCallout>
       {nativeMessage || actionMessage ? <SettingsCallout>{nativeMessage || actionMessage}</SettingsCallout> : null}
       <SettingSection title="Virtual model routes" description="Stable aliases keep callers unchanged while providers change underneath.">
-        {native ? [
-          'lumen.answer.local', 'lumen.answer.cloud', 'lumen.embed.local', 'lumen.embed.cloud',
-          'lumen.vision.cloud', 'lumen.audio.cloud', 'lumen.rerank.cloud',
-        ].map((alias) => (
-          <div key={alias} className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
-            <LumenText weight="medium">{alias}</LumenText>
-            <LumenText tone="tertiary" variant="meta">Generated, secret-free route</LumenText>
-            <StatusBadge tone={alias.endsWith('.local') ? 'info' : health?.cloudCredentialConfigured && cloudConsent ? 'success' : 'warning'}>
-              {alias.endsWith('.local') ? 'Local' : !cloudConsent ? 'Needs consent' : health?.cloudCredentialConfigured ? 'Ready' : 'Needs key'}
-            </StatusBadge>
-          </div>
-        )) : <ProviderRouteList routes={routes} onChange={setRouteProvider} onTest={(id) => void testProvider(id)} />}
+        {native ? registry ? (
+          <ProviderRegistryList registry={registry} cloudConsent={cloudConsent} onSet={setNativeRoute} onTest={testNativeRoute} />
+        ) : <div className="p-5"><LumenText tone="tertiary" variant="meta">Loading provider registry…</LumenText></div>
+          : <ProviderRouteList routes={routes} onChange={setRouteProvider} onTest={(id) => void testProvider(id)} />}
       </SettingSection>
-      {native ? (
+      {native && registry ? (
         <SettingSection title="Provider credential" description="The value is written directly to Windows Credential Manager and never returned to React.">
-          <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
-            <LumenUiIcon className="text-accent" name="success" size="medium" />
-            <LumenTextField aria-label="OpenAI API key" type="password" placeholder="sk-…" value={credential} onChange={setCredential} />
+          <div className="grid min-h-16 grid-cols-[minmax(150px,.55fr)_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
+            <LumenSelect<ProviderId>
+              aria-label="Credential provider"
+              options={registry.providers.filter((provider) => provider.cloud).map((provider) => ({id: provider.id, label: provider.label}))}
+              value={credentialProvider}
+              onChange={setCredentialProvider}
+            />
+            <LumenTextField aria-label="Provider API key" type="password" placeholder="API key" value={credential} onChange={setCredential} />
             <div className="flex flex-wrap items-center gap-3">
               <LumenButton size="small" variant="primary" onPress={() => void saveCredential()}>Save</LumenButton>
               <LumenButton size="small" variant="quiet" onPress={() => void deleteCredential()}>Delete</LumenButton>

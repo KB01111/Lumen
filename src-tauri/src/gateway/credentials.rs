@@ -3,7 +3,13 @@ const SERVICE: &str = "com.bridgehammer.lumen.providers";
 fn allowed_provider(provider: &str) -> bool {
     matches!(
         provider,
-        "openai" | "openrouter" | "anthropic" | "mistral" | "gemini"
+        "openai"
+            | "openrouter"
+            | "anthropic"
+            | "mistral"
+            | "gemini"
+            | "google"
+            | "openai-compatible"
     )
 }
 

@@ -10,6 +10,7 @@ import {useSettingsStore} from '../settings/settings.store';
 import {useGatewayStore} from './gateway.store';
 import type {GatewayState, HardwareState, ModelState} from './gateway.types';
 import {nativeAiService} from '../../services/ai/native-ai-service';
+import {providerRegistryService} from '../../services/ai/provider-registry-service';
 
 function renderPage(children: React.ReactNode) {
   return render(<AppProviders appearance={{mode: 'dark', transparency: 'disabled', effects: 'reduced', motion: 'reduced'}}>{children}</AppProviders>);
@@ -93,10 +94,26 @@ describe('AgentGateway states and controls', () => {
     vi.spyOn(nativeAiService, 'enrichmentHealth').mockResolvedValue({
       state: 'ready', paused: false, controlPort: 8090, actorPort: 8091,
     });
+    vi.spyOn(providerRegistryService, 'list').mockResolvedValue({
+      providers: [
+        {id: 'local', label: 'Local runtime', cloud: false, credentialConfigured: true},
+        {id: 'openai', label: 'OpenAI', cloud: true, credentialConfigured: false},
+      ],
+      models: [
+        {id: 'local:qwen3.5:4b', label: 'Qwen 3.5 4B', providerId: 'local', capabilities: ['answer']},
+        {id: 'openai:gpt-5-mini', label: 'GPT-5 mini', providerId: 'openai', capabilities: ['answer']},
+      ],
+      routes: [
+        {alias: 'lumen.answer.local', capability: 'answer', providerId: 'local', modelId: 'local:qwen3.5:4b', status: 'ready', baseUrl: null, upstreamModel: null},
+        {alias: 'lumen.answer.cloud', capability: 'answer', providerId: 'openai', modelId: 'openai:gpt-5-mini', status: 'needsConsent', baseUrl: null, upstreamModel: null},
+      ],
+    });
 
     renderPage(<AgentGatewayPage nativeRuntime />);
 
     expect(await screen.findByText(/AgentGateway 1.0.0/)).toBeVisible();
+    expect(screen.getByText('lumen.answer.local')).toBeVisible();
+    expect(screen.getByLabelText('Model for lumen.answer.cloud')).toBeDisabled();
     expect(screen.queryByRole('region', {name: 'MCP services'})).not.toBeInTheDocument();
     expect(screen.queryByRole('region', {name: 'Tool permissions'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button', {name: /Preview/})).not.toBeInTheDocument();

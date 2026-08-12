@@ -63,10 +63,17 @@ pub fn run() {
             } else {
                 development_sidecar
             };
-            let gateway =
-                gateway::GatewaySupervisor::new(sidecar, &data_directory.join("runtime"))?;
+            let provider_registry = gateway::registry::ProviderRegistry::load(
+                data_directory.join("provider-routes.json"),
+            );
+            let gateway = gateway::GatewaySupervisor::new(
+                sidecar,
+                &data_directory.join("runtime"),
+                &provider_registry.routes(),
+            )?;
             let _ = gateway.start();
             app.manage(gateway);
+            app.manage(provider_registry);
             app.manage(gateway::answer::AnswerRuntime::default());
             app.manage(gateway::LocalRuntimeSupervisor::detect());
             let packaged_computer_use = app.path().resource_dir()?.join("lumen-computer-use.exe");
@@ -153,6 +160,9 @@ pub fn run() {
             gateway::credentials::set_provider_credential,
             gateway::credentials::delete_provider_credential,
             gateway::credentials::provider_credential_status,
+            gateway::registry::list_provider_registry,
+            gateway::registry::set_provider_route,
+            gateway::registry::test_provider_route,
             gateway::enrichment::enrichment_health,
             gateway::enrichment::enrichment_queue_status,
             gateway::enrichment::pause_enrichment,

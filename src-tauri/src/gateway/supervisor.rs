@@ -16,6 +16,7 @@ use super::{
         render_gateway_config,
     },
     credentials,
+    registry::AppliedRoute,
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -91,7 +92,11 @@ fn sha256_file(path: &Path) -> Result<String, String> {
 }
 
 impl GatewaySupervisor {
-    pub fn new(binary: PathBuf, runtime_directory: &Path) -> Result<Self, String> {
+    pub fn new(
+        binary: PathBuf,
+        runtime_directory: &Path,
+        routes: &[AppliedRoute],
+    ) -> Result<Self, String> {
         fs::create_dir_all(runtime_directory).map_err(|error| error.to_string())?;
         let ports = GatewayPorts {
             interactive: free_port()?,
@@ -102,9 +107,9 @@ impl GatewaySupervisor {
         let enrichment_config = runtime_directory.join("agentgateway.enrichment.yaml");
         let interactive_log = runtime_directory.join("agentgateway.interactive.log");
         let enrichment_log = runtime_directory.join("agentgateway.enrichment.log");
-        fs::write(&interactive_config, render_gateway_config(ports))
+        fs::write(&interactive_config, render_gateway_config(ports, routes))
             .map_err(|error| error.to_string())?;
-        fs::write(&enrichment_config, render_enrichment_config(ports))
+        fs::write(&enrichment_config, render_enrichment_config(ports, routes))
             .map_err(|error| error.to_string())?;
         Ok(Self {
             binary,
@@ -148,6 +153,9 @@ impl GatewaySupervisor {
         }
 
         let cloud_key = credentials::get("openai").unwrap_or_default();
+        let anthropic_key = credentials::get("anthropic").unwrap_or_default();
+        let google_key = credentials::get("google").unwrap_or_default();
+        let compatible_key = credentials::get("openai-compatible").unwrap_or_default();
         for (index, config_path) in self.config_paths.iter().enumerate() {
             let log =
                 fs::File::create(&self.log_paths[index]).map_err(|error| error.to_string())?;
@@ -158,6 +166,9 @@ impl GatewaySupervisor {
                 .arg(config_path)
                 .env("LUMEN_GATEWAY_BEARER", &self.bearer)
                 .env("LUMEN_OPENAI_API_KEY", &cloud_key)
+                .env("LUMEN_ANTHROPIC_API_KEY", &anthropic_key)
+                .env("LUMEN_GOOGLE_API_KEY", &google_key)
+                .env("LUMEN_OPENAI_COMPATIBLE_API_KEY", &compatible_key)
                 .env("LUMEN_LOCAL_BASE_URL", "http://127.0.0.1:13305/api/v1")
                 .env("LUMEN_LOCAL_API_KEY", "lumen-local")
                 .stdin(Stdio::null())
@@ -189,6 +200,92 @@ impl GatewaySupervisor {
             state.slots.clear();
         }
         self.start()
+    }
+
+    fn validate_config(&self, path: &Path) -> Result<(), String> {
+        if !self.binary.is_file() {
+            return Err(
+                "AgentGateway is not staged; the previous route remains applied.".to_owned(),
+            );
+        }
+        let output = Command::new(&self.binary)
+            .arg("-f")
+            .arg(path)
+            .arg("--validate-only")
+            .env("LUMEN_GATEWAY_BEARER", "lumen-validation-token")
+            .env("LUMEN_OPENAI_API_KEY", "validation")
+            .env("LUMEN_ANTHROPIC_API_KEY", "validation")
+            .env("LUMEN_GOOGLE_API_KEY", "validation")
+            .env("LUMEN_OPENAI_COMPATIBLE_API_KEY", "validation")
+            .env("LUMEN_LOCAL_BASE_URL", "http://127.0.0.1:13305/api/v1")
+            .env("LUMEN_LOCAL_API_KEY", "validation")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map_err(|_| "AgentGateway could not validate the candidate route.".to_owned())?;
+        if output.success() {
+            Ok(())
+        } else {
+            Err(
+                "AgentGateway rejected the candidate route; the previous route remains applied."
+                    .to_owned(),
+            )
+        }
+    }
+
+    pub fn apply_routes(&self, routes: &[AppliedRoute]) -> Result<(), String> {
+        let candidates = [
+            self.config_paths[0].with_extension("candidate.yaml"),
+            self.config_paths[1].with_extension("candidate.yaml"),
+        ];
+        let rendered = [
+            render_gateway_config(self.ports, routes),
+            render_enrichment_config(self.ports, routes),
+        ];
+        for (path, contents) in candidates.iter().zip(&rendered) {
+            fs::write(path, contents)
+                .map_err(|_| "The candidate provider route could not be staged.".to_owned())?;
+            if let Err(error) = self.validate_config(path) {
+                for candidate in &candidates {
+                    let _ = fs::remove_file(candidate);
+                }
+                return Err(error);
+            }
+        }
+        let previous = self
+            .config_paths
+            .iter()
+            .map(fs::read)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| "The current provider routes could not be backed up.".to_owned())?;
+        for (target, contents) in self.config_paths.iter().zip(&rendered) {
+            if fs::write(target, contents).is_err() {
+                for (previous_target, previous_contents) in
+                    self.config_paths.iter().zip(previous.iter())
+                {
+                    let _ = fs::write(previous_target, previous_contents);
+                }
+                for candidate in &candidates {
+                    let _ = fs::remove_file(candidate);
+                }
+                return Err(
+                    "The candidate provider route could not be installed; the previous route was restored."
+                        .to_owned(),
+                );
+            }
+        }
+        for candidate in &candidates {
+            let _ = fs::remove_file(candidate);
+        }
+        if let Err(error) = self.restart() {
+            for (target, contents) in self.config_paths.iter().zip(previous) {
+                let _ = fs::write(target, contents);
+            }
+            let _ = self.restart();
+            return Err(format!("{error}; the previous route was restored."));
+        }
+        Ok(())
     }
 
     pub fn health(&self) -> GatewayHealth {
@@ -227,7 +324,9 @@ impl GatewaySupervisor {
             interactive_port: self.ports.interactive,
             enrichment_port: self.ports.enrichment,
             admin_port: self.ports.admin,
-            cloud_credential_configured: credentials::get("openai").is_some(),
+            cloud_credential_configured: ["openai", "anthropic", "google", "openai-compatible"]
+                .iter()
+                .any(|provider| credentials::get(provider).is_some()),
             detail: state.detail.clone(),
         }
     }
@@ -296,7 +395,8 @@ mod tests {
     #[test]
     fn generated_config_is_secret_free_and_uses_loopback_admin() {
         let root = std::env::temp_dir().join(format!("lumen-gateway-{}", uuid::Uuid::new_v4()));
-        let supervisor = GatewaySupervisor::new(root.join("missing.exe"), &root).unwrap();
+        let routes = crate::gateway::registry::ProviderRegistry::in_memory().routes();
+        let supervisor = GatewaySupervisor::new(root.join("missing.exe"), &root, &routes).unwrap();
         let config = fs::read_to_string(&supervisor.config_paths[0]).unwrap();
         assert!(config.contains("adminAddr: 127.0.0.1:"));
         assert!(config.contains("$LUMEN_GATEWAY_BEARER"));
@@ -310,7 +410,8 @@ mod tests {
         let binary = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("binaries/agentgateway-x86_64-pc-windows-msvc.exe");
         let root = std::env::temp_dir().join(format!("lumen-gateway-{}", uuid::Uuid::new_v4()));
-        let supervisor = GatewaySupervisor::new(binary, &root).unwrap();
+        let routes = crate::gateway::registry::ProviderRegistry::in_memory().routes();
+        let supervisor = GatewaySupervisor::new(binary, &root, &routes).unwrap();
         supervisor.start().unwrap();
         thread::sleep(Duration::from_millis(500));
         let health = supervisor.health();
