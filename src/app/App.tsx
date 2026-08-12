@@ -76,6 +76,10 @@ function createDefaultSearchService() {
         cloudEnrichment: false,
       }] : [];
     },
+    getSearchPreferences: () => {
+      const {filenamePriority, recency} = useSettingsStore.getState().search;
+      return {filenamePriority, recency};
+    },
   });
 }
 
@@ -215,15 +219,25 @@ export function App({windowService = appWindowService}: AppProps = {}) {
     }
   }, [keepLocalWarm, runtimeMode]);
 
-  const completeOnboarding = useCallback(() => {
+  const completeOnboarding = useCallback(async () => {
     const root = useOnboardingStore.getState().root;
     if (!root) {
-      return;
+      return false;
     }
     const settings = useSettingsStore.getState();
     if (!settings.roots.some((item) => item.path.toLocaleLowerCase() === root.toLocaleLowerCase())) {
-      void settings.setRoots([...settings.roots, createIndexedRoot(root)]);
+      if (!await settings.setRoots([...settings.roots, createIndexedRoot(root)])) {
+        return false;
+      }
     }
+    if (isNativeRuntime()) {
+      const current = useSettingsStore.getState();
+      await nativeAiService.synchronizeRoots(current.roots.filter((item) => !item.paused).map((item) => ({
+        path: item.path,
+        cloudEnrichment: current.ai.cloudEnrichedRootIds.includes(item.id),
+      })));
+    }
+    return true;
   }, []);
 
   const showOnboarding = !foundationPreview && !galleryPreview && (

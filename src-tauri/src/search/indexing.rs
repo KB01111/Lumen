@@ -8,7 +8,10 @@ use sha2::{Digest, Sha256};
 use tauri::State;
 
 use super::extraction::extract_document;
-use super::index::{IndexDatabase, IndexedDocument, IndexedHit};
+use super::index::{
+    DeletedIndexData, HistoryClearResult, HistoryStatus, IndexDatabase, IndexedDocument,
+    IndexedHit, VectorStatus,
+};
 use super::root_policy::canonicalize_root;
 use super::traversal;
 use super::types::SearchFailure;
@@ -29,6 +32,16 @@ pub struct IndexStatus {
     pub queued_enrichment: u64,
     pub skipped_items: u64,
     pub message: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeDiagnostics {
+    pub indexed_files: u64,
+    pub indexed_chunks: u64,
+    pub history_entries: u64,
+    pub history_enabled: bool,
+    pub vector: VectorStatus,
 }
 
 #[derive(Clone)]
@@ -63,9 +76,14 @@ fn stable_id(root: &Path, path: &Path) -> String {
 }
 
 impl IndexRuntime {
-    pub fn open(path: &Path, vector_extension: &Path) -> Result<Self, SearchFailure> {
+    pub fn open(
+        path: &Path,
+        vector_extension: &Path,
+        history_enabled: bool,
+    ) -> Result<Self, SearchFailure> {
         let database = IndexDatabase::open(path, vector_extension)
             .map_err(|error| search_failure("open the index", error))?;
+        database.set_history_enabled(history_enabled);
         let (indexed_items, queued_enrichment) = database
             .counts()
             .map_err(|error| search_failure("read index status", error))?;
@@ -117,6 +135,57 @@ impl IndexRuntime {
         self.database
             .queued_jobs()
             .map_err(|error| search_failure("read enrichment jobs", error))
+    }
+
+    fn set_history_enabled(&self, enabled: bool) {
+        self.database.set_history_enabled(enabled);
+    }
+
+    fn history_status(&self) -> Result<HistoryStatus, SearchFailure> {
+        self.database
+            .history_status()
+            .map_err(|error| search_failure("read search history status", error))
+    }
+
+    fn clear_history(&self) -> Result<HistoryClearResult, SearchFailure> {
+        self.database
+            .clear_history()
+            .map_err(|error| search_failure("clear search history", error))
+    }
+
+    fn native_diagnostics(&self) -> Result<NativeDiagnostics, SearchFailure> {
+        let (indexed_files, indexed_chunks) = self
+            .database
+            .operational_counts()
+            .map_err(|error| search_failure("read index diagnostics", error))?;
+        let history = self.history_status()?;
+        Ok(NativeDiagnostics {
+            indexed_files,
+            indexed_chunks,
+            history_entries: history.entry_count,
+            history_enabled: history.enabled,
+            vector: self.database.vector_status(),
+        })
+    }
+
+    fn delete_indexed_content(&self) -> Result<DeletedIndexData, SearchFailure> {
+        let _synchronization = self
+            .synchronization
+            .lock()
+            .map_err(|error| search_failure("lock the indexing worker", error))?;
+        self.generation.fetch_add(1, Ordering::SeqCst);
+        let deleted = self
+            .database
+            .delete_indexed_content()
+            .map_err(|error| search_failure("delete generated index data", error))?;
+        self.set_status(IndexStatus {
+            phase: "ready".to_owned(),
+            indexed_items: 0,
+            queued_enrichment: 0,
+            skipped_items: 0,
+            message: "Local index data deleted; source files were not changed".to_owned(),
+        });
+        Ok(deleted)
     }
 
     fn synchronize(&self, roots: Vec<IndexRootRequest>) -> Result<IndexStatus, SearchFailure> {
@@ -246,42 +315,54 @@ pub async fn search_indexed(
             .synchronization
             .lock()
             .map_err(|error| search_failure("lock the indexing worker", error))?;
-        runtime
+        let hits = runtime
             .database
             .search(&query, limit.min(10_000))
-            .map_err(|error| search_failure("search the local index", error))
+            .map_err(|error| search_failure("search the local index", error))?;
+        runtime
+            .database
+            .record_user_query(&query, !hits.is_empty())
+            .map_err(|error| search_failure("record search history", error))?;
+        Ok(hits)
     })
     .await
     .map_err(|error| search_failure("join the index search", error))?
 }
 
 #[tauri::command]
+pub fn set_history_enabled(state: State<'_, IndexRuntime>, enabled: bool) {
+    state.set_history_enabled(enabled);
+}
+
+#[tauri::command]
+pub fn get_search_history_status(
+    state: State<'_, IndexRuntime>,
+) -> Result<HistoryStatus, SearchFailure> {
+    state.history_status()
+}
+
+#[tauri::command]
+pub fn clear_search_history(
+    state: State<'_, IndexRuntime>,
+) -> Result<HistoryClearResult, SearchFailure> {
+    state.clear_history()
+}
+
+#[tauri::command]
+pub fn get_native_diagnostics(
+    state: State<'_, IndexRuntime>,
+) -> Result<NativeDiagnostics, SearchFailure> {
+    state.native_diagnostics()
+}
+
+#[tauri::command]
 pub async fn delete_index_data(
     state: State<'_, IndexRuntime>,
-) -> Result<IndexStatus, SearchFailure> {
+) -> Result<DeletedIndexData, SearchFailure> {
     let runtime = state.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let _synchronization = runtime
-            .synchronization
-            .lock()
-            .map_err(|error| search_failure("lock the indexing worker", error))?;
-        runtime.generation.fetch_add(1, Ordering::SeqCst);
-        runtime
-            .database
-            .delete_all()
-            .map_err(|error| search_failure("delete generated index data", error))?;
-        let status = IndexStatus {
-            phase: "ready".to_owned(),
-            indexed_items: 0,
-            queued_enrichment: 0,
-            skipped_items: 0,
-            message: "Local index data deleted; source files were not changed".to_owned(),
-        };
-        runtime.set_status(status.clone());
-        Ok(status)
-    })
-    .await
-    .map_err(|error| search_failure("join the index deletion worker", error))?
+    tauri::async_runtime::spawn_blocking(move || runtime.delete_indexed_content())
+        .await
+        .map_err(|error| search_failure("join the index deletion worker", error))?
 }
 
 #[cfg(test)]
@@ -290,12 +371,60 @@ mod tests {
     use crate::search::test_support::SearchFixture;
 
     #[test]
+    fn runtime_history_and_diagnostics_are_durable_and_redacted() {
+        let fixture = SearchFixture::new("runtime-privacy-data");
+        fixture.file("private-report.txt", b"quarterly private report");
+        let database_path = fixture.root().parent().unwrap().join("index.sqlite");
+        let vector_extension = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/vector.dll");
+        let runtime = IndexRuntime::open(&database_path, &vector_extension, false).unwrap();
+        runtime
+            .synchronize(vec![IndexRootRequest {
+                path: fixture.root().to_string_lossy().into_owned(),
+                cloud_enrichment: false,
+            }])
+            .unwrap();
+
+        assert_eq!(runtime.answer_context("quarterly", 10).unwrap().len(), 1);
+        assert_eq!(runtime.history_status().unwrap().entry_count, 0);
+        runtime.set_history_enabled(true);
+        assert_eq!(runtime.answer_context("quarterly", 10).unwrap().len(), 1);
+        assert_eq!(runtime.history_status().unwrap().entry_count, 0);
+        runtime
+            .database
+            .record_user_query("quarterly", true)
+            .unwrap();
+        let status = runtime.history_status().unwrap();
+        assert_eq!(status.entry_count, 1);
+        assert!(status.enabled);
+
+        let diagnostics = runtime.native_diagnostics().unwrap();
+        assert_eq!(diagnostics.indexed_files, 1);
+        assert_eq!(diagnostics.indexed_chunks, 1);
+        assert_eq!(diagnostics.history_entries, 1);
+        assert!(diagnostics.vector.available);
+        let serialized = serde_json::to_string(&diagnostics).unwrap();
+        assert!(!serialized.contains("private-report"));
+        assert!(!serialized.contains(&fixture.root().to_string_lossy().into_owned()));
+
+        let deleted = runtime.delete_indexed_content().unwrap();
+        assert_eq!(deleted.deleted_files, 1);
+        assert_eq!(deleted.deleted_chunks, 1);
+        assert_eq!(runtime.history_status().unwrap().entry_count, 1);
+        drop(runtime);
+
+        let reopened = IndexRuntime::open(&database_path, &vector_extension, false).unwrap();
+        let persisted = reopened.history_status().unwrap();
+        assert_eq!(persisted.entry_count, 1);
+        assert!(!persisted.enabled);
+    }
+
+    #[test]
     fn cloud_jobs_require_explicit_root_consent() {
         let fixture = SearchFixture::new("index-runtime-consent");
         fixture.file("scan.png", &[0, 1, 2]);
         let database_path = fixture.root().join("index.sqlite");
         let vector_extension = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/vector.dll");
-        let runtime = IndexRuntime::open(&database_path, &vector_extension).unwrap();
+        let runtime = IndexRuntime::open(&database_path, &vector_extension, true).unwrap();
 
         let private = runtime
             .synchronize(vec![IndexRootRequest {

@@ -93,6 +93,7 @@ describe('core settings pages', () => {
       setLaunchAtStartup: vi.fn(async () => undefined),
       setMonitorBehavior: vi.fn(async () => undefined),
       setCloseBehavior: vi.fn(async () => undefined),
+      setHistoryEnabled: vi.fn(async () => undefined),
     };
     renderWithProviders(<GeneralPage runtimeService={runtimeService} />);
 
@@ -101,14 +102,17 @@ describe('core settings pages', () => {
     await user.click(screen.getByRole('option', {name: 'Primary monitor'}));
     await user.click(screen.getByRole('button', {name: /Launcher close behavior/}));
     await user.click(screen.getByRole('option', {name: 'Quit Lumen'}));
+    await user.click(screen.getByRole('switch', {name: 'Search history'}));
 
     await waitFor(() => expect(runtimeService.setLaunchAtStartup).toHaveBeenCalledWith(true));
     expect(runtimeService.setMonitorBehavior).toHaveBeenCalledWith('primary');
     expect(runtimeService.setCloseBehavior).toHaveBeenCalledWith('quit');
+    expect(runtimeService.setHistoryEnabled).toHaveBeenCalledWith(false);
     expect(useSettingsStore.getState().general).toMatchObject({
       launchAtStartup: true,
       monitorBehavior: 'primary',
       closeBehavior: 'quit',
+      historyEnabled: false,
     });
   });
 
@@ -120,6 +124,7 @@ describe('core settings pages', () => {
       }),
       setMonitorBehavior: vi.fn(async () => undefined),
       setCloseBehavior: vi.fn(async () => undefined),
+      setHistoryEnabled: vi.fn(async () => undefined),
     };
     renderWithProviders(<GeneralPage runtimeService={runtimeService} />);
 
@@ -135,6 +140,7 @@ describe('core settings pages', () => {
       setLaunchAtStartup: vi.fn(async () => undefined),
       setMonitorBehavior: vi.fn(async () => undefined),
       setCloseBehavior: vi.fn(async () => undefined),
+      setHistoryEnabled: vi.fn(async () => undefined),
     };
     useSettingsStore.setState({updateGeneral: vi.fn(async () => false)});
     renderWithProviders(<GeneralPage runtimeService={runtimeService} />);
@@ -234,13 +240,14 @@ describe('core settings pages', () => {
     expect(nativeAiService.synchronizeRoots).toHaveBeenCalledWith([]);
   });
 
-  it('labels semantic search and reranking as unavailable in phase one', () => {
+  it('shows only ranking controls that affect production search', () => {
     renderWithProviders(<SearchPage />);
 
-    expect(screen.getByText('Semantic search is not connected in phase one.')).toBeVisible();
-    expect(screen.getByText('Reranking is not connected in phase one.')).toBeVisible();
-    expect(screen.getByRole('switch', {name: 'Semantic search'})).toBeDisabled();
-    expect(screen.getByRole('switch', {name: 'Reranking'})).toBeDisabled();
+    expect(screen.getByRole('slider', {name: 'Filename priority'})).toBeEnabled();
+    expect(screen.getByLabelText('Recency preference')).toBeEnabled();
+    expect(screen.queryByRole('switch', {name: 'Semantic search'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', {name: 'Reranking'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', {name: 'Pinned items'})).not.toBeInTheDocument();
   });
 
   it('records Computer Use cloud consent separately from answer consent', async () => {

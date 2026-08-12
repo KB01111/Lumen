@@ -1,6 +1,6 @@
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {afterEach, describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {AppProviders} from '../../app/AppProviders';
 import {LauncherStatus} from '../launcher/LauncherStatus';
@@ -9,6 +9,7 @@ import {LocalAiPage} from '../settings/pages/LocalAiPage';
 import {useSettingsStore} from '../settings/settings.store';
 import {useGatewayStore} from './gateway.store';
 import type {GatewayState, HardwareState, ModelState} from './gateway.types';
+import {nativeAiService} from '../../services/ai/native-ai-service';
 
 function renderPage(children: React.ReactNode) {
   return render(<AppProviders appearance={{mode: 'dark', transparency: 'disabled', effects: 'reduced', motion: 'reduced'}}>{children}</AppProviders>);
@@ -82,5 +83,22 @@ describe('AgentGateway states and controls', () => {
 
     await user.click(screen.getByRole('button', {name: 'Test Files MCP'}));
     expect(await screen.findByText('Files MCP preview exposed 3 tools.')).toBeVisible();
+  });
+
+  it('does not expose simulated MCP or permission controls in the native app', async () => {
+    vi.spyOn(nativeAiService, 'gatewayHealth').mockResolvedValue({
+      state: 'ready', version: '1.0.0', interactivePort: 8080, enrichmentPort: 8081,
+      adminPort: 8082, cloudCredentialConfigured: false,
+    });
+    vi.spyOn(nativeAiService, 'enrichmentHealth').mockResolvedValue({
+      state: 'ready', paused: false, controlPort: 8090, actorPort: 8091,
+    });
+
+    renderPage(<AgentGatewayPage nativeRuntime />);
+
+    expect(await screen.findByText(/AgentGateway 1.0.0/)).toBeVisible();
+    expect(screen.queryByRole('region', {name: 'MCP services'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', {name: 'Tool permissions'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /Preview/})).not.toBeInTheDocument();
   });
 });

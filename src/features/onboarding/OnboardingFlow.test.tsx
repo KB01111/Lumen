@@ -59,31 +59,55 @@ describe('OnboardingFlow', () => {
     expect(screen.getByTestId('onboarding-primary-action').closest('footer')?.parentElement).toBe(surface);
   });
 
-  it('completes all eight scenes with a selected root and shortcut', async () => {
+  it('completes four focused scenes only after native setup succeeds', async () => {
     const user = userEvent.setup();
     const service = new DeferredRootService();
-    renderFlow(service);
+    const onComplete = vi.fn(async () => true);
+    const windowService = new BrowserWindowService();
+    const setShortcut = vi.spyOn(windowService, 'setShortcut');
+    render(
+      <LumenMotionProvider reducedMotion>
+        <OnboardingFlow rootService={service} windowService={windowService} onComplete={onComplete} />
+      </LumenMotionProvider>,
+    );
 
     await user.click(screen.getByRole('button', {name: 'Begin'}));
-    await user.click(screen.getByRole('button', {name: 'Continue'}));
     await user.click(await screen.findByRole('button', {name: 'Choose folder'}));
     await act(async () => service.resolve('C:\\Projects'));
     expect(screen.getByText('C:\\Projects')).toBeVisible();
 
-    for (let index = 0; index < 5; index += 1) {
-      await user.click(screen.getByRole('button', {name: 'Continue'}));
-    }
+    await user.click(screen.getByRole('button', {name: 'Continue'}));
+    await user.click(screen.getByRole('button', {name: 'Continue'}));
+    expect(screen.getByLabelText('Step 4 of 4')).toBeVisible();
     await user.click(screen.getByRole('button', {name: 'Start using Lumen'}));
 
-    expect(useOnboardingStore.getState()).toMatchObject({
-      completed: true,
-      root: 'C:\\Projects',
-      shortcut: 'Alt + Space',
-    });
+    await waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+    expect(setShortcut).toHaveBeenCalledWith('Alt + Space');
+    expect(useOnboardingStore.getState()).toMatchObject({completed: true, root: 'C:\\Projects'});
     expect(JSON.parse(localStorage.getItem('lumen-onboarding') ?? '{}')).toMatchObject({
       completed: true,
       root: 'C:\\Projects',
     });
+  });
+
+  it('keeps onboarding open when native setup fails', async () => {
+    const user = userEvent.setup();
+    const service = new DeferredRootService();
+    render(
+      <LumenMotionProvider reducedMotion>
+        <OnboardingFlow rootService={service} onComplete={async () => false} />
+      </LumenMotionProvider>,
+    );
+
+    await user.click(screen.getByRole('button', {name: 'Begin'}));
+    await user.click(await screen.findByRole('button', {name: 'Choose folder'}));
+    await act(async () => service.resolve('C:\\Projects'));
+    await user.click(screen.getByRole('button', {name: 'Continue'}));
+    await user.click(screen.getByRole('button', {name: 'Continue'}));
+    await user.click(screen.getByRole('button', {name: 'Start using Lumen'}));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not start');
+    expect(useOnboardingStore.getState().completed).toBe(false);
   });
 
   it('keeps the selected root when navigating back with Escape', async () => {
@@ -92,7 +116,6 @@ describe('OnboardingFlow', () => {
     renderFlow(service);
 
     await user.click(screen.getByRole('button', {name: 'Begin'}));
-    await user.click(screen.getByRole('button', {name: 'Continue'}));
     await user.click(await screen.findByRole('button', {name: 'Choose folder'}));
     await act(async () => service.resolve('C:\\Work'));
     await user.click(screen.getByRole('button', {name: 'Continue'}));
@@ -108,7 +131,6 @@ describe('OnboardingFlow', () => {
     renderFlow(service);
 
     await user.click(screen.getByRole('button', {name: 'Begin'}));
-    await user.click(screen.getByRole('button', {name: 'Continue'}));
     await user.click(await screen.findByRole('button', {name: 'Choose folder'}));
     await act(async () => service.resolve(null));
 
@@ -168,7 +190,6 @@ describe('OnboardingFlow', () => {
     renderFlow({chooseRoot: vi.fn()});
 
     await user.click(screen.getByRole('button', {name: 'Begin'}));
-    await user.click(screen.getByRole('button', {name: 'Continue'}));
 
     const chooseFolder = await screen.findByRole('button', {name: 'Choose folder'});
     expect(screen.getAllByRole('button').filter((button) => button.dataset.variant === 'primary')).toHaveLength(1);

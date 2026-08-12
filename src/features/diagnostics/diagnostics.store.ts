@@ -47,7 +47,7 @@ interface DiagnosticsState {
   lastExport: DiagnosticsExport | null;
   refresh(): void;
   sampleRefreshRate(): Promise<number>;
-  prepareExport(): DiagnosticsExport;
+  prepareExport(native?: unknown): DiagnosticsExport;
   setOverlay(open: boolean): void;
   toggleOverlay(): void;
   reset(): void;
@@ -80,8 +80,10 @@ export const useDiagnosticsStore = create<DiagnosticsState>()(
       set({snapshot: buildSnapshot(refreshRateHz)});
       return refreshRateHz;
     },
-    prepareExport: () => {
-      const payload = createDiagnosticsExport(get().snapshot);
+    prepareExport: (native) => {
+      const payload = createDiagnosticsExport(native === undefined
+        ? get().snapshot
+        : {frontend: get().snapshot, native});
       set({lastExport: payload});
       return payload;
     },

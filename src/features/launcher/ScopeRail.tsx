@@ -16,8 +16,6 @@ export const searchScopes: ReadonlyArray<{id: SearchScope; label: string}> = [
   {id: 'documents', label: 'Documents'},
   {id: 'code', label: 'Code'},
   {id: 'images', label: 'Images'},
-  {id: 'recent', label: 'Recent'},
-  {id: 'related', label: 'Related'},
 ];
 
 export function ScopeRail() {

@@ -1,9 +1,8 @@
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {SettingRow} from '../components/SettingRow';
 import {SettingSection} from '../components/SettingSection';
-import {LumenCheckbox, LumenSelect, LumenSlider, LumenSwitch} from '../components/SettingsControls';
+import {LumenCheckbox, LumenSelect, LumenSlider} from '../components/SettingsControls';
 import {SettingsPage} from '../components/SettingsPage';
-import {StatusBadge} from '../components/StatusBadge';
 import type {SearchSettings} from '../settings.schema';
 import {useSettingsStore} from '../settings.store';
 
@@ -14,8 +13,6 @@ const scopes = [
   ['documents', 'Documents'],
   ['code', 'Code'],
   ['images', 'Images'],
-  ['recent', 'Recent'],
-  ['related', 'Related'],
 ] as const;
 
 export function SearchPage() {
@@ -57,25 +54,6 @@ export function SearchPage() {
             value={search.recency}
             onChange={(recency) => void updateSearch({recency})}
           />
-        </SettingRow>
-        <SettingRow label="Pinned items" description="Keep pinned local files visible when they match.">
-          <LumenSwitch aria-label="Pinned items" isSelected={search.showPinned} onChange={(showPinned) => void updateSearch({showPinned})} />
-        </SettingRow>
-      </SettingSection>
-      <SettingSection title="Future relevance" description="These controls expose the planned state without pretending the backend exists.">
-        <SettingRow
-          label="Semantic search"
-          description="Semantic search is not connected in phase one."
-          status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}
-        >
-          <LumenSwitch aria-label="Semantic search" isDisabled isSelected={false} />
-        </SettingRow>
-        <SettingRow
-          label="Reranking"
-          description="Reranking is not connected in phase one."
-          status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}
-        >
-          <LumenSwitch aria-label="Reranking" isDisabled isSelected={false} />
         </SettingRow>
       </SettingSection>
       <LumenText tone="tertiary" variant="caption">Exact filename and folder search remains available with every AI provider off.</LumenText>

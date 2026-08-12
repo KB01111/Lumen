@@ -135,7 +135,7 @@ export const defaultSettings: LumenSettings = settingsSchema.parse({
   },
   roots: [],
   search: {
-    enabledScopes: ['all', 'files', 'folders', 'documents', 'code', 'images', 'recent', 'related'],
+    enabledScopes: ['all', 'files', 'folders', 'documents', 'code', 'images'],
     filenamePriority: 82,
     recency: 'balanced',
     showPinned: true,

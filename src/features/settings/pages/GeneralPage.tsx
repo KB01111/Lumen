@@ -107,7 +107,12 @@ export function GeneralPage({
           <LumenSwitch
             aria-label="Search history"
             isSelected={general.historyEnabled}
-            onChange={(historyEnabled) => void updateGeneral({historyEnabled})}
+            onChange={(historyEnabled) => void applyRuntimeSetting(
+              {historyEnabled},
+              () => runtimeService.setHistoryEnabled(historyEnabled),
+              () => runtimeService.setHistoryEnabled(general.historyEnabled),
+              {historyEnabled: general.historyEnabled},
+            )}
           />
         </SettingRow>
         <SettingRow label="When the launcher closes" description="Hiding keeps the warm interface ready for the next shortcut.">

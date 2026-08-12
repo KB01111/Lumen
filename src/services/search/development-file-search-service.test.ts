@@ -104,6 +104,34 @@ describe('DevelopmentFileSearchService', () => {
     expect(second.groups[0]?.items[0]?.id).toBe(first.groups[0]?.items[0]?.id);
   });
 
+  it('applies the persisted filename and recency ranking preferences', async () => {
+    const now = Date.now();
+    const invoke = vi.fn(async (command: string) => {
+      if (command === 'search_filenames') return {
+        ...rustResponse(),
+        items: [
+          {...rustResponse().items[0], name: 'Older exact.md', relativePath: 'Older exact.md', path: 'C:\\Projects\\Older exact.md', score: 0.95, modifiedMs: now - 120 * 86_400_000},
+          {...rustResponse().items[0], name: 'Recent readme.md', relativePath: 'Recent readme.md', path: 'C:\\Projects\\Recent readme.md', score: 0.82, modifiedMs: now},
+        ],
+        total: 2,
+      };
+      if (command === 'search_indexed') return [];
+      return undefined;
+    });
+    const service = new DevelopmentFileSearchService({
+      getRoots: () => ['C:\\Projects'],
+      getSearchPreferences: () => ({filenamePriority: 20, recency: 'high'}),
+      invoke,
+    });
+
+    const response = await service.search(request);
+
+    expect(response.groups[0]?.items.map((item) => item.name)).toEqual([
+      'Recent readme.md',
+      'Older exact.md',
+    ]);
+  });
+
   it('maps previews and opener commands through the known confined file', async () => {
     const invoke = vi.fn(async (command: string) => {
       if (command === 'search_filenames') return rustResponse();

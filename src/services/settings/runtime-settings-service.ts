@@ -7,12 +7,14 @@ export interface RuntimeSettingsService {
   setLaunchAtStartup(enabled: boolean): Promise<void>;
   setMonitorBehavior(behavior: GeneralSettings['monitorBehavior']): Promise<void>;
   setCloseBehavior(behavior: GeneralSettings['closeBehavior']): Promise<void>;
+  setHistoryEnabled(enabled: boolean): Promise<void>;
 }
 
 class BrowserRuntimeSettingsService implements RuntimeSettingsService {
   async setLaunchAtStartup() {}
   async setMonitorBehavior() {}
   async setCloseBehavior() {}
+  async setHistoryEnabled() {}
 }
 
 class TauriRuntimeSettingsService implements RuntimeSettingsService {
@@ -26,6 +28,10 @@ class TauriRuntimeSettingsService implements RuntimeSettingsService {
 
   async setCloseBehavior(behavior: GeneralSettings['closeBehavior']) {
     await invoke('set_close_behavior', {behavior});
+  }
+
+  async setHistoryEnabled(enabled: boolean) {
+    await invoke('set_history_enabled', {enabled});
   }
 }
 

@@ -16,7 +16,7 @@ import {LumenTextField} from '../components/SettingsControls';
 import {useSettingsStore} from '../settings.store';
 import {isNativeRuntime, nativeAiService, type EnrichmentHealth, type GatewayHealth} from '../../../services/ai/native-ai-service';
 
-export function AgentGatewayPage() {
+export function AgentGatewayPage({nativeRuntime}: {nativeRuntime?: boolean} = {}) {
   const gatewayState = useGatewayStore((state) => state.gatewayState);
   const routes = useGatewayStore((state) => state.routes);
   const services = useGatewayStore((state) => state.mcpServices);
@@ -30,7 +30,7 @@ export function AgentGatewayPage() {
   const cloudConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
   const setCloudAnswerConsent = useSettingsStore((state) => state.setCloudAnswerConsent);
-  const native = isNativeRuntime();
+  const native = nativeRuntime ?? isNativeRuntime();
   const [health, setHealth] = useState<GatewayHealth>();
   const [enrichment, setEnrichment] = useState<EnrichmentHealth>();
   const [credential, setCredential] = useState('');
@@ -110,7 +110,7 @@ export function AgentGatewayPage() {
           : 'AgentGateway stays behind Rust IPC; the webview has no direct network route.'}
       </SettingsCallout>
       {nativeMessage || actionMessage ? <SettingsCallout>{nativeMessage || actionMessage}</SettingsCallout> : null}
-      <SettingSection title="Virtual model routes" description="Aliases let future callers use a stable name while providers change underneath.">
+      <SettingSection title="Virtual model routes" description="Stable aliases keep callers unchanged while providers change underneath.">
         {native ? [
           'lumen.answer.local', 'lumen.answer.cloud', 'lumen.embed.local', 'lumen.embed.cloud',
           'lumen.vision.cloud', 'lumen.audio.cloud', 'lumen.rerank.cloud',
@@ -176,33 +176,27 @@ export function AgentGatewayPage() {
           </div>
         </SettingSection>
       ) : null}
-      <SettingSection title="MCP services" description="Visible service and tool counts make unavailable states explicit.">
-        {services.map((service) => (
-          <div key={service.id} className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
-            <McpIcon className="text-accent" size={20} />
-            <div className="grid gap-1">
-              <LumenText weight="medium">{service.name}</LumenText>
-              <LumenText tone="tertiary" variant="meta">
-                {service.status === 'connected' ? `${service.toolCount} preview tools` : service.status === 'testing' ? 'Testing preview…' : 'Service unavailable'}
-              </LumenText>
-            </div>
-            <LumenButton aria-label={`Test ${service.name}`} size="small" variant="quiet" onPress={() => void testMcp(service.id)}>Test</LumenButton>
-          </div>
-        ))}
-      </SettingSection>
-      <SettingSection title="Tool permissions" description="Every future tool call has one explicit local permission policy.">
-        <ToolPermissionList permissions={permissions} onChange={setPermission} />
-      </SettingSection>
-      <SettingSection title="Sanitized diagnostics">
-        <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
-          <LumenUiIcon className="text-accent" name="bug" size="medium" />
-          <div className="grid gap-1">
-            <LumenText weight="medium">Gateway support snapshot</LumenText>
-            <LumenText tone="tertiary" variant="meta">Routes and states only. Secrets, prompts, and local paths are omitted.</LumenText>
-          </div>
-          <LumenButton size="small" variant="quiet"><LumenUiIcon name="connect" size="small" /> Preview</LumenButton>
-        </div>
-      </SettingSection>
+      {!native ? (
+        <>
+          <SettingSection title="MCP services" description="Development previews for service and tool-count states.">
+            {services.map((service) => (
+              <div key={service.id} className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle p-5 last:border-b-0">
+                <McpIcon className="text-accent" size={20} />
+                <div className="grid gap-1">
+                  <LumenText weight="medium">{service.name}</LumenText>
+                  <LumenText tone="tertiary" variant="meta">
+                    {service.status === 'connected' ? `${service.toolCount} preview tools` : service.status === 'testing' ? 'Testing preview…' : 'Service unavailable'}
+                  </LumenText>
+                </div>
+                <LumenButton aria-label={`Test ${service.name}`} size="small" variant="quiet" onPress={() => void testMcp(service.id)}>Test</LumenButton>
+              </div>
+            ))}
+          </SettingSection>
+          <SettingSection title="Tool permissions" description="Development preview of local tool policies.">
+            <ToolPermissionList permissions={permissions} onChange={setPermission} />
+          </SettingSection>
+        </>
+      ) : null}
     </SettingsPage>
   );
 }

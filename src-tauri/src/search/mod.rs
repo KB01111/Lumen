@@ -11,7 +11,7 @@ mod types;
 
 use std::path::Path;
 
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Runtime, State};
 
 pub(crate) use index::{EnrichmentJobRecord, IndexedHit};
 pub use indexing::IndexRuntime;
@@ -48,9 +48,15 @@ pub async fn get_file_metadata(root: String, path: String) -> Result<FileRecord,
 }
 
 #[tauri::command]
-pub async fn get_basic_preview(root: String, path: String) -> Result<BasicPreview, SearchFailure> {
+pub async fn get_basic_preview(
+    privacy: State<'_, crate::privacy::PrivacyRuntime>,
+    root: String,
+    path: String,
+) -> Result<BasicPreview, SearchFailure> {
+    privacy.ensure_previews_enabled()?;
+    let privacy = privacy.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        preview::get_basic_preview_impl(Path::new(&root), Path::new(&path))
+        get_basic_preview_if_enabled(&privacy, Path::new(&root), Path::new(&path))
     })
     .await
     .map_err(|error| SearchFailure::new("preview-failed", error.to_string(), None))?
@@ -72,6 +78,34 @@ pub fn open_containing_folder<R: Runtime>(
     path: String,
 ) -> Result<(), SearchFailure> {
     opening::open_containing_folder_impl(&app, Path::new(&root), Path::new(&path))
+}
+
+fn get_basic_preview_if_enabled(
+    privacy: &crate::privacy::PrivacyRuntime,
+    root: &Path,
+    path: &Path,
+) -> Result<BasicPreview, SearchFailure> {
+    privacy.ensure_previews_enabled()?;
+    preview::get_basic_preview_impl(root, path)
+}
+
+#[cfg(test)]
+mod privacy_tests {
+    use super::*;
+
+    #[test]
+    fn disabled_preview_wins_before_path_validation_or_file_reads() {
+        let privacy = crate::privacy::PrivacyRuntime::default();
+        privacy.set_previews_enabled(false);
+        let missing =
+            std::env::temp_dir().join(format!("lumen-disabled-preview-{}", uuid::Uuid::new_v4()));
+
+        let error = get_basic_preview_if_enabled(&privacy, &missing, &missing.join("secret.txt"))
+            .unwrap_err();
+
+        assert_eq!(error.code, "permission-denied");
+        assert_eq!(error.path, None);
+    }
 }
 
 #[cfg(test)]

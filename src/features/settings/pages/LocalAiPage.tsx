@@ -17,18 +17,18 @@ import {useSettingsStore} from '../settings.store';
 import {isNativeRuntime, nativeAiService, type LocalRuntimeHealth} from '../../../services/ai/native-ai-service';
 
 const hardwareCopy: Record<HardwareState, {label: string; description: string; icon: React.ReactNode; tone: 'success' | 'info' | 'warning'}> = {
-  npu: {label: 'Copilot+ NPU detected', description: 'The future on-device provider can prefer the neural processor.', icon: <NpuIcon size={28} />, tone: 'success'},
-  gpu: {label: 'GPU detected', description: 'A compatible graphics path is available for a future local provider.', icon: <LumenUiIcon name="hardware" size="large" />, tone: 'success'},
+  npu: {label: 'Copilot+ NPU detected', description: 'Local inference can prefer the neural processor.', icon: <NpuIcon size={28} />, tone: 'success'},
+  gpu: {label: 'GPU detected', description: 'A compatible graphics path is available for local inference.', icon: <LumenUiIcon name="hardware" size="large" />, tone: 'success'},
   cpu: {label: 'CPU fallback', description: 'Local inference can remain available at a lower throughput.', icon: <LumenUiIcon name="hardware" size="large" />, tone: 'info'},
-  unavailable: {label: 'Provider unavailable', description: 'No production local inference runtime is connected in phase one.', icon: <LumenUiIcon name="error" size="large" />, tone: 'warning'},
+  unavailable: {label: 'Provider unavailable', description: 'The local runtime is not installed or is not responding.', icon: <LumenUiIcon name="error" size="large" />, tone: 'warning'},
 };
 
 const modelCopy: Record<ModelState, {label: string; description: string; tone: 'success' | 'info' | 'warning' | 'error'}> = {
-  missing: {label: 'Model missing', description: 'Choose a future model before semantic features can start.', tone: 'warning'},
-  downloading: {label: 'Model downloading', description: 'The determinate progress state is ready for a real provider.', tone: 'info'},
-  loading: {label: 'Model loading', description: 'Weights are being prepared by the deterministic preview.', tone: 'info'},
-  ready: {label: 'Model ready', description: 'The local provider reports a ready interface state.', tone: 'success'},
-  failed: {label: 'Provider failed', description: 'The local provider returned a recoverable phase-one error.', tone: 'error'},
+  missing: {label: 'Model missing', description: 'No local model is available.', tone: 'warning'},
+  downloading: {label: 'Model downloading', description: 'The model is being downloaded.', tone: 'info'},
+  loading: {label: 'Model loading', description: 'The model is loading into the local runtime.', tone: 'info'},
+  ready: {label: 'Model ready', description: 'The local provider is ready.', tone: 'success'},
+  failed: {label: 'Provider failed', description: 'The local provider is not responding.', tone: 'error'},
   'fallback-active': {label: 'Provider fallback active', description: 'Lumen has moved to CPU fallback without interrupting exact search.', tone: 'warning'},
 };
 
@@ -49,6 +49,7 @@ function ModelProgress({value}: {value: number}) {
 }
 
 export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' | 'state'> & Partial<LocalAiViewModel>}) {
+  const native = isNativeRuntime();
   const storedHardware = useGatewayStore((state) => state.hardwareState);
   const storedModel = useGatewayStore((state) => state.modelState);
   const storedProgress = useGatewayStore((state) => state.modelProgress);
@@ -61,14 +62,14 @@ export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' 
   const [nativeHealth, setNativeHealth] = useState<LocalRuntimeHealth>();
   const [nativeError, setNativeError] = useState('');
   const refreshNative = useCallback(async () => {
-    if (!isNativeRuntime() || model) return;
+    if (!native || model) return;
     try {
       setNativeHealth(await nativeAiService.localRuntimeHealth());
       setNativeError('');
     } catch (error) {
       setNativeError(error instanceof Error ? error.message : String(error));
     }
-  }, [model]);
+  }, [model, native]);
   useEffect(() => {
     void refreshNative();
   }, [refreshNative]);
@@ -110,14 +111,14 @@ export function LocalAiPage({model}: {model?: Pick<LocalAiViewModel, 'hardware' 
         >
           <div data-testid={`model-${view.state}`}>
             {view.state === 'downloading' ? <ModelProgress value={view.progress} /> : null}
-            {view.state === 'missing' ? (
+            {view.state === 'missing' && !native ? (
               <LumenButton size="small" onPress={() => setLocalAi({state: 'downloading', progress: 8})}>
                 <LumenUiIcon name="download" size="small" /> Download preview
               </LumenButton>
             ) : null}
-            {view.state === 'failed' ? <LumenButton size="small" onPress={() => setLocalAi({state: 'loading'})}>Retry preview</LumenButton> : null}
+            {view.state === 'failed' && !native ? <LumenButton size="small" onPress={() => setLocalAi({state: 'loading'})}>Retry preview</LumenButton> : null}
             {['loading', 'ready', 'fallback-active'].includes(view.state) ? <LocalAiIcon size={22} /> : null}
-            {nativeHealth ? <LumenButton aria-label="Refresh local runtime" size="small" variant="quiet" onPress={() => void refreshNative()}><LumenUiIcon name="refresh" size="small" /> Refresh</LumenButton> : null}
+            {native ? <LumenButton aria-label={nativeHealth ? 'Refresh local runtime' : 'Retry runtime check'} size="small" variant="quiet" onPress={() => void refreshNative()}><LumenUiIcon name="refresh" size="small" /> {nativeHealth ? 'Refresh' : 'Retry'}</LumenButton> : null}
           </div>
         </SettingRow>
         <SettingRow label="Provider" description={nativeHealth?.baseUrl ?? 'No native runtime detected.'}>

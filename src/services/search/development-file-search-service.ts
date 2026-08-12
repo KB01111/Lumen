@@ -80,8 +80,11 @@ interface KnownFile {
 export interface DevelopmentFileSearchServiceOptions {
   getRoots(): readonly string[];
   getRootConfigurations?(): readonly {id: string; path: string; cloudEnrichment: boolean}[];
+  getSearchPreferences?(): {filenamePriority: number; recency: 'low' | 'balanced' | 'high'};
   invoke?: InvokeCommand;
 }
+
+const defaultSearchPreferences = {filenamePriority: 82, recency: 'balanced'} as const;
 
 function normalizedPath(value: string) {
   return value.replace(/\\/g, '/').replace(/\/+$/, '').toLocaleLowerCase();
@@ -143,6 +146,30 @@ function isInScope(kind: SearchResult['kind'], scope: SearchScope) {
   }
 }
 
+function rankingScore(
+  result: SearchResult,
+  query: string,
+  preferences: ReturnType<NonNullable<DevelopmentFileSearchServiceOptions['getSearchPreferences']>>,
+) {
+  const filenameWeight = 0.5 + preferences.filenamePriority / 200;
+  const contentWeight = 0.75 - preferences.filenamePriority / 400;
+  const sourceScore = (result.match.score ?? 0) * (
+    result.match.source === 'filename' ? filenameWeight : contentWeight
+  );
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const normalizedName = result.name.toLocaleLowerCase();
+  const exactBonus = normalizedName === normalizedQuery || normalizedName.replace(/\.[^.]+$/, '') === normalizedQuery
+    ? 2
+    : 0;
+  const modifiedAt = result.metadata.modifiedAt ? Date.parse(result.metadata.modifiedAt) : Number.NaN;
+  const ageDays = Number.isFinite(modifiedAt)
+    ? Math.max(0, (Date.now() - modifiedAt) / 86_400_000)
+    : Number.POSITIVE_INFINITY;
+  const recencyWeight = preferences.recency === 'high' ? 0.25 : preferences.recency === 'balanced' ? 0.08 : 0.02;
+  const recencyBonus = Number.isFinite(ageDays) ? recencyWeight / (1 + ageDays / 30) : 0;
+  return exactBonus + sourceScore + recencyBonus;
+}
+
 function indexedKind(path: string): SearchResult['kind'] {
   const extension = path.split('.').pop()?.toLocaleLowerCase() ?? '';
   if (extension === 'pdf') return 'pdf';
@@ -196,6 +223,7 @@ function commandFailure(error: unknown, fallbackMessage: string): SearchError {
 export class DevelopmentFileSearchService implements SearchService {
   private readonly getRoots: () => readonly string[];
   private readonly getRootConfigurations?: DevelopmentFileSearchServiceOptions['getRootConfigurations'];
+  private readonly getSearchPreferences: NonNullable<DevelopmentFileSearchServiceOptions['getSearchPreferences']>;
   private readonly invoke: InvokeCommand;
   private readonly knownFiles = new Map<string, KnownFile>();
   private readonly listeners = new Set<(status: SearchStatus) => void>();
@@ -203,9 +231,10 @@ export class DevelopmentFileSearchService implements SearchService {
   private pendingRootSignature = '';
   private rootSynchronization: Promise<void> = Promise.resolve();
 
-  constructor({getRoots, getRootConfigurations, invoke = defaultInvoke}: DevelopmentFileSearchServiceOptions) {
+  constructor({getRoots, getRootConfigurations, getSearchPreferences = () => defaultSearchPreferences, invoke = defaultInvoke}: DevelopmentFileSearchServiceOptions) {
     this.getRoots = getRoots;
     this.getRootConfigurations = getRootConfigurations;
+    this.getSearchPreferences = getSearchPreferences;
     this.invoke = invoke;
   }
 
@@ -317,10 +346,14 @@ export class DevelopmentFileSearchService implements SearchService {
       throw commandFailure(firstFailure ?? indexedFailure, 'Local filename search failed.');
     }
     const seenPaths = new Set(filenameMatches.map((item) => normalizedPath(item.path)));
+    const preferences = this.getSearchPreferences();
     const mapped = [
       ...filenameMatches,
       ...indexedMatches.filter((item) => !seenPaths.has(normalizedPath(item.path))),
-    ];
+    ].sort((left, right) =>
+      rankingScore(right, request.query, preferences) - rankingScore(left, request.query, preferences) ||
+      left.name.localeCompare(right.name),
+    );
     const total = mapped.length;
     const visible = mapped.slice(0, request.limit);
     const warningCount = responses.reduce((count, response) => count + response.data.warnings.length, 0);

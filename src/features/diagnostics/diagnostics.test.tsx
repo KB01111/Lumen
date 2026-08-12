@@ -1,6 +1,6 @@
-import {render, screen} from '@testing-library/react';
+import {render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {afterEach, describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {AppProviders} from '../../app/AppProviders';
 import {useSettingsStore} from '../settings/settings.store';
@@ -77,16 +77,46 @@ describe('diagnostics privacy', () => {
     }
   });
 
-  it('clears local history and keeps future analysis controls explicitly unavailable', async () => {
+  it('clears durable local history without presenting unimplemented analysis controls', async () => {
     const user = userEvent.setup();
     useSettingsStore.setState({privacy: {...useSettingsStore.getState().privacy, historyEntries: 12}});
-    renderPage(<PrivacyPage />);
+    const localDataService = {
+      setPreviewsEnabled: vi.fn(async () => undefined),
+      getHistoryStatus: vi.fn(async () => ({entryCount: 12, enabled: true})),
+      clearSearchHistory: vi.fn(async () => ({entryCount: 0})),
+      deleteIndexData: vi.fn(async () => ({deletedFiles: 0, deletedChunks: 0})),
+      getNativeDiagnostics: vi.fn(async () => ({})),
+    };
+    renderPage(<PrivacyPage localDataService={localDataService} />);
 
     await user.click(screen.getByRole('button', {name: 'Clear search history'}));
     await user.click(screen.getByRole('button', {name: 'Clear 12 history entries'}));
 
+    await waitFor(() => expect(localDataService.clearSearchHistory).toHaveBeenCalledOnce());
     expect(useSettingsStore.getState().privacy.historyEntries).toBe(0);
-    expect(screen.getByRole('switch', {name: 'OCR analysis'})).toBeDisabled();
-    expect(screen.getByRole('switch', {name: 'Image understanding'})).toBeDisabled();
+    expect(screen.queryByRole('switch', {name: 'OCR analysis'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', {name: 'Image understanding'})).not.toBeInTheDocument();
+  });
+
+  it('applies preview privacy before persisting and deletes only generated index data', async () => {
+    const user = userEvent.setup();
+    const localDataService = {
+      setPreviewsEnabled: vi.fn(async () => undefined),
+      getHistoryStatus: vi.fn(async () => ({entryCount: 0, enabled: true})),
+      clearSearchHistory: vi.fn(async () => ({entryCount: 0})),
+      deleteIndexData: vi.fn(async () => ({deletedFiles: 4, deletedChunks: 9})),
+      getNativeDiagnostics: vi.fn(async () => ({})),
+    };
+    renderPage(<PrivacyPage localDataService={localDataService} />);
+
+    await user.click(screen.getByRole('switch', {name: 'File previews'}));
+    await waitFor(() => expect(localDataService.setPreviewsEnabled).toHaveBeenCalledWith(false));
+    expect(useSettingsStore.getState().privacy.previewsEnabled).toBe(false);
+
+    await user.click(screen.getByRole('button', {name: /Delete index/}));
+    await user.click(screen.getByRole('button', {name: 'Delete local index data'}));
+
+    await waitFor(() => expect(localDataService.deleteIndexData).toHaveBeenCalledOnce());
+    expect(screen.getByText(/4 files and 9 chunks/)).toBeVisible();
   });
 });

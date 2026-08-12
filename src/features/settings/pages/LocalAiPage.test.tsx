@@ -1,4 +1,4 @@
-import {render, waitFor} from '@testing-library/react';
+import {render, screen, waitFor} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {AppProviders} from '../../../app/AppProviders';
@@ -56,5 +56,19 @@ describe('LocalAiPage native refresh', () => {
     );
 
     await waitFor(() => expect(nativeAiService.localRuntimeHealth).toHaveBeenCalledOnce());
+  });
+
+  it('never offers a simulated model download in the native app', async () => {
+    vi.mocked(nativeAiService.localRuntimeHealth).mockRejectedValue(new Error('runtime unavailable'));
+
+    render(
+      <AppProviders appearance={{mode: 'dark', transparency: 'disabled', effects: 'reduced', motion: 'reduced'}}>
+        <LocalAiPage />
+      </AppProviders>,
+    );
+
+    expect(await screen.findByText('runtime unavailable')).toBeVisible();
+    expect(screen.queryByRole('button', {name: /Download preview/})).not.toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Retry runtime check'})).toBeEnabled();
   });
 });

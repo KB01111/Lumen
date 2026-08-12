@@ -1,6 +1,7 @@
 mod computer_use;
 mod consent;
 mod gateway;
+mod privacy;
 mod search;
 mod window;
 
@@ -50,6 +51,8 @@ pub fn run() {
             let settings_path = data_directory.join("lumen.settings.json");
             app.manage(consent::PersistedConsent::new(settings_path.clone()));
             app.manage(window::RuntimePreferences::load(&settings_path));
+            app.manage(privacy::PrivacyRuntime::load(&settings_path));
+            let history_enabled = privacy::load_history_enabled(&settings_path);
             let development_sidecar = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("binaries/agentgateway-x86_64-pc-windows-msvc.exe");
             let packaged_sidecar = app.path().resource_dir()?.join("agentgateway.exe");
@@ -108,6 +111,7 @@ pub fn run() {
             app.manage(search::IndexRuntime::open(
                 &data_directory.join("lumen-index.sqlite3"),
                 &vector_extension,
+                history_enabled,
             )?);
             app.manage(window::ShortcutRegistration(Mutex::new(
                 "Alt+Space".to_owned(),
@@ -130,6 +134,11 @@ pub fn run() {
             search::indexing::synchronize_index_roots,
             search::indexing::search_indexed,
             search::indexing::delete_index_data,
+            search::indexing::set_history_enabled,
+            search::indexing::clear_search_history,
+            search::indexing::get_search_history_status,
+            search::indexing::get_native_diagnostics,
+            privacy::set_previews_enabled,
             gateway::answer::start_answer,
             gateway::answer::cancel_answer,
             gateway::supervisor::gateway_health,

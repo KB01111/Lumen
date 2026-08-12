@@ -72,5 +72,4 @@ export const nativeAiService = {
   restartEnrichment: () => invoke<void>('restart_enrichment'),
   indexStatus: () => invoke<IndexStatus>('get_index_status'),
   synchronizeRoots: (roots: IndexRootInput[]) => invoke<IndexStatus>('synchronize_index_roots', {roots}),
-  deleteIndex: () => invoke<IndexStatus>('delete_index_data'),
 };

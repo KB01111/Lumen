@@ -1,6 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{
+    Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
@@ -75,6 +78,13 @@ fn configure(connection: &Connection) -> rusqlite::Result<()> {
 }
 
 fn migrate(connection: &Connection) -> rusqlite::Result<()> {
+    connection.execute_batch(
+        "CREATE TABLE IF NOT EXISTS query_history (
+           id INTEGER PRIMARY KEY,
+           query TEXT NOT NULL,
+           searched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+         );",
+    )?;
     let version: u32 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
     if version >= 2 {
         return Ok(());
@@ -241,24 +251,62 @@ pub struct EmbeddingHit {
     pub distance: f64,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryStatus {
+    pub entry_count: u64,
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryClearResult {
+    pub entry_count: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeletedIndexData {
+    pub deleted_files: u64,
+    pub deleted_chunks: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VectorStatus {
+    pub available: bool,
+    pub version: Option<String>,
+    pub backend: Option<String>,
+    pub last_error: Option<String>,
+}
+
 pub struct IndexDatabase {
     connection: Mutex<Connection>,
     vector_error: Option<String>,
+    vector_runtime: Option<VectorRuntimeInfo>,
     vector_dimension: Mutex<Option<usize>>,
+    history_enabled: AtomicBool,
 }
 
 impl IndexDatabase {
     pub fn open(path: &Path, extension: &Path) -> IndexResult<Self> {
         let connection = Connection::open(path)?;
-        let vector_error = register_or_load_sqlite_vector(&connection, extension)
-            .err()
-            .map(|_| "pinned sqlite-vector runtime could not be loaded".to_owned());
+        let (vector_runtime, vector_error) =
+            match register_or_load_sqlite_vector(&connection, extension) {
+                Ok(info) => (Some(info), None),
+                Err(_) => (
+                    None,
+                    Some("pinned sqlite-vector runtime could not be loaded".to_owned()),
+                ),
+            };
         configure(&connection)?;
         migrate(&connection)?;
         Ok(Self {
             connection: Mutex::new(connection),
             vector_error,
+            vector_runtime,
             vector_dimension: Mutex::new(None),
+            history_enabled: AtomicBool::new(true),
         })
     }
 
@@ -266,13 +314,15 @@ impl IndexDatabase {
     fn open_memory() -> IndexResult<Self> {
         let connection = Connection::open_in_memory()?;
         let extension = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/vector.dll");
-        register_or_load_sqlite_vector(&connection, &extension)?;
+        let vector_runtime = register_or_load_sqlite_vector(&connection, &extension)?;
         configure(&connection)?;
         migrate(&connection)?;
         Ok(Self {
             connection: Mutex::new(connection),
             vector_error: None,
+            vector_runtime: Some(vector_runtime),
             vector_dimension: Mutex::new(None),
+            history_enabled: AtomicBool::new(true),
         })
     }
 
@@ -626,6 +676,36 @@ impl IndexDatabase {
         Ok(hits)
     }
 
+    pub fn record_user_query(&self, query: &str, successful: bool) -> IndexResult<()> {
+        let query = query.trim();
+        if !successful || query.is_empty() || !self.history_enabled.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        connection.execute("INSERT INTO query_history(query) VALUES (?1)", [query])?;
+        Ok(())
+    }
+
+    pub fn set_history_enabled(&self, enabled: bool) {
+        self.history_enabled.store(enabled, Ordering::SeqCst);
+    }
+
+    pub fn history_status(&self) -> IndexResult<HistoryStatus> {
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        let count: i64 =
+            connection.query_row("SELECT count(*) FROM query_history", [], |row| row.get(0))?;
+        Ok(HistoryStatus {
+            entry_count: u64::try_from(count).map_err(|_| IndexError::IntegerOverflow)?,
+            enabled: self.history_enabled.load(Ordering::SeqCst),
+        })
+    }
+
+    pub fn clear_history(&self) -> IndexResult<HistoryClearResult> {
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        connection.execute("DELETE FROM query_history", [])?;
+        Ok(HistoryClearResult { entry_count: 0 })
+    }
+
     pub fn enqueue_enrichment(
         &self,
         stable_id: &str,
@@ -698,6 +778,33 @@ impl IndexDatabase {
         ))
     }
 
+    pub fn operational_counts(&self) -> IndexResult<(u64, u64)> {
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        let files: i64 =
+            connection.query_row("SELECT count(*) FROM files", [], |row| row.get(0))?;
+        let chunks: i64 =
+            connection.query_row("SELECT count(*) FROM chunks", [], |row| row.get(0))?;
+        Ok((
+            u64::try_from(files).map_err(|_| IndexError::IntegerOverflow)?,
+            u64::try_from(chunks).map_err(|_| IndexError::IntegerOverflow)?,
+        ))
+    }
+
+    pub fn vector_status(&self) -> VectorStatus {
+        VectorStatus {
+            available: self.vector_runtime.is_some(),
+            version: self
+                .vector_runtime
+                .as_ref()
+                .map(|info| info.version.clone()),
+            backend: self
+                .vector_runtime
+                .as_ref()
+                .map(|info| info.backend.clone()),
+            last_error: self.vector_error.clone(),
+        }
+    }
+
     pub fn queued_jobs(&self) -> IndexResult<Vec<EnrichmentJobRecord>> {
         let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
         let mut statement = connection.prepare(
@@ -725,9 +832,13 @@ impl IndexDatabase {
             .map_err(IndexError::from)
     }
 
-    pub fn delete_all(&self) -> IndexResult<()> {
+    pub fn delete_indexed_content(&self) -> IndexResult<DeletedIndexData> {
         let mut connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
         let transaction = connection.transaction()?;
+        let deleted_files: i64 =
+            transaction.query_row("SELECT count(*) FROM files", [], |row| row.get(0))?;
+        let deleted_chunks: i64 =
+            transaction.query_row("SELECT count(*) FROM chunks", [], |row| row.get(0))?;
         transaction.execute("DELETE FROM vector_embeddings", [])?;
         transaction.execute("DELETE FROM search_fts", [])?;
         transaction.execute("DELETE FROM answer_cache", [])?;
@@ -736,7 +847,11 @@ impl IndexDatabase {
         transaction.execute("DELETE FROM chunks", [])?;
         transaction.execute("DELETE FROM files", [])?;
         transaction.commit()?;
-        Ok(())
+        Ok(DeletedIndexData {
+            deleted_files: u64::try_from(deleted_files).map_err(|_| IndexError::IntegerOverflow)?,
+            deleted_chunks: u64::try_from(deleted_chunks)
+                .map_err(|_| IndexError::IntegerOverflow)?,
+        })
     }
 }
 
@@ -744,6 +859,56 @@ impl IndexDatabase {
 mod tests {
     use super::*;
     use crate::search::test_support::SearchFixture;
+
+    #[test]
+    fn explicit_user_queries_are_recorded_only_when_successful_and_enabled() {
+        let fixture = SearchFixture::new("query-history");
+        let path = fixture.file("report.txt", b"quarterly report");
+        let database = IndexDatabase::open_memory().unwrap();
+        database
+            .upsert_document(
+                fixture.root(),
+                &document(path, "report", "hash-report", "quarterly report"),
+            )
+            .unwrap();
+
+        database.set_history_enabled(true);
+        assert_eq!(database.search("quarterly", 10).unwrap().len(), 1);
+        assert_eq!(database.history_status().unwrap().entry_count, 0);
+        database.record_user_query("quarterly", true).unwrap();
+        assert_eq!(database.history_status().unwrap().entry_count, 1);
+        database.record_user_query("   ", true).unwrap();
+        database.record_user_query("missing", false).unwrap();
+        assert_eq!(database.history_status().unwrap().entry_count, 1);
+        database.set_history_enabled(false);
+        database.record_user_query("report", true).unwrap();
+        assert_eq!(database.history_status().unwrap().entry_count, 1);
+
+        let cleared = database.clear_history().unwrap();
+        assert_eq!(cleared.entry_count, 0);
+        assert!(!database.history_status().unwrap().enabled);
+    }
+
+    #[test]
+    fn deleting_indexed_content_reports_counts_and_keeps_query_history() {
+        let fixture = SearchFixture::new("delete-index-data");
+        let path = fixture.file("report.txt", b"quarterly report");
+        let database = IndexDatabase::open_memory().unwrap();
+        database
+            .upsert_document(
+                fixture.root(),
+                &document(path, "report", "hash-report", "quarterly report"),
+            )
+            .unwrap();
+        assert_eq!(database.search("quarterly", 10).unwrap().len(), 1);
+
+        let deleted = database.delete_indexed_content().unwrap();
+
+        assert_eq!(deleted.deleted_files, 1);
+        assert_eq!(deleted.deleted_chunks, 1);
+        assert_eq!(database.counts().unwrap().0, 0);
+        assert_eq!(database.history_status().unwrap().entry_count, 1);
+    }
 
     #[test]
     fn sqlite_vector_runtime_is_pinned() {
