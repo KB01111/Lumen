@@ -6,6 +6,7 @@ import {LumenSurface} from '../design-system/primitives/LumenSurface';
 import {LumenText} from '../design-system/primitives/LumenText';
 import type {AppearancePreferences} from '../design-system/theme';
 import {SearchExperience} from '../features/launcher/SearchExperience';
+import {useActivityStore} from '../features/activity/activity.store';
 import {useLauncherStore} from '../features/launcher/launcher.store';
 import {useQueryStore} from '../features/launcher/query.store';
 import {
@@ -24,6 +25,11 @@ import {TauriComputerUseService} from '../services/computer-use/tauri-computer-u
 import {UnavailableComputerUseService} from '../services/computer-use/unavailable-computer-use-service';
 import {DevelopmentComputerUseService} from '../services/computer-use/development-computer-use-service';
 import {isNativeRuntime, nativeAiService} from '../services/ai/native-ai-service';
+import {
+  createActivityService,
+  type ActivityService,
+  toActivityMode,
+} from '../services/activity/activity-service';
 import {DevelopmentFileSearchService} from '../services/search/development-file-search-service';
 import {DevelopmentSearchService} from '../services/search/development-search-service';
 import {AppProviders} from './AppProviders';
@@ -92,6 +98,7 @@ function createDefaultSearchService() {
 }
 
 const defaultSearchService = createDefaultSearchService();
+const defaultActivityService = createActivityService();
 const defaultAnswerService = isNativeRuntime()
   ? new TauriAnswerService()
   : new UnavailableAnswerService();
@@ -164,10 +171,14 @@ function getOnboardingMode() {
 }
 
 export interface AppProps {
+  activityService?: ActivityService;
   windowService?: WindowService;
 }
 
-export function App({windowService = appWindowService}: AppProps = {}) {
+export function App({
+  activityService = defaultActivityService,
+  windowService = appWindowService,
+}: AppProps = {}) {
   const foundationPreview = isFoundationPreview();
   const galleryPreview = isGalleryPreview();
   const galleryPresentation = galleryPreview ? galleryAppearance() : null;
@@ -226,6 +237,31 @@ export function App({windowService = appWindowService}: AppProps = {}) {
       void nativeAiService.setLocalRuntimeMode(runtimeMode, keepLocalWarm);
     }
   }, [keepLocalWarm, runtimeMode]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshActivity = async () => {
+      try {
+        const snapshot = await activityService.status();
+        if (!active) return;
+        const mode = toActivityMode(snapshot.mode);
+        useActivityStore.setState({
+          active: mode !== 'indexing',
+          mode,
+          detectedApplication: null,
+          message: '',
+        });
+      } catch {
+        // Search remains available when activity classification is unavailable.
+      }
+    };
+    void refreshActivity();
+    const timer = window.setInterval(() => void refreshActivity(), 2_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [activityService]);
 
   const completeOnboarding = useCallback(async () => {
     const root = useOnboardingStore.getState().root;

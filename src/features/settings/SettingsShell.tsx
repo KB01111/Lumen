@@ -12,6 +12,7 @@ import {settingsPages, SettingsNav} from './SettingsNav';
 import {PersistenceNotice} from './components/PersistenceNotice';
 import {AppearancePage} from './pages/AppearancePage';
 import {AgentGatewayPage} from './pages/AgentGatewayPage';
+import {ActivityPage} from './pages/ActivityPage';
 import {ComputerUsePage} from './pages/ComputerUsePage';
 import {DiagnosticsPage} from './pages/DiagnosticsPage';
 import {GeneralPage} from './pages/GeneralPage';
@@ -36,6 +37,7 @@ function defaultPageContent(page: SettingsPageId) {
     case 'local-ai': return <LocalAiPage />;
     case 'agent-gateway': return <AgentGatewayPage />;
     case 'computer-use': return <ComputerUsePage />;
+    case 'activity': return <ActivityPage />;
     case 'privacy': return <PrivacyPage />;
     case 'diagnostics': return <DiagnosticsPage />;
     default: return null;

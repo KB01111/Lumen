@@ -1,3 +1,4 @@
+mod activity;
 mod computer_use;
 mod consent;
 mod gateway;
@@ -52,6 +53,7 @@ pub fn run() {
             app.manage(consent::PersistedConsent::new(settings_path.clone()));
             app.manage(window::RuntimePreferences::load(&settings_path));
             app.manage(privacy::PrivacyRuntime::load(&settings_path));
+            app.manage(activity::ActivityRuntime::load(&settings_path));
             let history_enabled = privacy::load_history_enabled(&settings_path);
             let development_sidecar = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("binaries/agentgateway-x86_64-pc-windows-msvc.exe");
@@ -140,6 +142,10 @@ pub fn run() {
             search::indexing::get_native_diagnostics,
             privacy::set_previews_enabled,
             privacy::export_diagnostics,
+            activity::get_activity_status,
+            activity::set_activity_policy,
+            activity::set_user_pause,
+            activity::choose_activity_executable,
             gateway::answer::start_answer,
             gateway::answer::cancel_answer,
             gateway::supervisor::gateway_health,

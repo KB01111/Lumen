@@ -31,8 +31,8 @@ describe('SettingsShell', () => {
     expect(screen.getAllByRole('navigation', {name: 'Settings'})).toHaveLength(1);
     expect(screen.getByRole('main', {name: 'Settings content'})).toBeVisible();
     expect(screen.getAllByRole('main', {name: 'Settings content'})).toHaveLength(1);
-    expect(screen.getAllByRole('tab')).toHaveLength(9);
-    expect(screen.queryByRole('tab', {name: 'Activity'})).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tab')).toHaveLength(10);
+    expect(screen.getByRole('tab', {name: 'Activity'})).toBeVisible();
     expect(screen.getByRole('tab', {name: 'General'})).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('heading', {name: 'General'})).toBeVisible();
     expect(screen.getByTestId('settings-content')).toHaveClass('overflow-y-auto');
@@ -41,13 +41,13 @@ describe('SettingsShell', () => {
     expect(screen.getByRole('navigation', {name: 'Settings'}).parentElement?.parentElement?.parentElement).toBe(surface);
   });
 
-  it('falls back from a persisted simulation-only activity route', () => {
+  it('restores the operational activity route', () => {
     useSettingsStore.setState({activePage: 'activity'});
 
     renderShell();
 
-    expect(screen.getByRole('tab', {name: 'General'})).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('heading', {name: 'General'})).toBeVisible();
+    expect(screen.getByRole('tab', {name: 'Activity'})).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', {name: 'Activity'})).toBeVisible();
   });
 
   it('keeps the close action visibly focusable', () => {

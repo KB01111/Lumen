@@ -614,6 +614,67 @@ impl IndexDatabase {
         Ok(UpsertOutcome::Updated { revision })
     }
 
+    pub fn upsert_metadata(
+        &self,
+        root: &Path,
+        stable_id: &str,
+        file_path: &Path,
+        metadata_hash: &str,
+    ) -> IndexResult<UpsertOutcome> {
+        let canonical_root = super::root_policy::canonicalize_root(root)?;
+        let canonical_path = canonicalize_confined(&canonical_root, file_path)?;
+        let root_path = canonical_root.to_string_lossy().into_owned();
+        let path = canonical_path.to_string_lossy().into_owned();
+        let name = canonical_path
+            .file_name()
+            .map(|value| value.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.clone());
+        let mut connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        let transaction = connection.transaction()?;
+        let existing = transaction
+            .query_row(
+                "SELECT id, index_revision FROM files WHERE stable_id = ?1",
+                [stable_id],
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+            )
+            .optional()?;
+        if let Some((file_id, revision)) = existing {
+            transaction.execute(
+                "UPDATE files SET root_path = ?2, path = ?3, name = ?4 WHERE id = ?1",
+                params![file_id, root_path, path, name],
+            )?;
+            transaction.execute(
+                "UPDATE search_fts SET name = ?2, path = ?3 WHERE file_id = ?1",
+                params![file_id, name, path],
+            )?;
+            transaction.commit()?;
+            return Ok(UpsertOutcome::Unchanged {
+                revision: u64::try_from(revision).map_err(|_| IndexError::IntegerOverflow)?,
+            });
+        }
+        transaction.execute(
+            "INSERT INTO files
+             (stable_id, root_path, path, name, content_hash, extraction_version, index_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'metadata-v1', 1)",
+            params![stable_id, root_path, path, name, metadata_hash],
+        )?;
+        let file_id = transaction.last_insert_rowid();
+        transaction.execute(
+            "INSERT INTO chunks
+             (file_id, ordinal, text, extraction_kind, content_hash, index_revision)
+             VALUES (?1, 0, '', 'metadata', ?2, 1)",
+            params![file_id, metadata_hash],
+        )?;
+        let chunk_id = transaction.last_insert_rowid();
+        transaction.execute(
+            "INSERT INTO search_fts(file_id, chunk_id, name, path, body)
+             VALUES (?1, ?2, ?3, ?4, '')",
+            params![file_id, chunk_id, name, path],
+        )?;
+        transaction.commit()?;
+        Ok(UpsertOutcome::Updated { revision: 1 })
+    }
+
     pub fn search(&self, query: &str, limit: usize) -> IndexResult<Vec<IndexedHit>> {
         let tokens: Vec<String> = query
             .split_whitespace()

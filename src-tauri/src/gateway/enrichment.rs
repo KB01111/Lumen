@@ -64,7 +64,8 @@ pub struct EnrichmentSupervisor {
     actor_port: u16,
     engine_port: u16,
     bearer: String,
-    paused: AtomicBool,
+    user_paused: AtomicBool,
+    activity_paused: AtomicBool,
     process: Mutex<Option<EnrichmentProcesses>>,
     detail: Mutex<Option<String>>,
 }
@@ -96,7 +97,8 @@ impl EnrichmentSupervisor {
                 uuid::Uuid::new_v4().simple(),
                 uuid::Uuid::new_v4().simple()
             ),
-            paused: AtomicBool::new(false),
+            user_paused: AtomicBool::new(false),
+            activity_paused: AtomicBool::new(false),
             process: Mutex::new(None),
             detail: Mutex::new(None),
         })
@@ -247,7 +249,7 @@ impl EnrichmentSupervisor {
     }
 
     pub async fn sync_jobs(&self, jobs: &[EnrichmentJobRecord]) {
-        if self.paused.load(Ordering::Relaxed) {
+        if self.is_paused() {
             return;
         }
         let client = reqwest::Client::builder()
@@ -302,12 +304,20 @@ impl EnrichmentSupervisor {
             .map_err(|error| error.to_string())?
             .error_for_status()
             .map_err(|error| error.to_string())?;
-        self.paused.store(false, Ordering::Relaxed);
+        self.user_paused.store(false, Ordering::Relaxed);
         Ok(())
     }
 
     pub fn pause(&self) {
-        self.paused.store(true, Ordering::Relaxed);
+        self.user_paused.store(true, Ordering::Relaxed);
+    }
+
+    pub fn set_activity_paused(&self, paused: bool) {
+        self.activity_paused.store(paused, Ordering::Relaxed);
+    }
+
+    fn is_paused(&self) -> bool {
+        self.user_paused.load(Ordering::Relaxed) || self.activity_paused.load(Ordering::Relaxed)
     }
 
     pub fn health(&self) -> EnrichmentHealth {
@@ -331,7 +341,7 @@ impl EnrichmentSupervisor {
         }
         EnrichmentHealth {
             state: if running { "ready" } else { "unavailable" },
-            paused: self.paused.load(Ordering::Relaxed),
+            paused: self.is_paused(),
             control_port: self.control_port,
             actor_port: self.actor_port,
             detail: self

@@ -1,6 +1,6 @@
 import {render, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {afterEach, describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {AppProviders} from '../../app/AppProviders';
 import {LauncherStatus} from '../launcher/LauncherStatus';
@@ -9,6 +9,7 @@ import {useSettingsStore} from '../settings/settings.store';
 import {ActivityStatus} from './ActivityStatus';
 import {useActivityStore} from './activity.store';
 import type {ActivityMode} from './activity.types';
+import type {ActivityService, ActivitySnapshot} from '../../services/activity/activity-service';
 
 function renderPage(children: React.ReactNode) {
   return render(<AppProviders appearance={{mode: 'dark', transparency: 'disabled', effects: 'reduced', motion: 'reduced'}}>{children}</AppProviders>);
@@ -59,5 +60,30 @@ describe('activity classifications', () => {
 
     await user.click(screen.getByRole('button', {name: 'Reset classifications'}));
     expect(screen.getByText('Automatic classifications reset.')).toBeVisible();
+  });
+
+  it('uses native pause, policy, and executable operations in production', async () => {
+    const user = userEvent.setup();
+    const snapshot: ActivitySnapshot = {
+      mode: 'user' as const,
+      backgroundPolicy: 'paused' as const,
+      foregroundIdentity: null,
+      fullscreen: false,
+      onBattery: false,
+    };
+    const activityService: ActivityService = {
+      status: vi.fn(async (): Promise<ActivitySnapshot> => ({...snapshot, mode: 'indexing', backgroundPolicy: 'normal'})),
+      setUserPause: vi.fn(async () => snapshot),
+      setPolicy: vi.fn(async (): Promise<ActivitySnapshot> => ({...snapshot, mode: 'gaming'})),
+      chooseExecutable: vi.fn(async () => ({fileName: 'game.exe', identityHash: 'a'.repeat(64)})),
+    };
+    renderPage(<ActivityPage activityService={activityService} nativeRuntime />);
+
+    await user.click(screen.getByRole('button', {name: 'Pause indexing'}));
+    expect(activityService.setUserPause).toHaveBeenCalledWith(true);
+    await user.click(screen.getByRole('button', {name: 'Choose game executable'}));
+    expect(activityService.chooseExecutable).toHaveBeenCalledOnce();
+    expect(activityService.setPolicy).toHaveBeenCalled();
+    expect(screen.queryByRole('combobox', {name: 'Development activity state'})).not.toBeInTheDocument();
   });
 });
