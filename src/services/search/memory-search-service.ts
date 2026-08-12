@@ -121,6 +121,10 @@ export class MemorySearchService implements SearchService {
     this.openedFolders.push(fileId);
   }
 
+  async setPinned(): Promise<boolean> {
+    return false;
+  }
+
   subscribeToStatus(listener: (status: SearchStatus) => void): () => void {
     this.statusListeners.add(listener);
     return () => this.statusListeners.delete(listener);

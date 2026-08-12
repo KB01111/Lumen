@@ -119,6 +119,7 @@ function GalleryLauncher({state}: {state: GalleryLauncherState}) {
             onDetails={() => undefined}
             onOpen={() => undefined}
             onOpenContainingFolder={() => undefined}
+            onPin={() => undefined}
             onRemoveFilter={() => undefined}
             onSelectionChange={setSelectedId}
           />

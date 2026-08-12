@@ -34,6 +34,7 @@ export interface ExpandedWorkspaceProps {
   onDetails(): void;
   onOpen(fileId?: string): void;
   onOpenContainingFolder(): void;
+  onPin(): void;
   onRemoveFilter(filter: SearchFilter): void;
   onSelectionChange(fileId: string | null): void;
 }
@@ -127,6 +128,7 @@ function SelectionBoundActions({
   onDetails,
   onOpen,
   onOpenContainingFolder,
+  onPin,
 }: {
   isOpening: boolean;
   results: readonly SearchResult[];
@@ -134,6 +136,7 @@ function SelectionBoundActions({
   onDetails(): void;
   onOpen(fileId?: string): void;
   onOpenContainingFolder(): void;
+  onPin(): void;
 }) {
   const resultLabelRef = useRef<HTMLSpanElement>(null);
   const storedSelectedId = useSelectionStore.getState().selectedId;
@@ -166,6 +169,7 @@ function SelectionBoundActions({
       onDetails={onDetails}
       onOpen={onOpen}
       onOpenContainingFolder={onOpenContainingFolder}
+      onPin={onPin}
     />
   );
 }
@@ -237,6 +241,7 @@ export function ExpandedWorkspace({
   onDetails,
   onOpen,
   onOpenContainingFolder,
+  onPin,
   onRemoveFilter,
   onSelectionChange,
 }: ExpandedWorkspaceProps) {
@@ -292,6 +297,7 @@ export function ExpandedWorkspace({
         onDetails={onDetails}
         onOpen={onOpen}
         onOpenContainingFolder={onOpenContainingFolder}
+        onPin={onPin}
       />
       <SelectionAnnouncement announcement={announcement} results={results} selectedId={selectedId} />
     </motion.section>

@@ -147,7 +147,7 @@ describe('CollapsedLauncher', () => {
     render(<CollapsedLauncher windowService={new BrowserWindowService()} />);
 
     await waitFor(() => expect(screen.getByRole('tablist', {name: 'Search scopes'})).toBeVisible());
-    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['All', 'Documents']);
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['All', 'Documents', 'Recent']);
   });
 
   it('switches to an explicit browser-agent task without exposing file scopes', async () => {

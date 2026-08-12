@@ -205,6 +205,21 @@ export function SearchExperience({
     }
   }, [controller.results, controller.selectedId, service]);
 
+  const handlePin = useCallback(async () => {
+    const fileId = readSelectionIntent() ?? controller.selectedId;
+    const result = controller.results.find((item) => item.id === fileId);
+    if (!fileId || !result?.provenance) return;
+    try {
+      const applied = await service.setPinned(fileId, !result.pinned);
+      if (applied) {
+        setActionMessage(result.pinned ? `Unpinned ${result.name}` : `Pinned ${result.name}`);
+        controller.refresh();
+      }
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'The pin could not be updated.');
+    }
+  }, [controller, service]);
+
   const handleShowDetails = useCallback(() => {
     if (!previewsEnabled) {
       setActionMessage('File previews are disabled in Privacy settings.');
@@ -315,6 +330,7 @@ export function SearchExperience({
             onDetails={handleShowDetails}
             onOpen={handleOpen}
             onOpenContainingFolder={handleOpenContainingFolder}
+            onPin={handlePin}
             onRemoveFilter={handleRemoveFilter}
             onSelectionChange={handleSelect}
           />

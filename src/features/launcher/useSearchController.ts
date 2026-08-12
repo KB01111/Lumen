@@ -128,6 +128,7 @@ export function useSearchController(
           scope,
           filters: [...filters],
           limit: 500,
+          relatedTo: scope === 'related' ? selectedIdRef.current ?? undefined : undefined,
         },
         abortController.signal,
       )

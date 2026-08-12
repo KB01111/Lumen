@@ -11,6 +11,7 @@ export interface ContextActionsProps {
   onDetails(): void;
   onOpen(): void;
   onOpenContainingFolder(): void;
+  onPin(): void;
 }
 
 export function ContextActions({
@@ -20,6 +21,7 @@ export function ContextActions({
   onDetails,
   onOpen,
   onOpenContainingFolder,
+  onPin,
 }: ContextActionsProps) {
   return (
     <div
@@ -53,6 +55,16 @@ export function ContextActions({
       >
         <LumenUiIcon name="folderOpen" size="small" />
         <span className="hidden sm:inline">Folder</span>
+      </LumenButton>
+      <LumenButton
+        aria-label={result?.pinned ? 'Unpin selected result' : 'Pin selected result'}
+        isDisabled={!result?.provenance}
+        size="small"
+        variant="quiet"
+        onPress={onPin}
+      >
+        <LumenUiIcon name={result?.pinned ? 'pinned' : 'pin'} size="small" />
+        <span className="hidden sm:inline">{result?.pinned ? 'Unpin' : 'Pin'}</span>
       </LumenButton>
       <LumenButton
         aria-label="Show file details"

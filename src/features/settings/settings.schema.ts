@@ -152,7 +152,7 @@ export const defaultSettings: LumenSettings = settingsSchema.parse({
     recency: 'balanced',
     showPinned: true,
     semanticEnabled: false,
-    rerankingEnabled: false,
+    rerankingEnabled: true,
   },
   ai: defaultAiSettings,
   computerUse: defaultComputerUseSettings,

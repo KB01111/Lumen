@@ -10,6 +10,7 @@ export interface SearchService {
   getPreview(fileId: string, signal?: AbortSignal): Promise<FilePreview>;
   openFile(fileId: string): Promise<void>;
   openContainingFolder(fileId: string): Promise<void>;
+  setPinned(fileId: string, pinned: boolean): Promise<boolean>;
   subscribeToStatus(listener: (status: SearchStatus) => void): () => void;
 }
 

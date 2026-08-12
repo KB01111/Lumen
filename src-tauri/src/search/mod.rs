@@ -1,3 +1,4 @@
+mod embedding;
 mod extraction;
 mod index;
 pub mod indexing;
@@ -5,6 +6,7 @@ mod matching;
 mod metadata;
 mod opening;
 mod preview;
+mod ranking;
 mod root_policy;
 mod traversal;
 mod types;
@@ -45,7 +47,9 @@ pub(crate) fn open_indexed_file<R: Runtime>(
             None,
         )
     })?;
-    opening::open_file_impl(app, &root, &path)
+    opening::open_file_impl(app, &root, &path)?;
+    index.record_file_open(stable_id)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -94,10 +98,16 @@ pub async fn get_basic_preview(
 #[tauri::command]
 pub fn open_file<R: Runtime>(
     app: AppHandle<R>,
+    index: State<'_, IndexRuntime>,
     root: String,
     path: String,
 ) -> Result<(), SearchFailure> {
-    opening::open_file_impl(&app, Path::new(&root), Path::new(&path))
+    opening::open_file_impl(&app, Path::new(&root), Path::new(&path))?;
+    let canonical = root_policy::canonicalize_confined(Path::new(&root), Path::new(&path))?;
+    if let Some(stable_id) = index.stable_id_for_path(&canonical)? {
+        index.record_file_open(&stable_id)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

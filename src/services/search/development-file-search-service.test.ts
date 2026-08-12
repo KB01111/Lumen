@@ -34,7 +34,7 @@ describe('DevelopmentFileSearchService', () => {
   it('merges indexed content hits with provenance without replacing filename search', async () => {
     const invoke = vi.fn(async (command: string) => {
       if (command === 'search_filenames') return {...rustResponse(), items: [], total: 0};
-      if (command === 'search_indexed') return [{
+      if (command === 'search_hybrid') return [{
         stableId: 'indexed:report',
         rootPath: 'C:\\Projects',
         path: 'C:\\Projects\\Report.pdf',
@@ -46,6 +46,10 @@ describe('DevelopmentFileSearchService', () => {
         timeStartMs: null,
         timeEndMs: null,
         rank: -3.2,
+        matchSource: 'semantic',
+        semanticScore: 0.91,
+        embeddingModel: 'lumen.embed.local',
+        pinned: true,
       }];
       return {phase: 'ready', indexedItems: 1, queuedEnrichment: 0, skippedItems: 0, message: 'ready'};
     });
@@ -56,11 +60,13 @@ describe('DevelopmentFileSearchService', () => {
     expect(response.groups[0]?.items[0]).toMatchObject({
       id: 'indexed:report',
       kind: 'pdf',
-      match: {source: 'content'},
+      match: {source: 'semantic'},
+      pinned: true,
       provenance: {
         extractionKind: 'pdf-text',
         fileHash: 'abc123',
         page: 7,
+        embeddingModel: 'lumen.embed.local',
         indexRevision: 4,
       },
     });
@@ -73,24 +79,31 @@ describe('DevelopmentFileSearchService', () => {
         return new Promise<void>((resolve) => { finishSynchronization = resolve; });
       }
       if (command === 'search_filenames') return Promise.resolve({...rustResponse(), items: [], total: 0});
-      if (command === 'search_indexed') return Promise.resolve([]);
+      if (command === 'search_hybrid') return Promise.resolve([]);
       return Promise.resolve(undefined);
     });
     const service = new DevelopmentFileSearchService({getRoots: () => ['C:\\Projects'], invoke});
 
     const search = service.search(request);
     await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('synchronize_index_roots', expect.anything()));
-    expect(invoke).not.toHaveBeenCalledWith('search_indexed', expect.anything());
+    expect(invoke).not.toHaveBeenCalledWith('search_hybrid', expect.anything());
 
     finishSynchronization?.();
     await expect(search).resolves.toMatchObject({total: 0});
-    expect(invoke).toHaveBeenCalledWith('search_indexed', {query: 'read', limit: 500});
+    expect(invoke).toHaveBeenCalledWith('search_hybrid', expect.objectContaining({
+      requestId: 7,
+      query: 'read',
+      scope: 'all',
+      limit: 500,
+      semanticEnabled: false,
+      rerankingEnabled: false,
+    }));
   });
 
   it('sends every configured root policy to native synchronization', async () => {
     const invoke = vi.fn(async (command: string) => command === 'search_filenames'
       ? {...rustResponse(), items: [], total: 0}
-      : command === 'search_indexed' ? [] : undefined);
+      : command === 'search_hybrid' ? [] : undefined);
     const service = new DevelopmentFileSearchService({
       getRoots: () => ['C:\\Projects'],
       getRootConfigurations: () => [{
@@ -132,7 +145,7 @@ describe('DevelopmentFileSearchService', () => {
     expect(second.groups[0]?.items[0]?.id).toBe(first.groups[0]?.items[0]?.id);
   });
 
-  it('applies the persisted filename and recency ranking preferences', async () => {
+  it('sends persisted ranking preferences to the native ranker', async () => {
     const now = Date.now();
     const invoke = vi.fn(async (command: string) => {
       if (command === 'search_filenames') return {
@@ -143,21 +156,32 @@ describe('DevelopmentFileSearchService', () => {
         ],
         total: 2,
       };
-      if (command === 'search_indexed') return [];
+      if (command === 'search_hybrid') return [];
       return undefined;
     });
     const service = new DevelopmentFileSearchService({
       getRoots: () => ['C:\\Projects'],
-      getSearchPreferences: () => ({filenamePriority: 20, recency: 'high'}),
+      getSearchPreferences: () => ({
+        filenamePriority: 20,
+        recency: 'high',
+        showPinned: true,
+        semanticEnabled: false,
+        rerankingEnabled: true,
+      }),
       invoke,
     });
 
     const response = await service.search(request);
 
     expect(response.groups[0]?.items.map((item) => item.name)).toEqual([
-      'Recent readme.md',
       'Older exact.md',
+      'Recent readme.md',
     ]);
+    expect(invoke).toHaveBeenCalledWith('search_hybrid', expect.objectContaining({
+      filenamePriority: 20,
+      recency: 'high',
+      rerankingEnabled: true,
+    }));
   });
 
   it('maps previews and opener commands through the known confined file', async () => {
@@ -186,6 +210,43 @@ describe('DevelopmentFileSearchService', () => {
     expect(invoke).toHaveBeenCalledWith('get_basic_preview', {root: 'C:\\Projects', path: 'C:\\Projects\\Readme.md'});
     expect(invoke).toHaveBeenCalledWith('open_file', {root: 'C:\\Projects', path: 'C:\\Projects\\Readme.md'});
     expect(invoke).toHaveBeenCalledWith('open_containing_folder', {root: 'C:\\Projects', path: 'C:\\Projects\\Readme.md'});
+  });
+
+  it('routes Related through the selected indexed result and applies pins natively', async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === 'search_related') return [{
+        stableId: 'indexed:related',
+        rootPath: 'C:\\Projects',
+        path: 'C:\\Projects\\Related.md',
+        name: 'Related.md',
+        contentHash: 'related-hash',
+        indexRevision: 1,
+        extractionKind: 'text',
+        page: null,
+        timeStartMs: null,
+        timeEndMs: null,
+        rank: 0.1,
+        matchSource: 'related',
+        semanticScore: 0.9,
+        embeddingModel: 'lumen.embed.local',
+        pinned: false,
+      }];
+      if (command === 'set_indexed_file_pinned') return {applied: true, pinned: true};
+      return undefined;
+    });
+    const service = new DevelopmentFileSearchService({getRoots: () => ['C:\\Projects'], invoke});
+
+    const response = await service.search({...request, scope: 'related', relatedTo: 'indexed:source'});
+    expect(response.groups[0]?.items[0]).toMatchObject({
+      id: 'indexed:related',
+      match: {source: 'related'},
+    });
+    await expect(service.setPinned('indexed:related', true)).resolves.toBe(true);
+    expect(invoke).toHaveBeenCalledWith('search_related', {stableId: 'indexed:source', limit: 500});
+    expect(invoke).toHaveBeenCalledWith('set_indexed_file_pinned', {
+      stableId: 'indexed:related',
+      pinned: true,
+    });
   });
 
   it('keeps canonical paths for native commands while presenting friendly Windows values', async () => {

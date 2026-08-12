@@ -246,8 +246,29 @@ describe('core settings pages', () => {
     expect(screen.getByRole('slider', {name: 'Filename priority'})).toBeEnabled();
     expect(screen.getByLabelText('Recency preference')).toBeEnabled();
     expect(screen.queryByRole('switch', {name: 'Semantic search'})).not.toBeInTheDocument();
-    expect(screen.queryByRole('switch', {name: 'Reranking'})).not.toBeInTheDocument();
-    expect(screen.queryByRole('switch', {name: 'Pinned items'})).not.toBeInTheDocument();
+    expect(screen.getByRole('switch', {name: 'Reranking'})).toBeEnabled();
+    expect(screen.getByRole('switch', {name: 'Pinned items'})).toBeEnabled();
+  });
+
+  it('enables native semantic, reranking, Recent, and Related controls only when available', async () => {
+    const semanticService = {
+      status: vi.fn(async () => ({
+        vectorAvailable: true,
+        semanticAvailable: true,
+        relatedAvailable: true,
+        indexedChunks: 42,
+        pendingJobs: 0,
+        reason: null,
+      })),
+    };
+    renderWithProviders(<SearchPage semanticService={semanticService} />);
+
+    expect(await screen.findByRole('switch', {name: 'Semantic search'})).toBeEnabled();
+    expect(screen.getByRole('switch', {name: 'Reranking'})).toBeEnabled();
+    expect(screen.getByRole('switch', {name: 'Pinned items'})).toBeEnabled();
+    expect(screen.getByRole('checkbox', {name: 'Recent'})).toBeEnabled();
+    expect(screen.getByRole('checkbox', {name: 'Related'})).toBeEnabled();
+    expect(screen.getByText('42 embedded chunks')).toBeVisible();
   });
 
   it('records Computer Use cloud consent separately from answer consent', async () => {

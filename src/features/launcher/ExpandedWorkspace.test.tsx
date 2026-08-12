@@ -56,6 +56,7 @@ function renderWorkspace(preview: AppearanceSettings['preview'], width: number) 
         onDetails={vi.fn()}
         onOpen={vi.fn()}
         onOpenContainingFolder={vi.fn()}
+        onPin={vi.fn()}
         onRemoveFilter={vi.fn()}
         onSelectionChange={vi.fn()}
       />

@@ -91,8 +91,14 @@ function createDefaultSearchService() {
       }] : [];
     },
     getSearchPreferences: () => {
-      const {filenamePriority, recency} = useSettingsStore.getState().search;
-      return {filenamePriority, recency};
+      const {
+        filenamePriority,
+        recency,
+        rerankingEnabled,
+        semanticEnabled,
+        showPinned,
+      } = useSettingsStore.getState().search;
+      return {filenamePriority, recency, rerankingEnabled, semanticEnabled, showPinned};
     },
   });
 }

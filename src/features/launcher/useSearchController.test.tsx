@@ -90,5 +90,19 @@ describe('useSearchController', () => {
 
     expect(service.requests[0]?.request.filters).toEqual(filters);
   });
+
+  it('uses the active selection as the Related source', async () => {
+    const service = new MemorySearchService();
+    const {result} = renderHook(() => useSearchController(service));
+
+    act(() => result.current.setQuery('harbor'));
+    await act(() => service.resolve('harbor', [file('indexed:source')]));
+    act(() => result.current.setScope('related'));
+
+    expect(service.requests[service.requests.length - 1]?.request).toMatchObject({
+      scope: 'related',
+      relatedTo: 'indexed:source',
+    });
+  });
 });
 
