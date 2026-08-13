@@ -39,12 +39,12 @@ The three ignored Rust tests require their checksum-pinned AgentGateway or compi
 
 The checked-in warm deterministic profile reports:
 
-- warm launcher p95: 7.10 ms;
+- warm launcher p95: 2.50 ms;
 - input response p95: 0.10 ms;
-- selection-to-paint p95: 2.90 ms;
-- hover-to-paint p95: 7.00 ms within the measured 10 ms cadence-aware budget;
-- idle CPU: 1.17%;
-- JavaScript heap: 27.65 MB;
+- selection-to-paint p95: 1.90 ms;
+- hover-to-paint p95: 6.60 ms within the measured 10.10 ms cadence-aware budget;
+- idle CPU: 0.36%;
+- JavaScript heap: 27.61 MB;
 - no browser long tasks above 50 ms during the rapid input, selection, or hover studies;
 - zero active animations after settling.
 
@@ -57,8 +57,8 @@ The NSIS acceptance artifact at `artifacts/packaged/packaged-smoke.json` records
 | Check | Result |
 | --- | --- |
 | Installer | `Lumen_0.1.0_x64-setup.exe` |
-| Size | 148,134,439 bytes |
-| SHA-256 | `4596be6407a17988aa4675ca7b87e869838eaf7ef2c4d274623613078d6b070e` |
+| Size | 148,103,934 bytes |
+| SHA-256 | `4906ba086a5118ce65cf8a751000d014f3ad78054c656a4796510fca07609007` |
 | Authenticode | `NotSigned` |
 | sqlite-vector runtime | 1.0.0 |
 | Exact vector query | Passed |
