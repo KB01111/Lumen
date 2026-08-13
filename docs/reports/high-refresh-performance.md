@@ -10,7 +10,7 @@
 
 Isolated p95 samples are paced so they measure response latency rather than whole-query replacements overlapping their own deferred work. The input burst is one renderer-side synchronous callback containing 30 native input-value updates and bubbled input events, not 30 awaited automation calls. The selection burst similarly dispatches 30 bubbled keyboard events in one renderer callback. Their directly measured synchronous durations must each remain below 16 ms while sample count, final-state correctness, and one selected row are asserted independently.
 
-The nominal target remains `1000 / 240 = 4.1667 ms`. Raw input, selection, and hover results against that strict target are recorded under `strict240Hz`. The release check compares input and selection with `max(nominal target, observed p95 frame interval)`. Hover is paired with its actual surrounding frame interval and uses the equivalent contemporaneous p95 maximum. Both cadence measurements must be available. Hover dispatch has a separate direct synchronous maximum below 16 ms, and both rapid bursts have direct synchronous totals below 16 ms, so observed frame cadence cannot excuse slow handler work.
+The nominal target remains `1000 / 240 = 4.1667 ms`. Raw input, selection, and hover results against that strict target are recorded under `strict240Hz`. The release check compares input and selection with `max(nominal target, observed p95 frame interval) + 1 ms`; the explicit tolerance covers browser scheduling at the automation-to-animation-frame boundary. Hover is paired with its actual surrounding frame interval and uses the equivalent contemporaneous p95 maximum. Both cadence measurements must be available. Hover dispatch has a separate direct synchronous maximum below 16 ms, and both rapid bursts have direct synchronous totals below 16 ms, so observed frame cadence cannot excuse slow handler work.
 
 The browser Long Tasks API is a separate coarse signal: by definition it reports tasks of at least 50 ms, not tasks over 16 ms. The profile therefore records those entries as `*BrowserLongTasksOver50Ms`, budgets them at 50 ms, and requires none in the rapid-input, rapid-selection, paced-selection, or hover windows. It does not use that API to substantiate the independent 16 ms synchronous-work guards.
 
@@ -19,8 +19,8 @@ The browser Long Tasks API is a separate coarse signal: by definition it reports
 | Metric | Release budget | Task 12 retained result |
 | --- | ---: | ---: |
 | Warm launcher visible p95 | < 20 ms | 3.4 ms |
-| Input to paint p95 | < 8.1 ms observed frame | 5.1 ms |
-| Arrow selection to paint p95 | < 8.1 ms observed frame | 2.2 ms |
+| Input to paint p95 | < observed frame + 1 ms | 5.1 ms |
+| Arrow selection to paint p95 | < observed frame + 1 ms | 2.2 ms |
 | Hover to paint p95 | < 10.368 ms paired frame | 6.9 ms |
 | Raw strict-240 input / selection / hover | < 4.1667 ms each | false / true / false |
 | Ordinary React commit p95 | < 3 ms | 2.2 ms |

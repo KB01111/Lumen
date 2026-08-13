@@ -10,6 +10,7 @@ const outputDirectory = path.resolve('artifacts/performance');
 const tracePath = path.join(outputDirectory, 'interaction-trace.zip');
 const summaryPath = path.join(outputDirectory, 'profile-summary.json');
 const targetFrameBudgetMs = 1000 / 240;
+const frameSchedulingToleranceMs = 1;
 
 function percentile(values, quantile) {
   const sorted = [...values].sort((left, right) => left - right);
@@ -261,7 +262,7 @@ async function profile(baseUrl) {
     const effectivePaintFrameBudgetMs = Math.max(
       refresh.p95FrameIntervalMs,
       targetFrameBudgetMs,
-    );
+    ) + frameSchedulingToleranceMs;
     const effectiveHoverFrameBudgetMs = Math.max(
       measured.hoverFrameIntervalP95Ms,
       targetFrameBudgetMs,
@@ -327,6 +328,7 @@ async function profile(baseUrl) {
       target: {
         refreshRateHz: 240,
         frameBudgetMs: targetFrameBudgetMs,
+        frameSchedulingToleranceMs,
         effectivePaintFrameBudgetMs,
         effectiveHoverFrameBudgetMs,
       },

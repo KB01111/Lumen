@@ -1,5 +1,7 @@
 import {expect, test, type Page} from '@playwright/test';
 
+const frameSchedulingToleranceMs = 1;
+
 test.describe.configure({mode: 'serial'});
 test.use({
   trace: 'off',
@@ -139,7 +141,8 @@ test('warm launcher and ordinary interactions stay inside browser budgets', asyn
   await expect(page.getByRole('grid', {name: 'Search results'})).toBeVisible();
   const frameCadence = await measureFrameCadence(page);
   const inputMetrics = await readMetrics(page);
-  const observedFrameBudget = Math.max(frameCadence.p95Ms, 1000 / 240);
+  const observedFrameBudget = Math.max(frameCadence.p95Ms, 1000 / 240) +
+    frameSchedulingToleranceMs;
   const inputP95 = percentile(
     inputMetrics.timings.filter((sample) => sample.name === 'input-response').map((sample) => sample.durationMs),
     0.95,

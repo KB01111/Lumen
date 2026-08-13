@@ -20,9 +20,15 @@ test('renders dark, light, and opaque shell variants', async ({page}) => {
 
   await page.goto('/?service=memory');
   const commandPalette = page.getByLabel('Lumen launcher');
+  const search = page.getByRole('searchbox', {name: 'Search files'});
+  await expect(search).toHaveAttribute('placeholder', 'Search apps and files');
+  await page.getByRole('button', {name: 'Switch to Computer Use'}).click();
+  await expect(page.getByRole('searchbox', {name: 'Describe a browser task'}))
+    .toHaveAttribute('placeholder', 'Describe browser task');
+  await page.getByRole('button', {name: 'Switch to file search'}).click();
   await expect(commandPalette).toHaveAttribute('data-upstream', 'einui-glass-command-palette');
   await expect(commandPalette).toHaveAttribute('data-expanded', 'false');
-  await page.getByRole('searchbox', {name: 'Search files'}).fill('release');
+  await search.fill('release');
   await expect(commandPalette).toHaveAttribute('data-expanded', 'true');
   await expect(commandPalette.locator('[data-einui-slot="workspace"]')).toBeVisible();
 });

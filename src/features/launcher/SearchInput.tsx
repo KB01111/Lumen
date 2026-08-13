@@ -136,7 +136,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           autoComplete="off"
           defaultValue={useQueryStore.getState().draft}
           enterKeyHint="search"
-          placeholder={intent === 'computer' ? 'Ask Lumen to complete a browser task' : 'Search apps, files, and settings'}
+          placeholder={intent === 'computer' ? 'Describe browser task' : 'Search apps and files'}
           spellCheck={false}
           type="search"
           className="min-w-0 flex-1 border-0 bg-transparent p-0 font-sans text-[1.0625rem] font-normal leading-tight tracking-tight text-[color:var(--einui-command-text)] caret-accent outline-none placeholder:text-[color:var(--einui-command-muted-text)]"
