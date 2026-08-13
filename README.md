@@ -66,7 +66,7 @@ Generated evidence is checked in under `artifacts`:
 - `artifacts/performance/profile-summary.json`: machine-readable budgets, measurements, burst guards, browser version, and source SHA.
 - `artifacts/performance/interaction-trace.zip`: Playwright trace for the measured interaction run.
 
-The MSI and NSIS bundles are generated under `src-tauri/target/release/bundle`. Build outputs are not committed.
+The NSIS installer is generated under `src-tauri/target/release/bundle/nsis`. Build outputs are not committed.
 
 ## Architecture
 
