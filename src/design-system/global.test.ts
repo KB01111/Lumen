@@ -39,11 +39,19 @@ describe('Lumen CSS appearance contract', () => {
   });
 
   it('uses one semantic accent for the command palette glow', () => {
-    expect(normalizedCss).toContain(
+    const glowRuleMatch = normalizedCss.match(
+      /\.einui-command-exterior-colour-glow\s*\{[^}]*\}/s,
+    );
+    expect(glowRuleMatch).toBeTruthy();
+
+    const glowRule = glowRuleMatch![0];
+    expect(glowRule).toContain('var(--lumen-accent)');
+    expect(glowRule).toContain(
       'background: radial-gradient(circle, color-mix(in srgb, var(--lumen-accent) 22%, transparent) 0%, transparent 72%);',
     );
-    expect(normalizedCss).not.toContain('rgba(6, 182, 212, 0.2)');
-    expect(normalizedCss).not.toContain('rgba(168, 85, 247, 0.2)');
+    expect(glowRule).not.toMatch(/rgba\(\d+,\s*\d+,\s*\d+/);
+    expect(glowRule).not.toMatch(/rgb\(\d+,\s*\d+,\s*\d+/);
+    expect(glowRule).not.toMatch(/#[0-9a-fA-F]{3,8}(?![^}]*var\()/);
   });
 
   it('maps every shared semantic Tailwind color role to system colors in high contrast', () => {
