@@ -39,12 +39,12 @@ The three ignored Rust tests require their checksum-pinned AgentGateway or compi
 
 The checked-in warm deterministic profile reports:
 
-- warm launcher p95: 2.50 ms;
+- warm launcher p95: 4.10 ms;
 - input response p95: 0.10 ms;
-- selection-to-paint p95: 1.90 ms;
-- hover-to-paint p95: 6.60 ms within the measured 10.10 ms cadence-aware budget;
-- idle CPU: 0.36%;
-- JavaScript heap: 27.61 MB;
+- selection-to-paint p95: 2.30 ms;
+- hover-to-paint p95: 10.70 ms within the measured 13.80 ms cadence-aware budget;
+- idle CPU: 0.77%;
+- JavaScript heap: 27.53 MB;
 - no browser long tasks above 50 ms during the rapid input, selection, or hover studies;
 - zero active animations after settling.
 

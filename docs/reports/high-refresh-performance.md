@@ -18,20 +18,20 @@ The browser Long Tasks API is a separate coarse signal: by definition it reports
 
 | Metric | Release budget | Current result |
 | --- | ---: | ---: |
-| Warm launcher visible p95 | < 20 ms | 2.5 ms |
+| Warm launcher visible p95 | < 20 ms | 4.1 ms |
 | Input to paint p95 | < observed frame + 2 ms | 0.1 ms |
-| Arrow selection to paint p95 | < observed frame + 2 ms | 1.9 ms |
-| Hover to paint p95 | < 10.1 ms paired frame | 6.6 ms |
+| Arrow selection to paint p95 | < observed frame + 2 ms | 2.3 ms |
+| Hover to paint p95 | < 13.8 ms paired frame | 10.7 ms |
 | Raw strict-240 input / selection / hover | < 4.1667 ms each | true / true / false |
 | Ordinary React commit p95 | < 3 ms | 0 ms |
-| Direct synchronous input/selection bursts and hover dispatch | < 16 ms | 1.4 / 2.1 / 1.1 ms |
+| Direct synchronous input/selection bursts and hover dispatch | < 16 ms | 1.0 / 1.9 / 1.3 ms |
 | Browser Long Tasks | none >= 50 ms | none |
 | Active animations after settle | 0 | 0 |
-| Idle UI CPU | < 2 percent | 0.36 percent |
-| JavaScript heap after GC | < 100 MB | 27.61 MB |
-| Unpaced input/selection bursts | correct final state, direct synchronous duration < 16 ms | 1.4 / 2.1 ms; passed |
+| Idle UI CPU | < 2 percent | 0.77 percent |
+| JavaScript heap after GC | < 100 MB | 27.53 MB |
+| Unpaced input/selection bursts | correct final state, direct synchronous duration < 16 ms | 1.0 / 1.9 ms; passed |
 
-The machine-readable result for source commit `c5471eb43f4db7e4d953f7417a5b7736faf339d7` is `artifacts/performance/profile-summary.json`; `interaction-trace.zip` contains the correlated trace. The JSON records that exact source SHA, browser build, samples, budgets, checks, and observed cadence. A later evidence-only commit may contain these generated files without changing the source SHA they identify.
+The machine-readable result for source commit `4d384c75b4ca265c27801ae927560347bfe650ca` is `artifacts/performance/profile-summary.json`; `interaction-trace.zip` contains the correlated trace. The JSON records that exact source SHA, browser build, samples, budgets, checks, and observed cadence. A later evidence-only commit may contain these generated files without changing the source SHA they identify.
 
 ## Render-path findings
 
