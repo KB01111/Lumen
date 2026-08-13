@@ -21,21 +21,29 @@ describe('Lumen CSS appearance contract', () => {
 }`);
   });
 
-  it('uses solid light and dark semantic surfaces when transparency is disabled', () => {
+  it('uses neutral opaque surfaces in light and dark themes', () => {
     expect(normalizedCss).toContain(`
 [data-transparency='disabled'] {
-  --lumen-canvas: #edf3f7;
-  --lumen-surface-glass: #f4f8fb;
+  --lumen-canvas: #f5f4f0;
+  --lumen-surface-glass: #fbfaf8;
   --lumen-surface-raised: #ffffff;
-  --lumen-surface-inset: #e2ebf1;
+  --lumen-surface-inset: #e8e7e3;
 }`);
     expect(normalizedCss).toContain(`
 [data-resolved-theme='dark']:where([data-transparency='disabled']) {
-  --lumen-canvas: #071017;
-  --lumen-surface-glass: #111c27;
-  --lumen-surface-raised: #223246;
-  --lumen-surface-inset: #0b141d;
+  --lumen-canvas: #10100f;
+  --lumen-surface-glass: #1b1b19;
+  --lumen-surface-raised: #292927;
+  --lumen-surface-inset: #0c0c0b;
 }`);
+  });
+
+  it('uses one semantic accent for the command palette glow', () => {
+    expect(normalizedCss).toContain(
+      'background: radial-gradient(circle, color-mix(in srgb, var(--lumen-accent) 22%, transparent) 0%, transparent 72%);',
+    );
+    expect(normalizedCss).not.toContain('rgba(6, 182, 212, 0.2)');
+    expect(normalizedCss).not.toContain('rgba(168, 85, 247, 0.2)');
   });
 
   it('maps every shared semantic Tailwind color role to system colors in high contrast', () => {
