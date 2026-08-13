@@ -78,7 +78,12 @@ pub fn run() {
             app.manage(gateway);
             app.manage(provider_registry);
             app.manage(gateway::answer::AnswerRuntime::default());
-            app.manage(gateway::LocalRuntimeSupervisor::detect());
+            app.manage(gateway::provisioning::ProvisioningManager::new(
+                data_directory.clone(),
+            ));
+            app.manage(gateway::LocalRuntimeSupervisor::detect(Some(
+                data_directory.clone(),
+            )));
             let packaged_computer_use = app.path().resource_dir()?.join("lumen-computer-use.exe");
             let staged_computer_use = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("binaries/lumen-computer-use-x86_64-pc-windows-msvc.exe");
@@ -179,6 +184,9 @@ pub fn run() {
             gateway::enrichment::restart_enrichment,
             gateway::local_runtime::local_runtime_health,
             gateway::local_runtime::set_local_runtime_mode,
+            gateway::provisioning::get_provisioning_status,
+            gateway::provisioning::start_provisioning,
+            gateway::provisioning::cancel_provisioning,
             computer_use::computer_use_health,
             computer_use::start_computer_use,
             computer_use::respond_computer_use_approval,

@@ -241,7 +241,7 @@ mod tests {
         let registry = crate::gateway::registry::ProviderRegistry::in_memory();
         assert_eq!(
             active_model_key(&registry),
-            "lumen.embed.local:local:embed-gemma:300m:embed-gemma:300m"
+            "lumen.embed.local:local:nomic-embed-text-v1:extra.nomic-embed-text-v1.Q4_K_S.gguf"
         );
     }
 }

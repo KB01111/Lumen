@@ -89,6 +89,13 @@ pub struct AppliedRoute {
 
 impl AppliedRoute {
     pub(crate) fn upstream_model(&self) -> &str {
+        match self.model_id.as_str() {
+            "local:qwen3.5:4b" => return "extra.Qwen3.5-4B-UD-Q4_K_XL.gguf",
+            "local:nomic-embed-text-v1" => {
+                return "extra.nomic-embed-text-v1.Q4_K_S.gguf";
+            }
+            _ => {}
+        }
         self.upstream_model.as_deref().unwrap_or_else(|| {
             self.model_id
                 .split_once(':')
@@ -179,8 +186,8 @@ fn models() -> Vec<ModelDescriptor> {
             capabilities: ANSWER,
         },
         ModelDescriptor {
-            id: "local:embed-gemma:300m",
-            label: "EmbeddingGemma 300M",
+            id: "local:nomic-embed-text-v1",
+            label: "Nomic Embed Text v1",
             provider_id: ProviderId::Local,
             capabilities: EMBEDDING,
         },
@@ -247,7 +254,7 @@ fn default_routes() -> Vec<AppliedRoute> {
             "lumen.embed.local",
             ModelCapability::Embedding,
             ProviderId::Local,
-            "local:embed-gemma:300m",
+            "local:nomic-embed-text-v1",
         ),
         (
             "lumen.embed.cloud",
