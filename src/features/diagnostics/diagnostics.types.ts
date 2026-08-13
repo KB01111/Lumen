@@ -27,8 +27,8 @@ export interface DiagnosticsExport {
   contents: string;
 }
 
-const secretKey = /(api[-_]?key|token|secret|password|authorization|prompt)/i;
-const windowsPath = /(?:[a-z]:\\|\\\\)[^\r\n"']+/gi;
+const secretKey = /(api[-_]?key|token|secret|password|authorization|prompt|credential|content|body|error|logs?|message|detail|path|directory)/i;
+const windowsPath = /(?:[a-z]:[\\/]|\\\\|(?:^|[\s"'(])\/\/)[^\r\n"']+/gi;
 
 function sanitizeString(value: string) {
   return value.replace(windowsPath, '[local-path]');

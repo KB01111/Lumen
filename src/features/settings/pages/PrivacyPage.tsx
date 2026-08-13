@@ -115,7 +115,7 @@ export function PrivacyPage({
       </SettingsCallout>
       {message ? <SettingsCallout>{message}</SettingsCallout> : null}
       <SettingSection title="Local data">
-        <SettingRow label="Local-only search" description="Filenames, previews, history, and development adapter results remain local." status={<StatusBadge tone="success">On device</StatusBadge>}>
+        <SettingRow label="Local-only search" description="Filenames, content index, previews, and history remain on this PC." status={<StatusBadge tone="success">On device</StatusBadge>}>
           <LumenUiIcon name="privacy" size="medium" />
         </SettingRow>
         <SettingRow label="Indexed root summary" description="Only folders you explicitly chose can be traversed.">

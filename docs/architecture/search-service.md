@@ -16,13 +16,13 @@ interface SearchService {
 
 | Adapter | Use | Data source |
 | --- | --- | --- |
-| `DevelopmentFileSearchService` | Normal browser/Tauri composition and every production build | Typed Tauri commands over selected local roots |
+| `DevelopmentFileSearchService` | Normal Tauri composition and every production build | Typed native filename, FTS, recent, related, and hybrid SQLite search over selected roots |
 | `DevelopmentSearchService` | Development-only `?service=memory` acceptance and recordings | Deterministic in-memory results |
 | Gallery service | Development-only gallery scenarios | Scenario fixtures |
 | `MemorySearchService` | Unit/component tests | Controllable test state |
 | `FutureProductionSearchService` | Explicit future boundary | Throws an unavailable error in phase one |
 
-The application chooses the memory service only when Vite is in development mode and the URL explicitly contains `service=memory`. No production bundle route can select it. Roots come from unpaused Indexed Roots settings, then fall back to the onboarding root.
+The browser-only preview uses the file adapter without Tauri IPC; deterministic acceptance selects the memory service only when Vite is in development mode and the URL explicitly contains `service=memory`. No production bundle route can select it. Roots come from unpaused Indexed Roots settings, then fall back to the onboarding root.
 
 ## Request flow
 
@@ -37,7 +37,7 @@ Every Tauri response is parsed with Zod before entering UI state. Invalid payloa
 
 ## Native local-file commands
 
-The Rust boundary exposes:
+The confined file lane exposes:
 
 - `list_files`
 - `search_filenames`
@@ -45,6 +45,8 @@ The Rust boundary exposes:
 - `get_basic_preview`
 - `open_file`
 - `open_containing_folder`
+
+The durable index lane additionally exposes typed root synchronization, hybrid search, Related/Recent availability, pinning, history controls, index deletion, and native diagnostics. Filename and FTS retrieval remain usable when embeddings, the local model runtime, or `sqlite-vector` are unavailable.
 
 Traversal is blocking filesystem work moved to Tauri's async blocking pool. It is deterministic, case-insensitive for matching, Unicode-preserving, and capped at 250,000 traversed records and 10,000 returned records. Search ranks exact, prefix, substring, then fuzzy subsequence matches.
 
@@ -62,6 +64,12 @@ Generated dependency and build directories are skipped by name: `.git`, `.next`,
 - Paths are displayed without the Windows canonical `\\?\` prefix, while filesystem operations retain canonical paths.
 - Openers use Tauri's opener plugin only after confinement succeeds.
 
-## Phase-two replacement rule
+## Durable SQLite and vector retrieval
 
-A production engine may implement the same service interface and add richer match sources, groups, and statuses, but it must preserve request IDs, abort behavior, stable IDs, structured errors, confinement, and the rule that exact local filename search remains available without AI. UI components should not change merely because the backend becomes indexed or semantic.
+SQLite owns files, chunks, FTS rows, query/file-open history, pins, enrichment jobs, answer cache, and ordinary `vector_embeddings` rows. The checksum-pinned `@sqliteai/sqlite-vector` 1.0.0 DLL is loaded only from Lumen's fixed development or packaged resource path; extension loading is disabled immediately afterward. Vector rows are keyed by model, dimension, content hash, and index revision. A model/dimension change rebuilds only vector rows and preserves lexical data.
+
+Hybrid ranking combines lexical, semantic, recency, and pin signals using bounded candidate sets. `Recent` is backed by durable file-open history. `Related` appears only when the active embedding route has usable vectors. Invalid or missing vector artifacts return a sanitized availability state instead of failing exact filename or FTS search.
+
+## Backend evolution rule
+
+Future index optimizations must preserve request IDs, abort behavior, stable IDs, structured errors, confinement, and the rule that exact local filename and FTS search remain available without AI. UI components should not change merely because the backend implementation evolves.

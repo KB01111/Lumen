@@ -9,6 +9,17 @@ import {withLumenDevServer} from './lib/lumen-dev-server.mjs';
 const outputDirectory = path.resolve('artifacts/screenshots');
 const viewport = {width: 1120, height: 760};
 
+async function captureScreenshot(page, options) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await page.screenshot(options);
+    } catch (error) {
+      if (attempt === 4 || error?.code !== 'UNKNOWN') throw error;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+}
+
 async function createContactSheet(browser, entries) {
   const page = await browser.newPage({viewport: {width: 1680, height: 1000}});
   const cards = await Promise.all(entries.map(async (entry) => {
@@ -26,8 +37,8 @@ async function createContactSheet(browser, entries) {
       figure{margin:0;padding:10px;background:#101824;border:1px solid #26354a;border-radius:14px;box-shadow:0 12px 30px #0006}
       img{display:block;width:100%;aspect-ratio:28/19;object-fit:cover;border-radius:9px;background:#05070b}
       figcaption{display:grid;gap:2px;padding:9px 3px 2px} strong{font-weight:600} span{color:#8fa2bb;font-size:12px}
-    </style></head><body><h1>Lumen Phase 1 visual state gallery</h1><main>${cards.join('')}</main></body></html>`);
-  await page.screenshot({path: path.join(outputDirectory, 'contact-sheet.png'), fullPage: true});
+    </style></head><body><h1>Lumen visual state gallery</h1><main>${cards.join('')}</main></body></html>`);
+  await captureScreenshot(page, {path: path.join(outputDirectory, 'contact-sheet.png'), fullPage: true});
   await page.close();
 }
 
@@ -66,7 +77,7 @@ async function capture(baseUrl) {
       }, scenario.id === 'theme-light' || scenario.id === 'theme-high-contrast');
       const filename = `${scenario.id}.png`;
       const absolutePath = path.join(outputDirectory, filename);
-      await page.screenshot({path: absolutePath, animations: 'disabled'});
+      await captureScreenshot(page, {path: absolutePath, animations: 'disabled'});
       entries.push({
         scenario: scenario.id,
         label: scenario.label,

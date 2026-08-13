@@ -15,7 +15,7 @@ use std::path::Path;
 
 use tauri::{AppHandle, Runtime, State};
 
-pub(crate) use index::{EnrichmentJobRecord, IndexedHit};
+pub(crate) use index::{EnrichmentJobRecord, IndexedHit, run_packaged_search_smoke};
 pub use indexing::IndexRuntime;
 pub use types::{
     BasicPreview, FileKind, FileListResponse, FileRecord, FilenameSearchResponse, SearchFailure,

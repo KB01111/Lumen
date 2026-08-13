@@ -54,7 +54,7 @@ export function ComputerUsePanel({
         </div>
         <LumenText aria-label={phaseLabel(controller)} className="rounded-pill bg-surface-inset px-2.5 py-1 text-text-secondary" role="status" variant="caption">{phaseLabel(controller)}</LumenText>
       </header>
-      <div className="grid min-h-0 content-start gap-6 overflow-y-auto p-8">
+      <div className="grid min-h-0 content-start gap-6 overflow-y-auto p-8" tabIndex={-1}>
         <div className="grid gap-3 rounded-control border border-border-subtle bg-surface-inset p-5">
           <LumenText weight="medium">Protected browser session</LumenText>
           <LumenText tone="secondary" variant="meta">{setupMessage}</LumenText>

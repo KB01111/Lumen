@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{
     Mutex,
@@ -1392,6 +1393,125 @@ impl IndexDatabase {
                 .map_err(|_| IndexError::IntegerOverflow)?,
         })
     }
+
+    pub fn schema_version(&self) -> IndexResult<u32> {
+        self.connection
+            .lock()
+            .map_err(|_| IndexError::Poisoned)?
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .map_err(IndexError::from)
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PackagedSearchSmoke {
+    pub exact_vector: bool,
+    pub lexical_fallback: bool,
+    pub vector_version: Option<String>,
+}
+
+pub(crate) fn run_packaged_search_smoke(
+    smoke_root: &Path,
+    vector_extension: &Path,
+) -> Result<PackagedSearchSmoke, String> {
+    let result = (|| {
+        fs::create_dir_all(smoke_root).map_err(|_| "smoke root could not be created")?;
+        let vector_file = smoke_root.join("vector.txt");
+        fs::write(&vector_file, b"verified vector search")
+            .map_err(|_| "smoke vector file could not be created")?;
+        let vector_database =
+            IndexDatabase::open(&smoke_root.join("vector.sqlite"), vector_extension)
+                .map_err(|_| "packaged vector database could not be opened")?;
+        vector_database
+            .upsert_document(
+                smoke_root,
+                &IndexedDocument {
+                    stable_id: "packaged-vector".to_owned(),
+                    path: vector_file,
+                    content_hash: "packaged-vector-hash".to_owned(),
+                    extraction_version: "smoke-v1".to_owned(),
+                    chunks: vec![IndexedChunk {
+                        text: "verified vector search".to_owned(),
+                        extraction_kind: "text".to_owned(),
+                        page: None,
+                        time_start_ms: None,
+                        time_end_ms: None,
+                    }],
+                },
+            )
+            .map_err(|_| "packaged vector document could not be indexed")?;
+        let chunk_id: i64 = vector_database
+            .connection
+            .lock()
+            .map_err(|_| "packaged vector database is unavailable")?
+            .query_row(
+                "SELECT chunks.id FROM chunks
+                 JOIN files ON files.id = chunks.file_id
+                 WHERE files.stable_id = 'packaged-vector'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|_| "packaged vector chunk is unavailable")?;
+        vector_database
+            .upsert_embedding(
+                chunk_id,
+                "packaged-smoke",
+                3,
+                "packaged-vector-hash",
+                1,
+                &[1.0, 0.0, 0.0],
+            )
+            .map_err(|_| "packaged vector could not be stored")?;
+        let exact_vector = vector_database
+            .search_embeddings("packaged-smoke", 3, &[1.0, 0.0, 0.0], 1)
+            .map_err(|_| "packaged vector query failed")?
+            .first()
+            .is_some_and(|hit| hit.stable_id == "packaged-vector");
+        let vector_version = vector_database.vector_status().version;
+
+        let fallback_root = smoke_root.join("fallback");
+        fs::create_dir_all(&fallback_root).map_err(|_| "fallback root could not be created")?;
+        let fallback_file = fallback_root.join("lexical.txt");
+        fs::write(&fallback_file, b"verified lexical fallback")
+            .map_err(|_| "fallback file could not be created")?;
+        let fallback_database = IndexDatabase::open(
+            &fallback_root.join("fallback.sqlite"),
+            &fallback_root.join("missing-vector.dll"),
+        )
+        .map_err(|_| "fallback database could not be opened")?;
+        fallback_database
+            .upsert_document(
+                &fallback_root,
+                &IndexedDocument {
+                    stable_id: "packaged-fallback".to_owned(),
+                    path: fallback_file,
+                    content_hash: "packaged-fallback-hash".to_owned(),
+                    extraction_version: "smoke-v1".to_owned(),
+                    chunks: vec![IndexedChunk {
+                        text: "verified lexical fallback".to_owned(),
+                        extraction_kind: "text".to_owned(),
+                        page: None,
+                        time_start_ms: None,
+                        time_end_ms: None,
+                    }],
+                },
+            )
+            .map_err(|_| "fallback document could not be indexed")?;
+        let lexical_fallback = !fallback_database.vector_status().available
+            && fallback_database
+                .search("lexical", 1)
+                .map_err(|_| "fallback lexical query failed")?
+                .first()
+                .is_some_and(|hit| hit.stable_id == "packaged-fallback");
+        Ok(PackagedSearchSmoke {
+            exact_vector,
+            lexical_fallback,
+            vector_version,
+        })
+    })();
+    let _ = fs::remove_dir_all(smoke_root);
+    result
 }
 
 #[cfg(test)]
@@ -1762,6 +1882,20 @@ mod tests {
             .to_string();
         assert!(error.contains("pinned sqlite-vector runtime could not be loaded"));
         assert!(!error.contains(&fixture.root().to_string_lossy().into_owned()));
+    }
+
+    #[test]
+    fn packaged_smoke_exercises_exact_vector_and_lexical_fallback() {
+        let fixture = SearchFixture::new("packaged-search-smoke");
+        let smoke_root = fixture.root().parent().unwrap().join("smoke");
+        let extension = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/vector.dll");
+
+        let report = run_packaged_search_smoke(&smoke_root, &extension).unwrap();
+
+        assert!(report.exact_vector);
+        assert!(report.lexical_fallback);
+        assert!(report.vector_version.is_some());
+        assert!(!smoke_root.exists());
     }
 
     fn document(path: PathBuf, stable_id: &str, hash: &str, text: &str) -> IndexedDocument {

@@ -9,15 +9,17 @@ Lumen's first-run and settings experiences are part of the same native React sur
 - `src/features/settings/pages` owns General, Appearance, Indexed roots, Search, Local AI, AgentGateway, Activity, Privacy, and Diagnostics.
 - `src/state/appearance.store.ts` owns live theme, transparency, density, preview, effects, and motion preferences.
 - `src/features/settings/settings.store.ts` owns management preferences and the last active settings page.
-- `src/features/activity/activity.store.ts`, `src/features/local-ai/local-ai.store.ts`, `src/features/gateway/gateway.store.ts`, and `src/features/diagnostics/diagnostics.store.ts` own their bounded phase-one state machines.
+- Feature stores own presentation state. Native activity, provider routes, MCP permissions, local runtime provisioning, privacy, index data, and diagnostic truth remain authoritative in Rust.
 
 React Aria Components provides the tabs, switches, selects, sliders, dialogs, focus semantics, collection roles, and focus restoration. Those controls are styled directly with Lumen primitives rather than wrapped by a second interaction abstraction. Overlay portals are mounted inside the themed application root so confirmation dialogs inherit the active appearance.
 
-## Phase-one boundaries
+## Native management boundaries
 
-Local AI and AgentGateway controls deliberately expose deterministic management states without starting a model, sidecar, MCP server, or cloud request. Provider tests, route changes, permission choices, restart actions, and diagnostics previews are local simulations labelled as such. Reranking remains unavailable. Activity detection and per-game policies are user-configurable UI state; production process detection is outside this frontend phase.
+Local AI provisions one closed, checksum-pinned Lemonade/Qwen/Nomic profile. AgentGateway health, provider credentials, typed routes, MCP permissions, and route tests use native services; credentials stay in Windows Credential Manager. React never supplies an executable path, arbitrary process argument, model download URL, provider SDK, or secret-bearing diagnostic field.
 
-Indexed-root edits are persisted settings and feed the development file adapter. Destructive actions require confirmation. Diagnostics exports are sanitized previews: configured secrets, authorization values, and file contents are excluded.
+Activity classification observes only hashed executable identity, fullscreen/video state, and power state needed to enforce indexing policy. Indexed-root edits persist before native synchronization. History clearing and index deletion operate on durable SQLite data and preserve selected roots and source files. Destructive actions require confirmation.
+
+Diagnostics Refresh requests one typed native snapshot covering index/vector, activity, AgentGateway, MCP, local runtime, provisioning, and provider-route counts. Export combines it with bounded frontend timing samples, sanitizes again in Rust, and uses a native save dialog. Prompts, contents, raw errors/logs, credentials, authorization values, runtime directories, and drive/UNC paths are excluded.
 
 ## Keyboard and focus
 
@@ -34,3 +36,5 @@ The application root selects one complete Tailwind CSS semantic color/material t
 ## Diagnostics sampling
 
 Diagnostics uses bounded buffers populated by User Timing, `PerformanceObserver` long-task samples when supported, and the React Profiler callback. It does not run a permanent per-frame React render loop. The `Ctrl+Shift+D` overlay is an inspection surface only and can be closed without changing launcher focus or search state.
+
+Packaged acceptance uses `LUMEN_PACKAGED_SMOKE=1` only inside the isolated installer smoke script. The installed application runs exact sqlite-vector retrieval, disabled-vector lexical fallback, show/hide lifecycle, and sanitized report generation against temporary app data, then exits. Normal launches never enter this path.

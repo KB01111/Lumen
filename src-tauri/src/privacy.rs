@@ -85,7 +85,13 @@ fn sensitive_key(key: &str) -> bool {
         "body",
         "content",
         "credential",
+        "detail",
+        "directory",
+        "error",
+        "log",
+        "message",
         "password",
+        "path",
         "prompt",
         "query",
         "secret",
@@ -97,11 +103,12 @@ fn sensitive_key(key: &str) -> bool {
 }
 
 fn contains_windows_path(value: &str) -> bool {
-    value.starts_with("\\\\")
-        || value
-            .as_bytes()
-            .windows(3)
-            .any(|part| part[0].is_ascii_alphabetic() && part[1] == b':' && part[2] == b'\\')
+    let bytes = value.as_bytes();
+    bytes.windows(2).enumerate().any(|(index, part)| {
+        part == b"\\\\" || (part == b"//" && (index == 0 || bytes[index - 1] != b':'))
+    }) || bytes.windows(3).any(|part| {
+        part[0].is_ascii_alphabetic() && part[1] == b':' && matches!(part[2], b'\\' | b'/')
+    })
 }
 
 fn sanitize_diagnostics(value: Value) -> Value {
@@ -135,6 +142,23 @@ fn sanitize_diagnostics(value: Value) -> Value {
     }
 }
 
+pub(crate) fn sanitized_diagnostics_string(value: Value) -> Result<String, String> {
+    serde_json::to_string_pretty(&sanitize_diagnostics(value))
+        .map_err(|_| "The diagnostics snapshot could not be prepared.".to_owned())
+}
+
+pub(crate) fn write_sanitized_diagnostics(path: &Path, contents: &str) -> Result<(), String> {
+    const MAX_EXPORT_BYTES: usize = 256 * 1024;
+    if contents.len() > MAX_EXPORT_BYTES {
+        return Err("The diagnostics snapshot is too large to export.".to_owned());
+    }
+    let parsed = serde_json::from_str::<Value>(contents)
+        .map_err(|_| "The diagnostics snapshot is invalid.".to_owned())?;
+    let sanitized = sanitized_diagnostics_string(parsed)?;
+    fs::write(path, sanitized)
+        .map_err(|_| "The diagnostics snapshot could not be saved.".to_owned())
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiagnosticsExportResult {
@@ -147,14 +171,6 @@ pub fn export_diagnostics(
     app: AppHandle,
     contents: String,
 ) -> Result<DiagnosticsExportResult, String> {
-    const MAX_EXPORT_BYTES: usize = 256 * 1024;
-    if contents.len() > MAX_EXPORT_BYTES {
-        return Err("The diagnostics snapshot is too large to export.".to_owned());
-    }
-    let parsed = serde_json::from_str::<Value>(&contents)
-        .map_err(|_| "The diagnostics snapshot is invalid.".to_owned())?;
-    let sanitized = serde_json::to_string_pretty(&sanitize_diagnostics(parsed))
-        .map_err(|_| "The diagnostics snapshot could not be prepared.".to_owned())?;
     let selected = app
         .dialog()
         .file()
@@ -170,8 +186,7 @@ pub fn export_diagnostics(
     let path = selected
         .into_path()
         .map_err(|_| "The selected export location is unavailable.".to_owned())?;
-    fs::write(&path, sanitized)
-        .map_err(|_| "The diagnostics snapshot could not be saved.".to_owned())?;
+    write_sanitized_diagnostics(&path, &contents)?;
     Ok(DiagnosticsExportResult {
         saved: true,
         file_name: path
@@ -240,7 +255,11 @@ mod tests {
             "nested": {
                 "prompt": "Summarize my file",
                 "message": "Failed at C:\\Users\\Kevin\\Private\\note.txt",
-                "unc": "\\\\server\\private\\report.pdf"
+                "unc": "\\\\server\\private\\report.pdf",
+                "embeddedUnc": "failed while reading \\\\vault\\private\\embedded.txt",
+                "forwardUnc": "failed while reading //vault/private/forward.txt",
+                "providerError": "upstream rejected request: quota for account 42",
+                "runtimeFile": "C:/Users/Kevin/AppData/Local/Lumen/runtime/config.json"
             }
         }));
         let serialized = serde_json::to_string(&sanitized).unwrap();
@@ -252,10 +271,36 @@ mod tests {
             "Kevin",
             "server",
             "report.pdf",
+            "embedded.txt",
+            "forward.txt",
+            "quota",
+            "AppData",
         ] {
             assert!(!serialized.contains(forbidden), "leaked {forbidden}");
         }
         assert!(serialized.contains("[redacted]"));
         assert!(serialized.contains("[local-path]"));
+    }
+
+    #[test]
+    fn diagnostic_export_core_writes_the_same_sanitized_payload_without_a_dialog() {
+        let directory =
+            std::env::temp_dir().join(format!("lumen-diagnostics-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("diagnostics.json");
+
+        write_sanitized_diagnostics(
+            &path,
+            r#"{"appVersion":"0.1.0","prompt":"private","location":"failed at \\\\vault\\share\\file.txt"}"#,
+        )
+        .unwrap();
+        let written = std::fs::read_to_string(&path).unwrap();
+
+        assert!(written.contains("0.1.0"));
+        assert!(written.contains("[redacted]"));
+        assert!(written.contains("[local-path]"));
+        assert!(!written.contains("private"));
+        assert!(!written.contains("vault"));
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }

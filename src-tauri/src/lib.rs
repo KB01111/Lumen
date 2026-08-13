@@ -6,16 +6,12 @@ mod privacy;
 mod search;
 mod window;
 
-use std::sync::Mutex;
-
 use tauri::Manager;
 use tauri_plugin_global_shortcut::ShortcutState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let global_shortcut = tauri_plugin_global_shortcut::Builder::new()
-        .with_shortcut("Alt+Space")
-        .expect("Alt+Space must be a valid shortcut")
         .with_handler(|app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
                 let _ = window::show_from_app(
@@ -47,11 +43,36 @@ pub fn run() {
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let data_directory = app.path().app_data_dir()?;
+            let smoke_enabled = std::env::var("LUMEN_PACKAGED_SMOKE").as_deref() == Ok("1");
+            let data_directory = if smoke_enabled {
+                match std::env::var_os("LUMEN_SMOKE_APP_DATA") {
+                    Some(path) => {
+                        let target = std::fs::canonicalize(std::path::PathBuf::from(path))?;
+                        let temporary = std::fs::canonicalize(std::env::temp_dir())?;
+                        if target == temporary || !target.starts_with(&temporary) {
+                            return Err(std::io::Error::other(
+                                "Packaged smoke app data must be a child of the Windows temporary directory",
+                            )
+                            .into());
+                        }
+                        target
+                    }
+                    None => {
+                        return Err(std::io::Error::other(
+                            "Packaged smoke requires an isolated app-data directory",
+                        )
+                        .into());
+                    }
+                }
+            } else {
+                app.path().app_data_dir()?
+            };
             std::fs::create_dir_all(&data_directory)?;
             let settings_path = data_directory.join("lumen.settings.json");
             app.manage(consent::PersistedConsent::new(settings_path.clone()));
-            app.manage(window::RuntimePreferences::load(&settings_path));
+            let runtime_preferences = window::RuntimePreferences::load(&settings_path);
+            let initial_shortcut = runtime_preferences.shortcut();
+            app.manage(runtime_preferences);
             app.manage(privacy::PrivacyRuntime::load(&settings_path));
             app.manage(activity::ActivityRuntime::load(&settings_path));
             app.manage(gateway::mcp::McpRuntime::load(
@@ -122,6 +143,12 @@ pub fn run() {
                 std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/vector.dll");
             let vector_extension = if packaged_vector.is_file() {
                 packaged_vector
+            } else if smoke_enabled {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "The packaged sqlite-vector resource is missing",
+                )
+                .into());
             } else {
                 development_vector
             };
@@ -130,12 +157,79 @@ pub fn run() {
                 &vector_extension,
                 history_enabled,
             )?);
-            app.manage(window::ShortcutRegistration(Mutex::new(
-                "Alt+Space".to_owned(),
-            )));
+            app.manage(window::ShortcutRegistration::default());
+            if let Err(error) = window::register_initial_shortcut(app.handle(), &initial_shortcut) {
+                tauri_plugin_log::log::warn!("Global shortcut unavailable: {error}");
+            }
 
             if let Some(main_window) = app.get_webview_window("main") {
                 window::apply_native_material(&main_window)?;
+            }
+
+            if smoke_enabled {
+                let report_path = data_directory.join("lumen-packaged-smoke.json");
+                let smoke = (|| -> Result<serde_json::Value, String> {
+                    let search = search::run_packaged_search_smoke(
+                        &data_directory.join("packaged-search-smoke"),
+                        &vector_extension,
+                    )?;
+                    let main_window = app
+                        .get_webview_window("main")
+                        .ok_or_else(|| "The packaged launcher window is unavailable".to_owned())?;
+                    window::show_from_app(
+                        app.handle(),
+                        window::WindowMode::Collapsed,
+                        window::WindowStateSource::Command,
+                    )?;
+                    let shown = main_window.is_visible().unwrap_or(false);
+                    window::hide_for_close(&main_window)?;
+                    let hidden = !main_window.is_visible().unwrap_or(true);
+                    let diagnostics_path = data_directory.join("diagnostics-smoke.json");
+                    let diagnostics_source = serde_json::json!({
+                        "appVersion": env!("CARGO_PKG_VERSION"),
+                        "prompt": "packaged smoke secret",
+                        "location": format!("failed at {}", data_directory.display()),
+                    })
+                    .to_string();
+                    privacy::write_sanitized_diagnostics(
+                        &diagnostics_path,
+                        &diagnostics_source,
+                    )?;
+                    let diagnostics = std::fs::read_to_string(&diagnostics_path)
+                        .map_err(|_| "The packaged diagnostics export is unavailable".to_owned())?;
+                    let data_path = data_directory.to_string_lossy();
+                    let diagnostics_export = diagnostics.contains("[redacted]")
+                        && diagnostics.contains("[local-path]")
+                        && !diagnostics.contains("packaged smoke secret")
+                        && !diagnostics.contains(data_path.as_ref());
+                    Ok(serde_json::json!({
+                        "passed": search.exact_vector && search.lexical_fallback && shown && hidden && diagnostics_export,
+                        "exactVector": search.exact_vector,
+                        "lexicalFallback": search.lexical_fallback,
+                        "vectorVersion": search.vector_version,
+                        "windowShowHide": shown && hidden,
+                        "diagnosticsExport": diagnostics_export,
+                    }))
+                })();
+                let exit_code = if smoke.as_ref().is_ok_and(|value| {
+                    value
+                        .get("passed")
+                        .and_then(serde_json::Value::as_bool)
+                        .unwrap_or(false)
+                }) {
+                    0
+                } else {
+                    1
+                };
+                let report = smoke.unwrap_or_else(|error| {
+                    serde_json::json!({
+                        "passed": false,
+                        "error": error,
+                    })
+                });
+                let report = privacy::sanitized_diagnostics_string(report)?;
+                std::fs::write(report_path, report)?;
+                app.handle().exit(exit_code);
             }
 
             Ok(())
@@ -204,11 +298,11 @@ pub fn run() {
                 match window::close_action(preferences.close_behavior()) {
                     window::CloseAction::Hide => {
                         api.prevent_close();
-                        if window.hide().is_ok() {
-                            let _ = window::emit_hidden_from_app(
-                                window.app_handle(),
-                                window::WindowStateSource::Close,
-                            );
+                        if let Some(webview) = window
+                            .app_handle()
+                            .get_webview_window(window.label())
+                        {
+                            let _ = window::hide_for_close(&webview);
                         }
                     }
                     window::CloseAction::Exit => window.app_handle().exit(0),

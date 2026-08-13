@@ -575,7 +575,7 @@ impl ProvisioningManager {
         }
     }
 
-    fn snapshot(&self) -> ProvisioningStatus {
+    pub(crate) fn snapshot(&self) -> ProvisioningStatus {
         let active = self
             .cancellation
             .lock()

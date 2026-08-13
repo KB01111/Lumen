@@ -31,6 +31,6 @@ Date: 2026-08-12
 - `cargo test search::indexing --all-features` — PASS, 1 test.
 - `cargo metadata --no-deps --format-version 1` — PASS; Apache-2.0 and rusqlite `load_extension` are present and `sqlite-vec` is absent.
 
-## Remaining release acceptance
+## Release acceptance completed
 
-Broad repository verification, a clean `tauri build`, MSI/NSIS installation, isolated-profile smoke tests, and native-to-frontend diagnostics wiring were intentionally not performed in this focused backend slice. The full staging workflow downloaded and produced the required native binaries but exceeded the five-minute command window while staging Computer Use; the independently checksum-verified `vector.dll` is present. Installer acceptance must not be claimed until both bundles are exercised with lexical/vector queries and the missing-DLL fallback.
+The focused backend slice was subsequently covered by the full repository verification and packaged NSIS acceptance recorded in `2026-08-12-production-completion.md`. After a clean-user-profile preflight, the installed application loaded its packaged sqlite-vector 1.0.0 resource, completed an exact vector query, preserved lexical search with an intentionally unavailable DLL, exercised the sanitized diagnostics write and production window placement/hide cores, then uninstalled and removed its registration. App data was isolated beneath Windows Temp. Lumen currently produces NSIS only; no current MSI artifact is claimed.

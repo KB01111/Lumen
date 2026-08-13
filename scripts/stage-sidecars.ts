@@ -116,6 +116,20 @@ async function main() {
   console.log('Staged the Rivet 2.3.10 Windows engine.');
   await stageComputerUse();
   await stageSqliteVector();
+  const requiredOutputs = [
+    output,
+    workerOutput,
+    rivetEngineOutput,
+    join(dirname(output), 'lumen-computer-use-x86_64-pc-windows-msvc.exe'),
+    join(dirname(output), 'vector.dll'),
+    ...mingwRuntimeNames.map((name) => join(dirname(output), name)),
+  ];
+  for (const required of requiredOutputs) {
+    if (!(await stat(required).catch(() => undefined))?.isFile()) {
+      throw new Error(`Required packaged runtime is missing: ${required}`);
+    }
+  }
+  console.log(`Verified ${requiredOutputs.length} packaged runtime files.`);
 }
 
 await main();

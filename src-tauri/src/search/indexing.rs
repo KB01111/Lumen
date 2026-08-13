@@ -2,10 +2,22 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, State};
+
+use crate::{
+    activity::{ActivityMode, ActivityRuntime, BackgroundPolicy},
+    gateway::{
+        GatewaySupervisor, LocalRuntimeSupervisor,
+        mcp::{McpRuntime, ToolAccess},
+        provisioning::ProvisioningManager,
+        registry::ProviderRegistry,
+    },
+    window::ShortcutRegistration,
+};
 
 use super::extraction::extract_document;
 use super::index::{
@@ -47,12 +59,99 @@ pub struct IndexStatus {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NativeDiagnostics {
+pub struct NativeIndexDiagnostics {
+    pub phase: String,
+    pub schema_version: u32,
     pub indexed_files: u64,
     pub indexed_chunks: u64,
     pub history_entries: u64,
     pub history_enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeTimingSample {
+    pub name: &'static str,
+    pub duration_ms: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeLogSample {
+    pub component: &'static str,
+    pub state: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeActivityDiagnostics {
+    pub mode: ActivityMode,
+    pub background_policy: BackgroundPolicy,
+    pub fullscreen: bool,
+    pub on_battery: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeGatewayDiagnostics {
+    pub state: String,
+    pub version: String,
+    pub cloud_credential_configured: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeMcpDiagnostics {
+    pub services: u64,
+    pub tools: u64,
+    pub allowed: u64,
+    pub ask: u64,
+    pub denied: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeRuntimeDiagnostics {
+    pub state: String,
+    pub profile: String,
+    pub lemonade_version: Option<String>,
+    pub required_lemonade_version: String,
+    pub answer_model: String,
+    pub embedding_model: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeProvisioningDiagnostics {
+    pub state: String,
+    pub version: String,
+    pub installed_version: Option<String>,
+    pub progress: u8,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeProviderDiagnostics {
+    pub routes: u64,
+    pub local_routes: u64,
+    pub cloud_routes: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeDiagnostics {
+    pub app_version: &'static str,
+    pub index: NativeIndexDiagnostics,
     pub vector: VectorStatus,
+    pub activity: NativeActivityDiagnostics,
+    pub gateway: NativeGatewayDiagnostics,
+    pub mcp: NativeMcpDiagnostics,
+    pub runtime: NativeRuntimeDiagnostics,
+    pub provisioning: NativeProvisioningDiagnostics,
+    pub providers: NativeProviderDiagnostics,
+    pub shortcut: crate::window::ShortcutStatus,
+    pub timings: Vec<NativeTimingSample>,
+    pub logs: Vec<NativeLogSample>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -503,19 +602,30 @@ impl IndexRuntime {
             .map_err(|error| search_failure("clear search history", error))
     }
 
-    fn native_diagnostics(&self) -> Result<NativeDiagnostics, SearchFailure> {
+    fn native_index_diagnostics(
+        &self,
+    ) -> Result<(NativeIndexDiagnostics, VectorStatus), SearchFailure> {
         let (indexed_files, indexed_chunks) = self
             .database
             .operational_counts()
             .map_err(|error| search_failure("read index diagnostics", error))?;
         let history = self.history_status()?;
-        Ok(NativeDiagnostics {
-            indexed_files,
-            indexed_chunks,
-            history_entries: history.entry_count,
-            history_enabled: history.enabled,
-            vector: self.database.vector_status(),
-        })
+        let status = self.snapshot();
+        let schema_version = self
+            .database
+            .schema_version()
+            .map_err(|error| search_failure("read index schema version", error))?;
+        Ok((
+            NativeIndexDiagnostics {
+                phase: status.phase,
+                schema_version,
+                indexed_files,
+                indexed_chunks,
+                history_entries: history.entry_count,
+                history_enabled: history.enabled,
+            },
+            self.database.vector_status(),
+        ))
     }
 
     fn delete_indexed_content(&self) -> Result<DeletedIndexData, SearchFailure> {
@@ -989,10 +1099,110 @@ pub fn clear_search_history(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn get_native_diagnostics(
-    state: State<'_, IndexRuntime>,
+    index: State<'_, IndexRuntime>,
+    activity: State<'_, ActivityRuntime>,
+    gateway: State<'_, GatewaySupervisor>,
+    mcp: State<'_, McpRuntime>,
+    runtime: State<'_, LocalRuntimeSupervisor>,
+    provisioning: State<'_, ProvisioningManager>,
+    providers: State<'_, ProviderRegistry>,
+    shortcut: State<'_, ShortcutRegistration>,
 ) -> Result<NativeDiagnostics, SearchFailure> {
-    state.native_diagnostics()
+    let started = Instant::now();
+    let (index, vector) = index.native_index_diagnostics()?;
+    let activity = activity.snapshot();
+    let gateway = gateway.health();
+    let mcp = mcp.snapshot();
+    let runtime = runtime.health();
+    let provisioning = provisioning.snapshot();
+    let routes = providers.routes();
+    let local_routes = routes
+        .iter()
+        .filter(|route| !route.provider_id.is_cloud())
+        .count() as u64;
+    let mut allowed = 0_u64;
+    let mut ask = 0_u64;
+    let mut denied = 0_u64;
+    for permission in &mcp.permissions {
+        match permission.access {
+            ToolAccess::Allow => allowed += 1,
+            ToolAccess::Ask => ask += 1,
+            ToolAccess::Deny => denied += 1,
+        }
+    }
+    let logs = vec![
+        NativeLogSample {
+            component: "index",
+            state: index.phase.clone(),
+        },
+        NativeLogSample {
+            component: "vector",
+            state: if vector.available {
+                "ready"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        },
+        NativeLogSample {
+            component: "gateway",
+            state: gateway.state.to_owned(),
+        },
+        NativeLogSample {
+            component: "runtime",
+            state: runtime.state.to_owned(),
+        },
+    ];
+    Ok(NativeDiagnostics {
+        app_version: env!("CARGO_PKG_VERSION"),
+        index,
+        vector,
+        activity: NativeActivityDiagnostics {
+            mode: activity.mode,
+            background_policy: activity.background_policy,
+            fullscreen: activity.fullscreen,
+            on_battery: activity.on_battery,
+        },
+        gateway: NativeGatewayDiagnostics {
+            state: gateway.state.to_owned(),
+            version: gateway.version.to_owned(),
+            cloud_credential_configured: gateway.cloud_credential_configured,
+        },
+        mcp: NativeMcpDiagnostics {
+            services: mcp.services.len() as u64,
+            tools: mcp.permissions.len() as u64,
+            allowed,
+            ask,
+            denied,
+        },
+        runtime: NativeRuntimeDiagnostics {
+            state: runtime.state.to_owned(),
+            profile: runtime.profile.to_owned(),
+            lemonade_version: runtime.lemonade.version,
+            required_lemonade_version: runtime.lemonade.required_version.to_owned(),
+            answer_model: runtime.answer_model.to_owned(),
+            embedding_model: runtime.embedding_model.to_owned(),
+        },
+        provisioning: NativeProvisioningDiagnostics {
+            state: provisioning.state,
+            version: provisioning.version,
+            installed_version: provisioning.installed_version,
+            progress: provisioning.progress,
+        },
+        providers: NativeProviderDiagnostics {
+            routes: routes.len() as u64,
+            local_routes,
+            cloud_routes: routes.len() as u64 - local_routes,
+        },
+        shortcut: shortcut.snapshot(),
+        timings: vec![NativeTimingSample {
+            name: "native-diagnostics",
+            duration_ms: started.elapsed().as_millis() as u64,
+        }],
+        logs,
+    })
 }
 
 #[tauri::command]
@@ -1043,11 +1253,13 @@ mod tests {
         assert_eq!(status.entry_count, 1);
         assert!(status.enabled);
 
-        let diagnostics = runtime.native_diagnostics().unwrap();
+        let (diagnostics, vector) = runtime.native_index_diagnostics().unwrap();
         assert_eq!(diagnostics.indexed_files, 1);
         assert_eq!(diagnostics.indexed_chunks, 1);
+        assert_eq!(diagnostics.phase, "ready");
+        assert_eq!(diagnostics.schema_version, 3);
         assert_eq!(diagnostics.history_entries, 1);
-        assert!(diagnostics.vector.available);
+        assert!(vector.available);
         let serialized = serde_json::to_string(&diagnostics).unwrap();
         assert!(!serialized.contains("private-report"));
         assert!(!serialized.contains(&fixture.root().to_string_lossy().into_owned()));
@@ -1062,6 +1274,87 @@ mod tests {
         let persisted = reopened.history_status().unwrap();
         assert_eq!(persisted.entry_count, 1);
         assert!(!persisted.enabled);
+    }
+
+    #[test]
+    fn native_diagnostics_contract_serializes_only_bounded_typed_samples() {
+        let diagnostics = NativeDiagnostics {
+            app_version: "0.1.0",
+            index: NativeIndexDiagnostics {
+                phase: "ready".to_owned(),
+                schema_version: 3,
+                indexed_files: 4,
+                indexed_chunks: 8,
+                history_entries: 2,
+                history_enabled: true,
+            },
+            vector: VectorStatus {
+                available: true,
+                version: Some("1.0.0".to_owned()),
+                backend: Some("sqlite-vector".to_owned()),
+                last_error: None,
+            },
+            activity: NativeActivityDiagnostics {
+                mode: ActivityMode::Indexing,
+                background_policy: BackgroundPolicy::Normal,
+                fullscreen: false,
+                on_battery: false,
+            },
+            gateway: NativeGatewayDiagnostics {
+                state: "ready".to_owned(),
+                version: "0.8.0".to_owned(),
+                cloud_credential_configured: false,
+            },
+            mcp: NativeMcpDiagnostics {
+                services: 1,
+                tools: 3,
+                allowed: 1,
+                ask: 1,
+                denied: 1,
+            },
+            runtime: NativeRuntimeDiagnostics {
+                state: "ready".to_owned(),
+                profile: "generic-local".to_owned(),
+                lemonade_version: Some("11.5.2".to_owned()),
+                required_lemonade_version: "11.5.2".to_owned(),
+                answer_model: "qwen".to_owned(),
+                embedding_model: "nomic".to_owned(),
+            },
+            provisioning: NativeProvisioningDiagnostics {
+                state: "ready".to_owned(),
+                version: "11.5.2".to_owned(),
+                installed_version: Some("11.5.2".to_owned()),
+                progress: 100,
+            },
+            providers: NativeProviderDiagnostics {
+                routes: 2,
+                local_routes: 1,
+                cloud_routes: 1,
+            },
+            shortcut: crate::window::ShortcutStatus {
+                registered: true,
+                accelerator: Some("Alt + Space".to_owned()),
+                error_code: None,
+            },
+            timings: vec![NativeTimingSample {
+                name: "native-diagnostics",
+                duration_ms: 1,
+            }],
+            logs: vec![NativeLogSample {
+                component: "index",
+                state: "ready".to_owned(),
+            }],
+        };
+
+        let serialized = serde_json::to_value(diagnostics).unwrap();
+        assert_eq!(serialized["index"]["schemaVersion"], 3);
+        assert_eq!(serialized["shortcut"]["registered"], true);
+        assert_eq!(serialized["timings"].as_array().unwrap().len(), 1);
+        assert_eq!(serialized["logs"].as_array().unwrap().len(), 1);
+        let text = serialized.to_string();
+        assert!(!text.contains("C:\\"));
+        assert!(!text.contains("prompt"));
+        assert!(!text.contains("credential"));
     }
 
     #[test]
