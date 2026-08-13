@@ -34,6 +34,10 @@ export class UnavailableSearchService implements SearchService {
     throw new Error('Choose an indexed root before opening folders.');
   }
 
+  async setPinned(): Promise<boolean> {
+    throw new Error('Choose an indexed root before pinning files.');
+  }
+
   subscribeToStatus(listener: (status: SearchStatus) => void): () => void {
     listener({
       phase: 'degraded',

@@ -39,10 +39,24 @@ test('settings remain usable at 200-percent text size', async ({page}) => {
   await page.setViewportSize({width: 880, height: 600});
   await page.goto('/?gallery=1&scenario=settings-agent-gateway&capture=1&scale=200&theme=light');
 
+  const surface = page.getByLabel('Lumen settings');
+  const header = surface.locator('header');
+  const content = surface.getByRole('main', {name: 'Settings content'});
+  const close = surface.getByRole('button', {name: 'Close settings'});
   await expect(page.getByRole('heading', {name: 'AgentGateway', exact: true})).toBeVisible();
   await expect(page.getByRole('button', {name: 'Restart AgentGateway'})).toBeVisible();
   await expect(page.getByRole('tab', {name: 'AgentGateway'})).toBeVisible();
+  await expect(close).toBeVisible();
+  const bounds = await Promise.all([surface, header, content, close].map((locator) => locator.boundingBox()));
+  for (const box of bounds) {
+    expect(box).not.toBeNull();
+    expect(box?.x ?? -1).toBeGreaterThanOrEqual(-0.5);
+    expect(box?.y ?? -1).toBeGreaterThanOrEqual(-0.5);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(880.5);
+    expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(600.5);
+  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(0);
 });
 
 test('the constrained work area keeps controls contained while results and answers scroll internally', async ({page}) => {

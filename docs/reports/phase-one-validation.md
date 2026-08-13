@@ -1,5 +1,7 @@
 # Phase-one validation report
 
+> Historical snapshot: this report describes the July 2026 phase-one baseline. Its deferred-capability list is superseded by `2026-08-12-production-completion.md` for the current application.
+
 **Date:** 2026-07-31  
 **Branch:** `codex/lumen-phase-one`  
 **Platform:** Windows 11 build 26200, x64, Tauri 2, Edge WebView2 150  

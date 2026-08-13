@@ -15,8 +15,6 @@ test('completes first-run onboarding with the keyboard', async ({page}, testInfo
   await expect(page.getByRole('heading', {name: 'Everything, within reach'})).toBeVisible();
 
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', {name: 'Local by design'})).toBeVisible();
-  await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', {name: 'Choose one place to start'})).toBeVisible();
 
   await page.getByRole('button', {name: 'Choose folder'}).focus();
@@ -25,15 +23,9 @@ test('completes first-run onboarding with the keyboard', async ({page}, testInfo
   await page.getByRole('button', {name: 'Continue'}).focus();
   await page.keyboard.press('Enter');
 
-  for (const heading of [
-    'Make search a reflex',
-    'A calm background index',
-    'Intelligence stays optional',
-    'Fast even without AI',
-    'Quiet when focus matters',
-  ]) {
+  for (const heading of ['Make search a reflex', 'Choose how answers run']) {
     await expect(page.getByRole('heading', {name: heading})).toBeVisible();
-    const action = page.getByRole('button', {name: heading === 'Quiet when focus matters' ? 'Start using Lumen' : 'Continue'});
+    const action = page.getByRole('button', {name: heading === 'Choose how answers run' ? 'Start using Lumen' : 'Continue'});
     await action.focus();
     await page.keyboard.press('Enter');
   }
@@ -49,7 +41,7 @@ test('visits every settings page without a pointer and restores search focus', a
   await page.keyboard.press('Control+,');
   await expect(page.getByRole('navigation', {name: 'Settings'})).toBeVisible();
 
-  for (const name of ['General', 'Appearance', 'Indexed roots', 'Search', 'Local AI', 'AgentGateway', 'Activity', 'Privacy', 'Diagnostics']) {
+  for (const name of ['General', 'Appearance', 'Indexed roots', 'Search', 'Local AI', 'AgentGateway', 'Privacy', 'Diagnostics']) {
     const tab = page.getByRole('tab', {name});
     await tab.focus();
     await page.keyboard.press('Enter');

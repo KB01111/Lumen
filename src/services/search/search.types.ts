@@ -83,6 +83,7 @@ export const searchResultSchema = z.object({
   match: searchMatchSchema,
   metadata: searchMetadataSchema,
   provenance: searchProvenanceSchema.optional(),
+  pinned: z.boolean().optional(),
   availability: searchAvailabilitySchema.optional().default('available'),
 });
 export type SearchResult = z.infer<typeof searchResultSchema>;
@@ -100,6 +101,7 @@ export const searchRequestSchema = z.object({
   scope: searchScopeSchema,
   filters: z.array(searchFilterSchema).default([]),
   limit: z.number().int().positive().max(10_000).default(500),
+  relatedTo: z.string().min(1).optional(),
 });
 export type SearchRequest = z.infer<typeof searchRequestSchema>;
 

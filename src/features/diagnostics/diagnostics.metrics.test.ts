@@ -13,6 +13,24 @@ afterEach(() => {
 });
 
 describe('measureAfterPaint', () => {
+  it('captures queued samples without writing User Timing entries', () => {
+    const frames: FrameRequestCallback[] = [];
+    const measure = vi.spyOn(performance, 'measure');
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    }));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    vi.spyOn(performance, 'now').mockReturnValue(26);
+
+    measureAfterPaint('input-response', 10);
+    measureAfterPaint('input-response', 12);
+    for (const frame of frames) frame(26);
+
+    expect(readDiagnosticMetrics().timings.map(({durationMs}) => durationMs)).toEqual([16, 14]);
+    expect(measure).not.toHaveBeenCalled();
+  });
+
   it('does not emit a sample when its queued frame is cancelled', () => {
     let frame: FrameRequestCallback | undefined;
     const cancelAnimationFrame = vi.fn();

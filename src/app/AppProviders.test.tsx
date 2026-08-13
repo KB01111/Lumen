@@ -2,6 +2,7 @@ import {render, screen} from '@testing-library/react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import type {AppearancePreferences} from '../design-system/theme';
+import {appearanceStore} from '../state/appearance.store';
 import {AppProviders} from './AppProviders';
 
 const fullMotion: AppearancePreferences = {
@@ -38,7 +39,18 @@ function expectApplicationRoot(root: HTMLElement) {
 }
 
 describe('AppProviders appearance contract', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    appearanceStore.setState({density: 'comfortable'});
+    vi.unstubAllGlobals();
+  });
+
+  it('exposes the persisted launcher density', () => {
+    appearanceStore.setState({density: 'compact'});
+
+    const root = renderAppearance(fullMotion);
+
+    expect(root).toHaveAttribute('data-density', 'compact');
+  });
 
   it('resolves the system appearance as light', () => {
     mockMediaPreferences({'(prefers-color-scheme: dark)': false});

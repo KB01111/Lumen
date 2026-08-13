@@ -7,6 +7,7 @@ import {
   searchErrorSchema,
   searchResponseSchema,
   type SearchError,
+  type SearchFilter,
   type SearchGroup,
   type SearchResult,
   type SearchScope,
@@ -30,6 +31,8 @@ export interface SearchController {
   rememberSelection(fileId: string | null): void;
   refresh(): void;
 }
+
+const noFilters: readonly SearchFilter[] = [];
 
 function invalidResponseError(): SearchError {
   return {
@@ -77,7 +80,10 @@ function nextSelection(
   )?.id ?? [...nextResults].reverse().find(isSelectableResult)?.id ?? null;
 }
 
-export function useSearchController(service: SearchService): SearchController {
+export function useSearchController(
+  service: SearchService,
+  filters: readonly SearchFilter[] = noFilters,
+): SearchController {
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<SearchScope>('all');
   const [groups, setGroups] = useState<readonly SearchGroup[]>([]);
@@ -120,8 +126,9 @@ export function useSearchController(service: SearchService): SearchController {
           requestId,
           query: normalizedQuery,
           scope,
-          filters: [],
+          filters: [...filters],
           limit: 500,
+          relatedTo: scope === 'related' ? selectedIdRef.current ?? undefined : undefined,
         },
         abortController.signal,
       )
@@ -160,7 +167,7 @@ export function useSearchController(service: SearchService): SearchController {
       });
 
     return () => abortController.abort();
-  }, [query, refreshRevision, scope, service]);
+  }, [filters, query, refreshRevision, scope, service]);
 
   const select = useCallback((fileId: string | null) => {
     if (fileId === null) {

@@ -105,20 +105,17 @@ jobs:
       - name: Verify installer artifacts
         shell: pwsh
         run: |
-          $msi = @(Get-ChildItem src-tauri/target/release/bundle/msi -Filter *.msi -File)
           $nsis = @(Get-ChildItem src-tauri/target/release/bundle/nsis -Filter *-setup.exe -File)
-          if ($msi.Count -ne 1 -or $nsis.Count -ne 1 -or $msi[0].Length -eq 0 -or $nsis[0].Length -eq 0) {
-            throw "Expected one non-empty MSI and one non-empty NSIS installer; found $($msi.Count) MSI and $($nsis.Count) NSIS"
+          if ($nsis.Count -ne 1 -or $nsis[0].Length -eq 0) {
+            throw "Expected one non-empty NSIS installer; found $($nsis.Count)"
           }
-          $msi + $nsis | Select-Object FullName, Length
+          $nsis | Select-Object FullName, Length
 
       - name: Upload installers
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lumen-windows-x64-${{ github.sha }}
-          path: |
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/nsis/*-setup.exe
+          path: src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
           retention-days: 14
 
@@ -143,17 +140,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mapfile -t msi < <(find installers -type f -name '*.msi' -print)
           mapfile -t nsis < <(find installers -type f -name '*-setup.exe' -print)
-          if [[ ${#msi[@]} -ne 1 || ! -s "${msi[0]}" ]]; then
-            printf 'Expected exactly one non-empty MSI installer, found %s\n' "${#msi[@]}" >&2
-            exit 1
-          fi
           if [[ ${#nsis[@]} -ne 1 || ! -s "${nsis[0]}" ]]; then
             printf 'Expected exactly one non-empty NSIS installer, found %s\n' "${#nsis[@]}" >&2
             exit 1
           fi
-          gh release create "$GITHUB_REF_NAME" "${msi[0]}" "${nsis[0]}" \
+          gh release create "$GITHUB_REF_NAME" "${nsis[0]}" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --generate-notes \

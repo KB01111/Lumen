@@ -1,10 +1,12 @@
 import type {ReactNode} from 'react';
-import {Suspense, useEffect, useRef, useState} from 'react';
+import {Suspense, useEffect, useLayoutEffect, useRef, useState} from 'react';
 
 import {motion} from 'motion/react';
 
+import {useMediaPreference} from '../../app/AppProviders';
 import {useLumenMotion} from '../../design-system/MotionProvider';
 import type {SearchService} from '../../services/search/search-service';
+import {useAppearanceStore} from '../../state/appearance.store';
 import type {
   SearchError,
   SearchFilter,
@@ -24,6 +26,7 @@ export interface ExpandedWorkspaceProps {
   error: SearchError | null;
   lifecycle: SearchLifecycle;
   openingId: string | null;
+  previewAllowed?: boolean;
   results: readonly SearchResult[];
   selectedId?: string | null;
   service: SearchService;
@@ -31,6 +34,7 @@ export interface ExpandedWorkspaceProps {
   onDetails(): void;
   onOpen(fileId?: string): void;
   onOpenContainingFolder(): void;
+  onPin(): void;
   onRemoveFilter(filter: SearchFilter): void;
   onSelectionChange(fileId: string | null): void;
 }
@@ -124,6 +128,7 @@ function SelectionBoundActions({
   onDetails,
   onOpen,
   onOpenContainingFolder,
+  onPin,
 }: {
   isOpening: boolean;
   results: readonly SearchResult[];
@@ -131,19 +136,40 @@ function SelectionBoundActions({
   onDetails(): void;
   onOpen(fileId?: string): void;
   onOpenContainingFolder(): void;
+  onPin(): void;
 }) {
-  const storedSelectedId = useSelectionStore((state) => state.selectedId);
+  const resultLabelRef = useRef<HTMLSpanElement>(null);
+  const storedSelectedId = useSelectionStore.getState().selectedId;
   const selectedId = selectedIdOverride === undefined
     ? storedSelectedId
     : selectedIdOverride;
-  const result = results.find((item) => item.id === selectedId) ?? null;
+  const result = results.find((item) => item.id === selectedId) ??
+    results.find((item) => (item.availability ?? 'available') === 'available') ??
+    null;
+  useLayoutEffect(() => {
+    if (selectedIdOverride !== undefined) return;
+    const updateLabel = (fileId: string | null) => {
+      const selectedResult = results.find((item) => item.id === fileId) ?? null;
+      if (resultLabelRef.current) {
+        resultLabelRef.current.textContent = selectedResult?.name ?? 'Choose a result for actions';
+        resultLabelRef.current.title = selectedResult?.path ?? '';
+      }
+    };
+    updateLabel(useSelectionStore.getState().selectedId);
+    return useSelectionStore.subscribe(
+      (state) => state.selectedId,
+      updateLabel,
+    );
+  }, [results, selectedIdOverride]);
   return (
     <ContextActions
       isOpening={isOpening}
       result={result}
+      resultLabelRef={resultLabelRef}
       onDetails={onDetails}
       onOpen={onOpen}
       onOpenContainingFolder={onOpenContainingFolder}
+      onPin={onPin}
     />
   );
 }
@@ -158,14 +184,14 @@ function SelectionAnnouncement({
   selectedId?: string | null;
 }) {
   const announcementRef = useRef<HTMLDivElement>(null);
-  const storedSelectedId = useSelectionStore((state) => state.selectedId);
+  const storedSelectedId = useSelectionStore.getState().selectedId;
   const selectedId = selectedIdOverride === undefined
     ? storedSelectedId
     : selectedIdOverride;
   const selectedResult = results.find((result) => result.id === selectedId);
   useEffect(() => {
-    const announcePreviewSelection = (event: Event) => {
-      const fileId = (event as CustomEvent<string | null>).detail;
+    if (selectedIdOverride !== undefined) return;
+    const announceSelection = (fileId: string | null) => {
       const result = results.find((item) => item.id === fileId);
       if (announcementRef.current) {
         announcementRef.current.textContent = [announcement, result ? `${result.name} selected` : '']
@@ -173,9 +199,12 @@ function SelectionAnnouncement({
           .join('. ');
       }
     };
-    window.addEventListener('lumen:selection-preview', announcePreviewSelection);
-    return () => window.removeEventListener('lumen:selection-preview', announcePreviewSelection);
-  }, [announcement, results]);
+    announceSelection(useSelectionStore.getState().selectedId);
+    return useSelectionStore.subscribe(
+      (state) => state.selectedId,
+      announceSelection,
+    );
+  }, [announcement, results, selectedIdOverride]);
   return (
     <div
       ref={announcementRef}
@@ -204,6 +233,7 @@ export function ExpandedWorkspace({
   error,
   lifecycle,
   openingId,
+  previewAllowed = true,
   results,
   selectedId,
   service,
@@ -211,10 +241,17 @@ export function ExpandedWorkspace({
   onDetails,
   onOpen,
   onOpenContainingFolder,
+  onPin,
   onRemoveFilter,
   onSelectionChange,
 }: ExpandedWorkspaceProps) {
   const {opacityDuration, reducedMotion} = useLumenMotion();
+  const preview = useAppearanceStore((state) => state.preview);
+  const atMinimumPreviewWidth = useMediaPreference('(min-width: 760px)');
+  const atAutomaticPreviewWidth = useMediaPreference('(min-width: 900px)');
+  const showInlinePreview = previewAllowed && (preview === 'always'
+    ? atMinimumPreviewWidth
+    : preview === 'automatic' && atAutomaticPreviewWidth);
   const countLabel = lifecycle === 'searching'
     ? 'Searching'
     : `${results.length} ${results.length === 1 ? 'result' : 'results'}`;
@@ -229,7 +266,9 @@ export function ExpandedWorkspace({
     >
       <FilterChips filters={activeFilters} onClear={onClearFilters} onRemove={onRemoveFilter} />
       {answerPanel}
-      <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden min-[760px]:grid-cols-[minmax(0,1fr)_minmax(280px,38%)]">
+      <div className={showInlinePreview
+        ? 'grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(280px,38%)] overflow-hidden'
+        : 'grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden'}>
         <section aria-label="Search result list" className="flex min-h-0 min-w-0 flex-col">
           <header className="flex min-h-[34px] items-center justify-between gap-3 px-4">
             <span className="font-sans text-xs font-medium text-[color:var(--einui-command-text)]">Local results</span>
@@ -245,11 +284,11 @@ export function ExpandedWorkspace({
             onSelectionChange={onSelectionChange}
           />
         </section>
-        <div className="hidden min-h-0 min-w-0 min-[760px]:block">
+        {showInlinePreview ? <div className="min-h-0 min-w-0">
           <Suspense fallback={<div aria-label="File preview" className="grid min-h-[320px] place-items-center font-sans text-xs text-[color:var(--einui-command-muted-text)]">Preparing preview…</div>}>
             <SelectionBoundPreview reducedMotion={reducedMotion} selectedId={selectedId} service={service} />
           </Suspense>
-        </div>
+        </div> : null}
       </div>
       <SelectionBoundActions
         isOpening={openingId !== null}
@@ -258,6 +297,7 @@ export function ExpandedWorkspace({
         onDetails={onDetails}
         onOpen={onOpen}
         onOpenContainingFolder={onOpenContainingFolder}
+        onPin={onPin}
       />
       <SelectionAnnouncement announcement={announcement} results={results} selectedId={selectedId} />
     </motion.section>

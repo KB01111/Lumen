@@ -43,10 +43,6 @@ export const useSelectionStore = create<SelectionStore>()(
   })),
 );
 
-export function rememberSelectionIntent(selectedId: string | null) {
-  intendedSelectedId = selectedId;
-}
-
 export function readSelectionIntent() {
   return intendedSelectedId;
 }

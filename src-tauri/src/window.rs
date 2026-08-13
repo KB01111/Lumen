@@ -1,8 +1,9 @@
-use std::sync::Mutex;
+use std::{fs, path::Path, sync::Mutex};
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tauri::{
-    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewWindow,
+    AppHandle, Emitter, LogicalSize, Manager, Monitor, PhysicalPosition, State, WebviewWindow,
     window::{Color, Effect, EffectsBuilder},
 };
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -77,7 +78,191 @@ struct LauncherPosition {
     y: i32,
 }
 
-pub struct ShortcutRegistration(pub Mutex<String>);
+#[derive(Default)]
+struct ShortcutRegistrationState {
+    accelerator: Option<String>,
+    error_code: Option<String>,
+}
+
+#[derive(Default)]
+pub struct ShortcutRegistration(Mutex<ShortcutRegistrationState>);
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortcutStatus {
+    pub registered: bool,
+    pub accelerator: Option<String>,
+    pub error_code: Option<String>,
+}
+
+impl ShortcutRegistration {
+    pub fn snapshot(&self) -> ShortcutStatus {
+        self.0
+            .lock()
+            .map(|state| ShortcutStatus {
+                registered: state.accelerator.is_some(),
+                accelerator: state.accelerator.clone(),
+                error_code: state.error_code.clone(),
+            })
+            .unwrap_or(ShortcutStatus {
+                registered: false,
+                accelerator: None,
+                error_code: Some("state-unavailable".to_owned()),
+            })
+    }
+}
+
+fn native_accelerator(accelerator: &str) -> String {
+    accelerator
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect()
+}
+
+pub fn register_initial_shortcut(app: &AppHandle, accelerator: &str) -> Result<(), String> {
+    let shortcuts = app.global_shortcut();
+    let native = native_accelerator(accelerator);
+    let registration = app.state::<ShortcutRegistration>();
+    let mut state = registration
+        .0
+        .lock()
+        .map_err(|_| "Shortcut registration state is unavailable.".to_owned())?;
+    if let Err(error) = shortcuts.register(native.as_str()) {
+        state.error_code = Some("registration-unavailable".to_owned());
+        return Err(format!("Could not register {accelerator}: {error}"));
+    }
+    state.accelerator = Some(accelerator.to_owned());
+    state.error_code = None;
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MonitorBehavior {
+    #[default]
+    Active,
+    Primary,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CloseBehavior {
+    #[default]
+    Hide,
+    Quit,
+}
+
+#[derive(Debug, Clone)]
+struct RuntimePreferenceValues {
+    monitor_behavior: MonitorBehavior,
+    close_behavior: CloseBehavior,
+    shortcut: String,
+}
+
+impl Default for RuntimePreferenceValues {
+    fn default() -> Self {
+        Self {
+            monitor_behavior: MonitorBehavior::Active,
+            close_behavior: CloseBehavior::Hide,
+            shortcut: "Alt + Space".to_owned(),
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct RuntimePreferences(Mutex<RuntimePreferenceValues>);
+
+impl RuntimePreferences {
+    pub fn load(path: &Path) -> Self {
+        let general = fs::read_to_string(path)
+            .ok()
+            .and_then(|contents| serde_json::from_str::<serde_json::Value>(&contents).ok())
+            .and_then(|settings| settings.get("management")?.get("general").cloned());
+        let values = RuntimePreferenceValues {
+            monitor_behavior: general
+                .as_ref()
+                .and_then(|value| value.get("monitorBehavior"))
+                .and_then(|value| serde_json::from_value(value.clone()).ok())
+                .unwrap_or_default(),
+            close_behavior: general
+                .as_ref()
+                .and_then(|value| value.get("closeBehavior"))
+                .and_then(|value| serde_json::from_value(value.clone()).ok())
+                .unwrap_or_default(),
+            shortcut: general
+                .as_ref()
+                .and_then(|value| value.get("shortcut"))
+                .and_then(Value::as_str)
+                .filter(|shortcut| (3..=64).contains(&shortcut.len()))
+                .unwrap_or("Alt + Space")
+                .to_owned(),
+        };
+        Self(Mutex::new(values))
+    }
+
+    pub fn monitor_behavior(&self) -> MonitorBehavior {
+        self.0
+            .lock()
+            .map(|values| values.monitor_behavior)
+            .unwrap_or_default()
+    }
+
+    pub fn close_behavior(&self) -> CloseBehavior {
+        self.0
+            .lock()
+            .map(|values| values.close_behavior)
+            .unwrap_or_default()
+    }
+
+    pub fn shortcut(&self) -> String {
+        self.0
+            .lock()
+            .map(|values| values.shortcut.clone())
+            .unwrap_or_else(|_| "Alt + Space".to_owned())
+    }
+
+    pub fn set_monitor_behavior(&self, behavior: MonitorBehavior) -> Result<(), String> {
+        self.0
+            .lock()
+            .map_err(|_| "Window preference state is unavailable.".to_owned())?
+            .monitor_behavior = behavior;
+        Ok(())
+    }
+
+    pub fn set_close_behavior(&self, behavior: CloseBehavior) -> Result<(), String> {
+        self.0
+            .lock()
+            .map_err(|_| "Window preference state is unavailable.".to_owned())?
+            .close_behavior = behavior;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MonitorCandidate {
+    Active,
+    Primary,
+}
+
+const fn monitor_candidate_order(behavior: MonitorBehavior) -> [MonitorCandidate; 2] {
+    match behavior {
+        MonitorBehavior::Active => [MonitorCandidate::Active, MonitorCandidate::Primary],
+        MonitorBehavior::Primary => [MonitorCandidate::Primary, MonitorCandidate::Active],
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CloseAction {
+    Hide,
+    Exit,
+}
+
+pub(crate) const fn close_action(behavior: CloseBehavior) -> CloseAction {
+    match behavior {
+        CloseBehavior::Hide => CloseAction::Hide,
+        CloseBehavior::Quit => CloseAction::Exit,
+    }
+}
 
 pub const fn geometry_for(mode: WindowMode) -> WindowGeometry {
     match mode {
@@ -180,16 +365,38 @@ fn apply_geometry(window: &WebviewWindow, geometry: WindowGeometry) -> Result<()
         .map_err(|error| error.to_string())
 }
 
-fn place_on_active_monitor(window: &WebviewWindow, geometry: WindowGeometry) -> Result<(), String> {
-    let cursor = window
-        .cursor_position()
-        .map_err(|error| error.to_string())?;
-    let monitor = window
-        .monitor_from_point(cursor.x, cursor.y)
-        .map_err(|error| error.to_string())?
-        .or(window
-            .current_monitor()
-            .map_err(|error| error.to_string())?);
+fn monitor_for_candidate(
+    window: &WebviewWindow,
+    candidate: MonitorCandidate,
+) -> Result<Option<Monitor>, String> {
+    match candidate {
+        MonitorCandidate::Primary => window.primary_monitor().map_err(|error| error.to_string()),
+        MonitorCandidate::Active => {
+            let cursor_monitor = window
+                .cursor_position()
+                .ok()
+                .and_then(|cursor| window.monitor_from_point(cursor.x, cursor.y).ok().flatten());
+            if cursor_monitor.is_some() {
+                Ok(cursor_monitor)
+            } else {
+                window.current_monitor().map_err(|error| error.to_string())
+            }
+        }
+    }
+}
+
+fn place_on_preferred_monitor(
+    window: &WebviewWindow,
+    geometry: WindowGeometry,
+    behavior: MonitorBehavior,
+) -> Result<(), String> {
+    let mut monitor = None;
+    for candidate in monitor_candidate_order(behavior) {
+        monitor = monitor_for_candidate(window, candidate)?;
+        if monitor.is_some() {
+            break;
+        }
+    }
 
     let Some(monitor) = monitor else {
         return Ok(());
@@ -241,8 +448,12 @@ fn show_window(
     source: WindowStateSource,
 ) -> Result<WindowStateEvent, String> {
     let geometry = geometry_for(mode);
+    let monitor_behavior = window
+        .try_state::<RuntimePreferences>()
+        .map(|preferences| preferences.monitor_behavior())
+        .unwrap_or_default();
     apply_geometry(window, geometry)?;
-    place_on_active_monitor(window, geometry)?;
+    place_on_preferred_monitor(window, geometry, monitor_behavior)?;
     window.show().map_err(|error| error.to_string())?;
     window.set_focus().map_err(|error| error.to_string())?;
     window
@@ -280,6 +491,11 @@ pub fn emit_hidden_from_app(app: &AppHandle, source: WindowStateSource) -> Resul
     .map_err(|error| error.to_string())
 }
 
+pub fn hide_for_close(window: &WebviewWindow) -> Result<(), String> {
+    window.hide().map_err(|error| error.to_string())?;
+    emit_hidden_from_app(window.app_handle(), WindowStateSource::Close)
+}
+
 #[tauri::command]
 pub fn focus_lumen_input(window: WebviewWindow) -> Result<(), String> {
     window.set_focus().map_err(|error| error.to_string())?;
@@ -296,27 +512,116 @@ pub fn set_lumen_shortcut(app: AppHandle, accelerator: String) -> Result<(), Str
         .lock()
         .map_err(|_| "Shortcut registration state is unavailable.".to_owned())?;
 
-    if *current == accelerator {
+    if current.accelerator.as_deref() == Some(accelerator.as_str()) {
         return Ok(());
     }
 
     let shortcuts = app.global_shortcut();
-    shortcuts
-        .register(accelerator.as_str())
-        .map_err(|error| format!("Could not register {accelerator}: {error}"))?;
+    let native = native_accelerator(&accelerator);
+    if let Err(error) = shortcuts.register(native.as_str()) {
+        current.error_code = Some("registration-unavailable".to_owned());
+        return Err(format!("Could not register {accelerator}: {error}"));
+    }
 
-    if let Err(error) = shortcuts.unregister(current.as_str()) {
-        let _ = shortcuts.unregister(accelerator.as_str());
+    if let Some(previous) = current.accelerator.as_deref()
+        && let Err(error) = shortcuts.unregister(native_accelerator(previous).as_str())
+    {
+        let _ = shortcuts.unregister(native.as_str());
+        current.error_code = Some("replacement-unavailable".to_owned());
         return Err(format!("Could not replace the current shortcut: {error}"));
     }
 
-    *current = accelerator;
+    current.accelerator = Some(accelerator);
+    current.error_code = None;
     Ok(())
+}
+
+#[tauri::command]
+pub fn set_monitor_behavior(
+    preferences: State<'_, RuntimePreferences>,
+    behavior: MonitorBehavior,
+) -> Result<(), String> {
+    preferences.set_monitor_behavior(behavior)
+}
+
+#[tauri::command]
+pub fn set_close_behavior(
+    preferences: State<'_, RuntimePreferences>,
+    behavior: CloseBehavior,
+) -> Result<(), String> {
+    preferences.set_close_behavior(behavior)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn runtime_lifecycle_preferences_load_persisted_values_and_fail_safe() {
+        let directory = std::env::temp_dir().join(format!("lumen-window-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("lumen.settings.json");
+
+        let missing = RuntimePreferences::load(&path);
+        assert_eq!(missing.monitor_behavior(), MonitorBehavior::Active);
+        assert_eq!(missing.close_behavior(), CloseBehavior::Hide);
+        assert_eq!(missing.shortcut(), "Alt + Space");
+
+        std::fs::write(
+            &path,
+            r#"{"management":{"general":{"monitorBehavior":"primary","closeBehavior":"quit","shortcut":"Ctrl + Shift + L"}}}"#,
+        )
+        .unwrap();
+        let persisted = RuntimePreferences::load(&path);
+        assert_eq!(persisted.monitor_behavior(), MonitorBehavior::Primary);
+        assert_eq!(persisted.close_behavior(), CloseBehavior::Quit);
+        assert_eq!(persisted.shortcut(), "Ctrl + Shift + L");
+
+        std::fs::write(
+            &path,
+            r#"{"management":{"general":{"monitorBehavior":"nearest","closeBehavior":false}}}"#,
+        )
+        .unwrap();
+        let invalid = RuntimePreferences::load(&path);
+        assert_eq!(invalid.monitor_behavior(), MonitorBehavior::Active);
+        assert_eq!(invalid.close_behavior(), CloseBehavior::Hide);
+
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn native_shortcut_accelerators_remove_display_spacing() {
+        assert_eq!(native_accelerator("Alt + Space"), "Alt+Space");
+        assert_eq!(native_accelerator("Ctrl + Shift + L"), "Ctrl+Shift+L");
+    }
+
+    #[test]
+    fn lifecycle_commands_reject_unknown_enum_values_and_apply_valid_values() {
+        assert!(serde_json::from_value::<MonitorBehavior>(serde_json::json!("nearest")).is_err());
+        assert!(serde_json::from_value::<CloseBehavior>(serde_json::json!("minimize")).is_err());
+
+        let preferences = RuntimePreferences::default();
+        preferences
+            .set_monitor_behavior(MonitorBehavior::Primary)
+            .unwrap();
+        preferences.set_close_behavior(CloseBehavior::Quit).unwrap();
+        assert_eq!(preferences.monitor_behavior(), MonitorBehavior::Primary);
+        assert_eq!(preferences.close_behavior(), CloseBehavior::Quit);
+    }
+
+    #[test]
+    fn lifecycle_preferences_drive_monitor_and_close_branches() {
+        assert_eq!(
+            monitor_candidate_order(MonitorBehavior::Active),
+            [MonitorCandidate::Active, MonitorCandidate::Primary]
+        );
+        assert_eq!(
+            monitor_candidate_order(MonitorBehavior::Primary),
+            [MonitorCandidate::Primary, MonitorCandidate::Active]
+        );
+        assert_eq!(close_action(CloseBehavior::Hide), CloseAction::Hide);
+        assert_eq!(close_action(CloseBehavior::Quit), CloseAction::Exit);
+    }
 
     #[test]
     fn native_geometry_table_matches_each_window_mode_contract() {

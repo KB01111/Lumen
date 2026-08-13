@@ -30,6 +30,7 @@
       "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@playwright/test": "^1.62.1",
+        "@sqliteai/sqlite-vector-win32-x86_64": "1.0.0",
         "@tailwindcss/vite": "^4",
         "@tauri-apps/cli": "^2",
         "@testing-library/jest-dom": "^7.0.0",
@@ -430,6 +431,8 @@
     "@secure-exec/v8-linux-arm64-gnu": ["@secure-exec/v8-linux-arm64-gnu@0.2.1", "", { "os": "linux", "cpu": "arm64" }, "sha512-14subGhVV/gW35mYYm7Gv1Keeex7PxIgQfoKji/JH7wYyDuarP6kgaES0nJw+JXVkxEVud52c+kbcIjIggqCEw=="],
 
     "@secure-exec/v8-linux-x64-gnu": ["@secure-exec/v8-linux-x64-gnu@0.2.1", "", { "os": "linux", "cpu": "x64" }, "sha512-Az4s+vUf+78vWtsC7rTn/jQc6WKJafAdt2YpEjB4Gnu+sX+FFTIst1hRV4gJonbRyJdy6SW+OQ6DZatmwczorQ=="],
+
+    "@sqliteai/sqlite-vector-win32-x86_64": ["@sqliteai/sqlite-vector-win32-x86_64@1.0.0", "", { "os": "win32", "cpu": [ "x64", "ia32", ] }, "sha512-fus/uA1+Ta/rnmUGzlrJKopR/gN3gfodZwwpTtRA/CYPk1G/M0Gfj+fZwLTwQaIwZxGbe3g2WRRNn0Q9yQmijg=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 

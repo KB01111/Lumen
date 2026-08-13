@@ -1,9 +1,13 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 
 import {LumenUiIcon} from '../../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {useAppearanceStore} from '../../../state/appearance.store';
+import {
+  createLocalDataService,
+  type LocalDataService,
+} from '../../../services/settings/local-data-service';
 import {useDiagnosticsStore} from '../../diagnostics/diagnostics.store';
 import {ConfirmationDialog} from '../components/ConfirmationDialog';
 import {SettingRow} from '../components/SettingRow';
@@ -22,17 +26,86 @@ function rootSummary(paths: string[]) {
   return names.length <= 2 ? names.join(', ') : `${names.length} local folders`;
 }
 
-export function PrivacyPage() {
+const defaultLocalDataService = createLocalDataService();
+
+export function PrivacyPage({
+  localDataService = defaultLocalDataService,
+}: {
+  localDataService?: LocalDataService;
+}) {
   const privacy = useSettingsStore((state) => state.privacy);
   const roots = useSettingsStore((state) => state.roots);
   const updatePrivacy = useSettingsStore((state) => state.updatePrivacy);
   const setPreview = useAppearanceStore((state) => state.setPreview);
   const prepareExport = useDiagnosticsStore((state) => state.prepareExport);
   const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const togglePreviews = (previewsEnabled: boolean) => {
-    void updatePrivacy({previewsEnabled});
-    void setPreview(previewsEnabled ? 'automatic' : 'never');
+  useEffect(() => {
+    void localDataService.getHistoryStatus()
+      .then(({entryCount}) => updatePrivacy({historyEntries: entryCount}))
+      .catch(() => undefined);
+  }, [localDataService, updatePrivacy]);
+
+  const togglePreviews = async (previewsEnabled: boolean) => {
+    const previous = privacy.previewsEnabled;
+    setMessage('');
+    try {
+      await localDataService.setPreviewsEnabled(previewsEnabled);
+      const appearanceResult = await setPreview(previewsEnabled ? 'automatic' : 'never');
+      if (!appearanceResult.ok || !await updatePrivacy({previewsEnabled})) {
+        await localDataService.setPreviewsEnabled(previous);
+        await updatePrivacy({previewsEnabled: previous});
+        await setPreview(previous ? 'automatic' : 'never');
+        throw new Error('The preview setting could not be saved.');
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'The preview setting could not be applied.');
+    }
+  };
+
+  const clearHistory = async () => {
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await localDataService.clearSearchHistory();
+      await updatePrivacy({historyEntries: result.entryCount});
+      setMessage('Local search history cleared.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Search history could not be cleared.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteIndex = async () => {
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await localDataService.deleteIndexData();
+      setMessage(`Deleted generated data for ${result.deletedFiles} files and ${result.deletedChunks} chunks. Source files were not changed.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'The local index could not be deleted.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const prepareSanitizedExport = async () => {
+    setBusy(true);
+    setMessage('');
+    try {
+      const native = await localDataService.getNativeDiagnostics();
+      const payload = prepareExport(native);
+      const result = await localDataService.exportDiagnostics(payload.contents);
+      setMessage(result.saved
+        ? `Saved ${result.fileName ?? payload.filename}.`
+        : 'Diagnostic export cancelled.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Diagnostics could not be prepared.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -42,7 +115,7 @@ export function PrivacyPage() {
       </SettingsCallout>
       {message ? <SettingsCallout>{message}</SettingsCallout> : null}
       <SettingSection title="Local data">
-        <SettingRow label="Local-only search" description="Filenames, previews, history, and development adapter results remain local." status={<StatusBadge tone="success">On device</StatusBadge>}>
+        <SettingRow label="Local-only search" description="Filenames, content index, previews, and history remain on this PC." status={<StatusBadge tone="success">On device</StatusBadge>}>
           <LumenUiIcon name="privacy" size="medium" />
         </SettingRow>
         <SettingRow label="Indexed root summary" description="Only folders you explicitly chose can be traversed.">
@@ -53,36 +126,27 @@ export function PrivacyPage() {
             confirmLabel={`Clear ${privacy.historyEntries} history entries`}
             description="This removes local recent-query history. Indexed files are not affected."
             title="Clear search history?"
-            onConfirm={() => {
-              void updatePrivacy({historyEntries: 0});
-              setMessage('Local search history cleared.');
-            }}
+            onConfirm={() => void clearHistory()}
           >
-            <LumenButton aria-label="Clear search history" isDisabled={privacy.historyEntries === 0} size="small" variant="quiet">
+            <LumenButton aria-label="Clear search history" isDisabled={busy || privacy.historyEntries === 0} size="small" variant="quiet">
               <LumenUiIcon name="delete" size="small" /> Clear
             </LumenButton>
           </ConfirmationDialog>
         </SettingRow>
-        <SettingRow label="Local index" description="The production index does not exist in phase one; this action previews the future confirmation.">
+        <SettingRow label="Local index" description="Delete generated index data without changing selected folders or source files.">
           <ConfirmationDialog
             confirmLabel="Delete local index data"
-            description="A future build will remove generated index data without deleting source files. No index is present in phase one."
+            description="This removes generated file, content, and vector records. Selected roots and source files remain unchanged."
             title="Delete the local index?"
-            onConfirm={() => setMessage('Index deletion preview completed. No source files were changed.')}
+            onConfirm={() => void deleteIndex()}
           >
-            <LumenButton size="small" variant="danger"><LumenUiIcon name="storage" size="small" /> Delete index</LumenButton>
+            <LumenButton isDisabled={busy} size="small" variant="danger"><LumenUiIcon name="storage" size="small" /> Delete index</LumenButton>
           </ConfirmationDialog>
         </SettingRow>
       </SettingSection>
-      <SettingSection title="Preview and future analysis">
+      <SettingSection title="Previews">
         <SettingRow label="File previews" description="Disable all text, image, and metadata preview requests.">
-          <LumenSwitch aria-label="File previews" isSelected={privacy.previewsEnabled} onChange={togglePreviews} />
-        </SettingRow>
-        <SettingRow label="OCR analysis" description="OCR is not implemented in phase one." status={<StatusBadge tone="neutral">Future</StatusBadge>}>
-          <LumenSwitch aria-label="OCR analysis" isDisabled isSelected={false} />
-        </SettingRow>
-        <SettingRow label="Image understanding" description="Image analysis is not implemented in phase one." status={<StatusBadge tone="neutral">Future</StatusBadge>}>
-          <LumenSwitch aria-label="Image understanding" isDisabled isSelected={false} />
+          <LumenSwitch aria-label="File previews" isDisabled={busy} isSelected={privacy.previewsEnabled} onChange={(enabled) => void togglePreviews(enabled)} />
         </SettingRow>
       </SettingSection>
       <SettingSection title="Diagnostic export">
@@ -92,12 +156,9 @@ export function PrivacyPage() {
             confirmVariant="primary"
             description="Review the generated JSON before sharing it. Lumen removes local paths and known secret-bearing fields."
             title="Prepare diagnostic export?"
-            onConfirm={() => {
-              const payload = prepareExport();
-              setMessage(`${payload.filename} is prepared in memory for review.`);
-            }}
+            onConfirm={() => void prepareSanitizedExport()}
           >
-            <LumenButton size="small"><LumenUiIcon name="download" size="small" /> Export</LumenButton>
+            <LumenButton isDisabled={busy} size="small"><LumenUiIcon name="download" size="small" /> Export</LumenButton>
           </ConfirmationDialog>
         </SettingRow>
       </SettingSection>

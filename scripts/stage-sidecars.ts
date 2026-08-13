@@ -3,6 +3,7 @@ import {copyFile, mkdir, readFile, rename, rm, stat, writeFile} from 'node:fs/pr
 import {dirname, join} from 'node:path';
 
 import {stageComputerUse} from './stage-computer-use';
+import {stageSqliteVector} from './stage-sqlite-vector';
 
 const version = 'v1.4.1';
 const asset = 'agentgateway-windows-amd64.exe';
@@ -114,6 +115,21 @@ async function main() {
   await rm(runtimeStage, {recursive: true, force: true});
   console.log('Staged the Rivet 2.3.10 Windows engine.');
   await stageComputerUse();
+  await stageSqliteVector();
+  const requiredOutputs = [
+    output,
+    workerOutput,
+    rivetEngineOutput,
+    join(dirname(output), 'lumen-computer-use-x86_64-pc-windows-msvc.exe'),
+    join(dirname(output), 'vector.dll'),
+    ...mingwRuntimeNames.map((name) => join(dirname(output), name)),
+  ];
+  for (const required of requiredOutputs) {
+    if (!(await stat(required).catch(() => undefined))?.isFile()) {
+      throw new Error(`Required packaged runtime is missing: ${required}`);
+    }
+  }
+  console.log(`Verified ${requiredOutputs.length} packaged runtime files.`);
 }
 
 await main();

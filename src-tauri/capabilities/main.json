@@ -13,6 +13,8 @@
     "log:default",
     "dialog:allow-open",
     "opener:default",
-    "autostart:default"
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ]
 }

@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T15:30:10.340Z",
-  "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849",
+  "generatedAt": "2026-08-13T14:53:37.417Z",
+  "gitSha": "0fd132a8756889a7b4305610fb41cbc5cd03a467",
   "browser": {
     "name": "Microsoft Edge"
   },
@@ -25,22 +25,22 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+      "gitSha": "0fd132a8756889a7b4305610fb41cbc5cd03a467"
     },
     {
       "id": "settings-routing",
       "file": "artifacts/recordings/settings-routing.webm",
-      "title": "Settings navigation and provider routes",
+      "title": "Settings navigation and operational routes",
       "flows": [
         "settings navigation",
         "appearance",
         "local AI route",
         "AgentGateway route",
-        "activity policy"
+        "privacy controls"
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+      "gitSha": "0fd132a8756889a7b4305610fb41cbc5cd03a467"
     },
     {
       "id": "onboarding",
@@ -48,18 +48,15 @@
       "title": "Onboarding scene progression",
       "flows": [
         "welcome",
-        "privacy",
         "root selection",
         "shortcut",
-        "indexing",
-        "local AI",
-        "exact search",
-        "activity",
+        "answer mode",
+        "initial indexing",
         "completion"
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+      "gitSha": "0fd132a8756889a7b4305610fb41cbc5cd03a467"
     },
     {
       "id": "answer-submission",
@@ -75,7 +72,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+      "gitSha": "0fd132a8756889a7b4305610fb41cbc5cd03a467"
     },
     {
       "id": "answer-approval-states",
@@ -92,7 +89,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+      "gitSha": "0fd132a8756889a7b4305610fb41cbc5cd03a467"
     },
     {
       "id": "activity-provider-states",
@@ -108,7 +105,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "4edbb78f545096831c6a657dc37883b95ccb3849"
+      "gitSha": "0fd132a8756889a7b4305610fb41cbc5cd03a467"
     }
   ]
 }

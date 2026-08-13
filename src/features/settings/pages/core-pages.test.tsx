@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {AppProviders} from '../../../app/AppProviders';
+import {BrowserWindowService} from '../../../platform/window/browser-window-service';
 import {defaultAppearanceSettings} from '../../../state/appearance.schema';
 import {appearanceStore} from '../../../state/appearance.store';
 import {nativeAiService} from '../../../services/ai/native-ai-service';
@@ -34,10 +35,12 @@ function renderWithProviders(children: React.ReactNode) {
 }
 
 const defaultSetRoots = useSettingsStore.getState().setRoots;
+const defaultUpdateGeneral = useSettingsStore.getState().updateGeneral;
 
 afterEach(() => {
   Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
   useSettingsStore.setState({setRoots: defaultSetRoots});
+  useSettingsStore.setState({updateGeneral: defaultUpdateGeneral});
   useSettingsStore.getState().reset();
   appearanceStore.setState({
     ...defaultAppearanceSettings,
@@ -82,6 +85,85 @@ describe('core settings pages', () => {
 
     expect(screen.getByRole('button', {name: 'Global shortcut'})).toHaveTextContent('Ctrl + Shift + L');
     expect(useSettingsStore.getState().general.shortcut).toBe('Ctrl + Shift + L');
+  });
+
+  it('applies Windows lifecycle settings before persisting them', async () => {
+    const user = userEvent.setup();
+    const runtimeService = {
+      setLaunchAtStartup: vi.fn(async () => undefined),
+      setMonitorBehavior: vi.fn(async () => undefined),
+      setCloseBehavior: vi.fn(async () => undefined),
+      setHistoryEnabled: vi.fn(async () => undefined),
+    };
+    renderWithProviders(<GeneralPage runtimeService={runtimeService} />);
+
+    await user.click(screen.getByRole('switch', {name: 'Launch at startup'}));
+    await user.click(screen.getByRole('button', {name: /Monitor behavior/}));
+    await user.click(screen.getByRole('option', {name: 'Primary monitor'}));
+    await user.click(screen.getByRole('button', {name: /Launcher close behavior/}));
+    await user.click(screen.getByRole('option', {name: 'Quit Lumen'}));
+    await user.click(screen.getByRole('switch', {name: 'Search history'}));
+
+    await waitFor(() => expect(runtimeService.setLaunchAtStartup).toHaveBeenCalledWith(true));
+    expect(runtimeService.setMonitorBehavior).toHaveBeenCalledWith('primary');
+    expect(runtimeService.setCloseBehavior).toHaveBeenCalledWith('quit');
+    expect(runtimeService.setHistoryEnabled).toHaveBeenCalledWith(false);
+    expect(useSettingsStore.getState().general).toMatchObject({
+      launchAtStartup: true,
+      monitorBehavior: 'primary',
+      closeBehavior: 'quit',
+      historyEnabled: false,
+    });
+  });
+
+  it('keeps the applied lifecycle setting when Windows rejects a change', async () => {
+    const user = userEvent.setup();
+    const runtimeService = {
+      setLaunchAtStartup: vi.fn(async () => {
+        throw new Error('startup registration denied');
+      }),
+      setMonitorBehavior: vi.fn(async () => undefined),
+      setCloseBehavior: vi.fn(async () => undefined),
+      setHistoryEnabled: vi.fn(async () => undefined),
+    };
+    renderWithProviders(<GeneralPage runtimeService={runtimeService} />);
+
+    await user.click(screen.getByRole('switch', {name: 'Launch at startup'}));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('startup registration denied');
+    expect(useSettingsStore.getState().general.launchAtStartup).toBe(false);
+  });
+
+  it('rolls Windows back when lifecycle persistence fails', async () => {
+    const user = userEvent.setup();
+    const runtimeService = {
+      setLaunchAtStartup: vi.fn(async () => undefined),
+      setMonitorBehavior: vi.fn(async () => undefined),
+      setCloseBehavior: vi.fn(async () => undefined),
+      setHistoryEnabled: vi.fn(async () => undefined),
+    };
+    useSettingsStore.setState({updateGeneral: vi.fn(async () => false)});
+    renderWithProviders(<GeneralPage runtimeService={runtimeService} />);
+
+    await user.click(screen.getByRole('switch', {name: 'Launch at startup'}));
+
+    await waitFor(() => expect(runtimeService.setLaunchAtStartup).toHaveBeenNthCalledWith(2, false));
+    expect(useSettingsStore.getState().general.launchAtStartup).toBe(false);
+    expect(screen.getByRole('alert')).toHaveTextContent('applied but could not be saved');
+  });
+
+  it('restores the registered shortcut when persistence fails', async () => {
+    const user = userEvent.setup();
+    const windowService = new BrowserWindowService();
+    const setShortcut = vi.spyOn(windowService, 'setShortcut');
+    useSettingsStore.setState({updateGeneral: vi.fn(async () => false)});
+    renderWithProviders(<GeneralPage windowService={windowService} />);
+
+    await user.click(screen.getByRole('button', {name: 'Global shortcut'}));
+    await user.keyboard('{Control>}{Shift>}l{/Shift}{/Control}');
+
+    await waitFor(() => expect(setShortcut).toHaveBeenNthCalledWith(2, 'Alt + Space'));
+    expect(useSettingsStore.getState().general.shortcut).toBe('Alt + Space');
   });
 
   it('adds, pauses, and removes an indexed root with confirmation', async () => {
@@ -158,13 +240,35 @@ describe('core settings pages', () => {
     expect(nativeAiService.synchronizeRoots).toHaveBeenCalledWith([]);
   });
 
-  it('labels semantic search and reranking as unavailable in phase one', () => {
+  it('shows only ranking controls that affect production search', () => {
     renderWithProviders(<SearchPage />);
 
-    expect(screen.getByText('Semantic search is not connected in phase one.')).toBeVisible();
-    expect(screen.getByText('Reranking is not connected in phase one.')).toBeVisible();
-    expect(screen.getByRole('switch', {name: 'Semantic search'})).toBeDisabled();
-    expect(screen.getByRole('switch', {name: 'Reranking'})).toBeDisabled();
+    expect(screen.getByRole('slider', {name: 'Filename priority'})).toBeEnabled();
+    expect(screen.getByLabelText('Recency preference')).toBeEnabled();
+    expect(screen.queryByRole('switch', {name: 'Semantic search'})).not.toBeInTheDocument();
+    expect(screen.getByRole('switch', {name: 'Reranking'})).toBeEnabled();
+    expect(screen.getByRole('switch', {name: 'Pinned items'})).toBeEnabled();
+  });
+
+  it('enables native semantic, reranking, Recent, and Related controls only when available', async () => {
+    const semanticService = {
+      status: vi.fn(async () => ({
+        vectorAvailable: true,
+        semanticAvailable: true,
+        relatedAvailable: true,
+        indexedChunks: 42,
+        pendingJobs: 0,
+        reason: null,
+      })),
+    };
+    renderWithProviders(<SearchPage semanticService={semanticService} />);
+
+    expect(await screen.findByRole('switch', {name: 'Semantic search'})).toBeEnabled();
+    expect(screen.getByRole('switch', {name: 'Reranking'})).toBeEnabled();
+    expect(screen.getByRole('switch', {name: 'Pinned items'})).toBeEnabled();
+    expect(screen.getByRole('checkbox', {name: 'Recent'})).toBeEnabled();
+    expect(screen.getByRole('checkbox', {name: 'Related'})).toBeEnabled();
+    expect(screen.getByText('42 embedded chunks')).toBeVisible();
   });
 
   it('records Computer Use cloud consent separately from answer consent', async () => {

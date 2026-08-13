@@ -11,7 +11,7 @@ use serde::Serialize;
 use tauri::State;
 
 const LEMONADE_PORT: u16 = 13_305;
-const REQUIRED_LEMONADE: &str = "11.5.1";
+const REQUIRED_LEMONADE: &str = super::provisioning::RUNTIME_VERSION;
 const REQUIRED_FLM: &str = "0.9.46";
 
 #[derive(Clone, Debug, Serialize)]
@@ -59,10 +59,19 @@ impl Drop for RuntimeProcess {
 }
 
 pub struct LocalRuntimeSupervisor {
-    lemonade: Option<PathBuf>,
+    provisioning_root: Option<PathBuf>,
+    system_cli: Option<PathBuf>,
+    system_server: Option<PathBuf>,
     flm: Option<PathBuf>,
     mistral_rs: Option<PathBuf>,
     process: Mutex<Option<RuntimeProcess>>,
+}
+
+#[derive(Clone)]
+struct RuntimeBinaries {
+    cli: Option<PathBuf>,
+    server: Option<PathBuf>,
+    root: Option<PathBuf>,
 }
 
 fn executable_on_path(names: &[&str]) -> Option<PathBuf> {
@@ -149,12 +158,19 @@ fn profile_for(flm: bool, accelerator: &str) -> &'static str {
 }
 
 impl LocalRuntimeSupervisor {
-    pub fn detect() -> Self {
-        let lemonade = known_executable(
-            env::var_os("LOCALAPPDATA")
-                .map(PathBuf::from)
-                .map(|path| path.join("lemonade_server/bin/LemonadeServer.exe")),
-            &["LemonadeServer.exe"],
+    pub fn detect(app_data: Option<PathBuf>) -> Self {
+        let system_root = env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .map(|path| path.join("lemonade_server/bin"));
+        let system_cli = known_executable(
+            system_root.as_ref().map(|path| path.join("lemonade.exe")),
+            &["lemonade.exe"],
+        );
+        let system_server = known_executable(
+            system_root
+                .as_ref()
+                .map(|path| path.join("LemonadeServer.exe")),
+            &["lemond.exe", "LemonadeServer.exe"],
         );
         let flm = known_executable(
             env::var_os("ProgramFiles")
@@ -164,10 +180,31 @@ impl LocalRuntimeSupervisor {
         );
         let mistral_rs = executable_on_path(&["mistralrs-server.exe", "mistralrs.exe"]);
         Self {
-            lemonade,
+            provisioning_root: app_data.map(|path| path.join("provisioning")),
+            system_cli,
+            system_server,
             flm,
             mistral_rs,
             process: Mutex::new(None),
+        }
+    }
+
+    fn binaries(&self) -> RuntimeBinaries {
+        if let Some((_, root)) = self
+            .provisioning_root
+            .as_deref()
+            .and_then(super::provisioning::current_runtime_path)
+        {
+            return RuntimeBinaries {
+                cli: Some(root.join("lemonade.exe")),
+                server: Some(root.join("lemond.exe")),
+                root: Some(root),
+            };
+        }
+        RuntimeBinaries {
+            cli: self.system_cli.clone(),
+            server: self.system_server.clone(),
+            root: None,
         }
     }
 
@@ -196,12 +233,12 @@ impl LocalRuntimeSupervisor {
     }
 
     pub fn health(&self) -> LocalRuntimeHealth {
+        let binaries = self.binaries();
         let accelerator = self.accelerator();
         let profile = profile_for(self.flm.is_some(), &accelerator);
-        let lemonade_version = self.lemonade.as_deref().and_then(|binary| {
+        let lemonade_version = binaries.cli.as_deref().and_then(|binary| {
             fs::metadata(binary).ok()?;
-            executable_on_path(&["lemonade.exe"])
-                .and_then(|cli| command_output(&cli, &["--version"]))
+            command_output(binary, &["--version"])
         });
         let flm_version = self
             .flm
@@ -213,11 +250,11 @@ impl LocalRuntimeSupervisor {
             .and_then(|binary| command_output(binary, &["--version"]));
         let running = lemonade_ready();
         let lemonade_compatible =
-            self.lemonade.is_some() && lemonade_version.as_deref() == Some(REQUIRED_LEMONADE);
+            binaries.server.is_some() && lemonade_version.as_deref() == Some(REQUIRED_LEMONADE);
         let flm_compatible = self.flm.is_none() || flm_version.as_deref() == Some(REQUIRED_FLM);
         let compatible = lemonade_compatible && flm_compatible;
-        let detail = if self.lemonade.is_none() {
-            Some("LemonadeServer.exe is not installed".to_owned())
+        let detail = if binaries.server.is_none() {
+            Some("The Lemonade runtime is not installed".to_owned())
         } else if !lemonade_compatible {
             Some(format!(
                 "Lemonade {REQUIRED_LEMONADE} is required for local answers"
@@ -241,16 +278,12 @@ impl LocalRuntimeSupervisor {
                 "stopped"
             },
             accelerator,
-            answer_model: if profile == "desktop-nvidia-cuda" {
-                "Qwen 3.5 9B (4-bit)"
-            } else {
-                "qwen3.5:4b"
-            },
-            embedding_model: "embed-gemma:300m",
+            answer_model: "extra.Qwen3.5-4B-UD-Q4_K_XL.gguf",
+            embedding_model: "extra.nomic-embed-text-v1.Q4_K_S.gguf",
             transcription_model: "whisper-v3:turbo",
-            base_url: "http://127.0.0.1:13305/api/v1",
+            base_url: "http://127.0.0.1:13305/v1",
             lemonade: component(
-                self.lemonade.as_deref(),
+                binaries.server.as_deref(),
                 lemonade_version,
                 REQUIRED_LEMONADE,
             ),
@@ -270,11 +303,20 @@ impl LocalRuntimeSupervisor {
         if lemonade_ready() {
             return Ok(());
         }
-        let binary = self
-            .lemonade
+        let binaries = self.binaries();
+        let binary = binaries
+            .server
             .as_ref()
-            .ok_or_else(|| "LemonadeServer.exe is not installed".to_owned())?;
+            .ok_or_else(|| "The Lemonade runtime is not installed".to_owned())?;
         let mut command = Command::new(binary);
+        if let Some(root) = binaries.root.as_deref() {
+            command
+                .arg(".")
+                .arg("--port")
+                .arg(LEMONADE_PORT.to_string())
+                .current_dir(root)
+                .env("LEMONADE_API_KEY", "lumen-local");
+        }
         command
             .stdin(Stdio::null())
             .stdout(Stdio::null())

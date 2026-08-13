@@ -49,16 +49,17 @@ export interface LumenSelectProps<T extends string> {
   options: readonly SelectOption<T>[];
   value: T;
   onChange(value: T): void;
+  isDisabled?: boolean;
 }
 
-export function LumenSelect<T extends string>({options, value, onChange, ...props}: LumenSelectProps<T>) {
+export function LumenSelect<T extends string>({options, value, onChange, isDisabled, ...props}: LumenSelectProps<T>) {
   const handleChange = (key: Key | null) => {
     if (key !== null) onChange(String(key) as T);
   };
   return (
-    <Select aria-label={props['aria-label']} selectedKey={value} onSelectionChange={handleChange}>
+    <Select aria-label={props['aria-label']} isDisabled={isDisabled} selectedKey={value} onSelectionChange={handleChange}>
       <Label className={visuallyHidden}>{props['aria-label']}</Label>
-      <Button className={`flex min-h-9 min-w-[132px] items-center justify-between gap-3 rounded-control border border-border-subtle bg-surface-raised px-4 font-sans text-sm text-text-primary outline-none ${focusRing}`}>
+      <Button className={`flex min-h-9 min-w-[132px] items-center justify-between gap-3 rounded-control border border-border-subtle bg-surface-raised px-4 font-sans text-sm text-text-primary outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-55 ${focusRing}`}>
         <SelectValue />
         <LumenUiIcon className="rotate-90" name="next" size="small" />
       </Button>

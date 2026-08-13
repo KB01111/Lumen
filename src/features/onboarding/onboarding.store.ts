@@ -4,13 +4,9 @@ import {subscribeWithSelector} from 'zustand/middleware';
 
 export const onboardingSteps = [
   'welcome',
-  'privacy',
   'root',
   'shortcut',
-  'indexing',
-  'local-ai',
-  'exact-search',
-  'activity',
+  'choices',
 ] as const;
 
 export type OnboardingStep = (typeof onboardingSteps)[number];
@@ -123,7 +119,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       set(persisted ? {...persisted, hydrated: true} : {hydrated: true});
     },
     next: () => set((state) => ({
-      currentIndex: state.currentIndex === 2 && !isValidRoot(state.root)
+      currentIndex: state.currentIndex === 1 && !isValidRoot(state.root)
         ? state.currentIndex
         : Math.min(onboardingSteps.length - 1, state.currentIndex + 1),
     })),

@@ -125,6 +125,7 @@ export class GallerySearchService implements SearchService {
 
   async openFile(): Promise<void> {}
   async openContainingFolder(): Promise<void> {}
+  async setPinned(): Promise<boolean> { return false; }
 
   subscribeToStatus(listener: (status: SearchStatus) => void): () => void {
     listener({phase: 'ready', indexedItems: this.results.length, message: 'Deterministic gallery', updatedAt: '2026-07-31T10:00:00.000Z'});

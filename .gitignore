@@ -1,4 +1,5 @@
 .worktrees/
+.codex-local/
 
 # Package manager and build output
 node_modules/

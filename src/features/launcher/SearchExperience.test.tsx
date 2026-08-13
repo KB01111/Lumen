@@ -6,11 +6,24 @@ import {MemoryAnswerService} from '../../services/answer/memory-answer-service';
 import {BrowserWindowService} from '../../platform/window/browser-window-service';
 import {MemorySearchService} from '../../services/search/memory-search-service';
 import {usePreviewStore} from '../launcher/preview.store';
+import {useSettingsStore} from '../settings/settings.store';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
 import {useScopeStore} from './scope.store';
 import {useSelectionStore} from './selection.store';
 import {SearchExperience} from './SearchExperience';
+
+function file(id: string) {
+  return {
+    id,
+    name: `${id}.md`,
+    path: `C:\\Projects\\Lumen\\${id}.md`,
+    kind: 'document' as const,
+    match: {source: 'filename' as const, fragment: id},
+    metadata: {extension: 'md'},
+    availability: 'available' as const,
+  };
+}
 
 afterEach(() => {
   useLauncherStore.getState().reset();
@@ -18,6 +31,7 @@ afterEach(() => {
   useQueryStore.getState().reset();
   useScopeStore.getState().reset();
   useSelectionStore.getState().reset();
+  useSettingsStore.getState().reset();
 });
 
 describe('SearchExperience answer submission', () => {
@@ -84,6 +98,7 @@ describe('SearchExperience answer submission', () => {
       service.requests.some(({request}) => request.query === 'release'),
     ).toBe(true));
     expect(answers.requests).toHaveLength(0);
+    expect(screen.queryByRole('region', {name: 'AI answer'})).not.toBeInTheDocument();
   });
 
   it('submits one answer request only for plain Enter in the composer', async () => {
@@ -103,6 +118,8 @@ describe('SearchExperience answer submission', () => {
     await user.keyboard('{Enter}');
 
     await waitFor(() => expect(answers.requests).toHaveLength(1));
+    expect(await screen.findByRole('region', {name: 'AI answer'})).toBeVisible();
+    expect(screen.getAllByTestId('answer-region')).toHaveLength(1);
     expect(answers.requests[0]?.request).toMatchObject({
       query: 'summarize the release',
       mode: 'auto',
@@ -187,5 +204,33 @@ describe('SearchExperience answer submission', () => {
 
     await waitFor(() => expect(service.openedFiles).toEqual(['release']));
     expect(answers.requests).toHaveLength(0);
+  });
+
+  it('blocks file-detail preview work when previews are disabled', async () => {
+    const user = userEvent.setup();
+    const service = new MemorySearchService();
+    useSettingsStore.setState((state) => ({
+      privacy: {...state.privacy, previewsEnabled: false},
+    }));
+    render(
+      <SearchExperience
+        service={service}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    await user.type(screen.getByRole('searchbox', {name: 'Search files'}), 'release');
+    await waitFor(() => expect(service.requests.some(({request}) => request.query === 'release')).toBe(true));
+    await act(() => service.resolve('release', [file('release')]));
+    await screen.findByRole('row', {name: /release\.md/i});
+    await import('../preview/PreviewPane');
+    act(() => useSelectionStore.getState().select('release'));
+    expect(screen.getByRole('button', {name: 'Show file details'})).toBeEnabled();
+    await user.click(screen.getByRole('button', {name: 'Show file details'}));
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 50)));
+
+    expect(service.previewRequests).toHaveLength(0);
+    expect(screen.queryByRole('dialog', {name: 'File details'})).not.toBeInTheDocument();
+    expect(screen.getByTestId('search-announcement')).toHaveTextContent('File previews are disabled');
   });
 });

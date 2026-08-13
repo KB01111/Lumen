@@ -80,5 +80,29 @@ describe('useSearchController', () => {
     expect(result.current.selectedId).toBeNull();
     expect(service.requests).toHaveLength(1);
   });
+
+  it('sends active filters with the request', () => {
+    const service = new MemorySearchService();
+    const filters = [{id: 'extension-md', label: 'Markdown', value: 'md'}];
+    const {result} = renderHook(() => useSearchController(service, filters));
+
+    act(() => result.current.setQuery('release'));
+
+    expect(service.requests[0]?.request.filters).toEqual(filters);
+  });
+
+  it('uses the active selection as the Related source', async () => {
+    const service = new MemorySearchService();
+    const {result} = renderHook(() => useSearchController(service));
+
+    act(() => result.current.setQuery('harbor'));
+    await act(() => service.resolve('harbor', [file('indexed:source')]));
+    act(() => result.current.setScope('related'));
+
+    expect(service.requests[service.requests.length - 1]?.request).toMatchObject({
+      scope: 'related',
+      relatedTo: 'indexed:source',
+    });
+  });
 });
 

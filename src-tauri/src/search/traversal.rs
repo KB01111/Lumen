@@ -27,6 +27,61 @@ pub struct TraversalOutcome {
     pub truncated: bool,
 }
 
+#[derive(Clone, Debug)]
+pub struct TraversalPolicy {
+    pub exclusions: Vec<String>,
+    pub include_hidden: bool,
+    pub max_file_size_bytes: u64,
+}
+
+impl Default for TraversalPolicy {
+    fn default() -> Self {
+        Self {
+            exclusions: Vec::new(),
+            include_hidden: false,
+            max_file_size_bytes: u64::MAX,
+        }
+    }
+}
+
+impl TraversalPolicy {
+    pub fn new(
+        exclusions: Vec<String>,
+        include_hidden: bool,
+        max_file_size_bytes: u64,
+    ) -> Result<Self, SearchFailure> {
+        if max_file_size_bytes == 0 {
+            return Err(SearchFailure::new(
+                "invalid-root",
+                "The maximum indexed file size must be greater than zero.",
+                None,
+            ));
+        }
+        let mut normalized = Vec::with_capacity(exclusions.len());
+        for exclusion in exclusions {
+            let value = exclusion.trim().replace('\\', "/");
+            if value.is_empty()
+                || value.split('/').any(|part| part == "..")
+                || value.starts_with('/')
+                || value.starts_with("//")
+                || value.as_bytes().get(1) == Some(&b':')
+            {
+                return Err(SearchFailure::new(
+                    "invalid-root",
+                    "Index exclusions must stay relative to the selected root.",
+                    None,
+                ));
+            }
+            normalized.push(value.to_ascii_lowercase());
+        }
+        Ok(Self {
+            exclusions: normalized,
+            include_hidden,
+            max_file_size_bytes,
+        })
+    }
+}
+
 fn warning(path: &Path, message: impl Into<String>) -> SearchWarning {
     SearchWarning {
         message: message.into(),
@@ -50,7 +105,40 @@ fn is_generated_directory(path: &Path) -> bool {
         })
 }
 
+fn normalized_relative(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase()
+}
+
+fn is_hidden(relative: &str) -> bool {
+    relative
+        .split('/')
+        .any(|part| part.starts_with('.') && part.len() > 1)
+}
+
+fn is_excluded(relative: &str, exclusions: &[String]) -> bool {
+    exclusions.iter().any(|pattern| {
+        if let Some(suffix) = pattern.strip_prefix('*') {
+            relative.ends_with(suffix)
+        } else {
+            relative == pattern
+                || relative.starts_with(&format!("{pattern}/"))
+                || relative.split('/').any(|part| part == pattern)
+        }
+    })
+}
+
 pub fn traverse(root: &Path) -> Result<TraversalOutcome, SearchFailure> {
+    traverse_with_policy(root, &TraversalPolicy::default())
+}
+
+pub fn traverse_with_policy(
+    root: &Path,
+    policy: &TraversalPolicy,
+) -> Result<TraversalOutcome, SearchFailure> {
     let root = canonicalize_root(root)?;
     let mut records = Vec::new();
     let mut warnings = Vec::new();
@@ -109,6 +197,12 @@ pub fn traverse(root: &Path) -> Result<TraversalOutcome, SearchFailure> {
             }
 
             let path = entry.path();
+            let relative = normalized_relative(&root, &path);
+            if is_excluded(&relative, &policy.exclusions)
+                || (!policy.include_hidden && is_hidden(&relative))
+            {
+                continue;
+            }
             let file_type = match entry.file_type() {
                 Ok(value) => value,
                 Err(error) => {
@@ -137,6 +231,14 @@ pub fn traverse(root: &Path) -> Result<TraversalOutcome, SearchFailure> {
                         continue;
                     }
                 }
+            }
+
+            if file_type.is_file()
+                && entry
+                    .metadata()
+                    .is_ok_and(|metadata| metadata.len() > policy.max_file_size_bytes)
+            {
+                continue;
             }
 
             match file_record(&root, &path) {
@@ -220,5 +322,41 @@ mod tests {
                 .any(|path| path.contains("node_modules"))
         );
         assert!(!relative_paths.iter().any(|path| path.contains("target")));
+    }
+
+    #[test]
+    fn configured_policy_excludes_hidden_patterns_and_large_files() {
+        let fixture = SearchFixture::new("configured-traversal-policy");
+        fixture.file("keep.txt", b"keep");
+        fixture.file(".private/secret.txt", b"secret");
+        fixture.file("cache/result.txt", b"cached");
+        fixture.file("notes.tmp", b"temporary");
+        fixture.file("large.bin", b"0123456789");
+        let policy = TraversalPolicy {
+            exclusions: vec!["cache".to_owned(), "*.tmp".to_owned()],
+            include_hidden: false,
+            max_file_size_bytes: 5,
+        };
+
+        let outcome = traverse_with_policy(fixture.root(), &policy).unwrap();
+        let paths = outcome
+            .records
+            .iter()
+            .map(|item| item.relative_path.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(paths.contains(&"keep.txt"));
+        assert!(!paths.iter().any(|path| path.contains(".private")));
+        assert!(!paths.iter().any(|path| path.contains("cache")));
+        assert!(!paths.iter().any(|path| path.ends_with(".tmp")));
+        assert!(!paths.contains(&"large.bin"));
+    }
+
+    #[test]
+    fn configured_policy_rejects_parent_and_absolute_exclusions() {
+        for exclusion in ["../private", "C:\\Private", "\\\\server\\share"] {
+            let error = TraversalPolicy::new(vec![exclusion.to_owned()], false, 1024).unwrap_err();
+            assert_eq!(error.code, "invalid-root");
+        }
     }
 }

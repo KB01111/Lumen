@@ -9,7 +9,7 @@ import {
 
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
-import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
+import {captureTiming} from '../diagnostics/diagnostics.metrics';
 import {useQueryStore} from './query.store';
 import type {LauncherIntent} from './launcher.store';
 
@@ -113,7 +113,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
       if (clearWrapperRef.current) {
         clearWrapperRef.current.hidden = value.length === 0;
       }
-      measureAfterPaint('input-paint', startedAt);
+      captureTiming('input-response', performance.now() - startedAt);
       commitAfterInputPaint(value);
     };
 
@@ -136,7 +136,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           autoComplete="off"
           defaultValue={useQueryStore.getState().draft}
           enterKeyHint="search"
-          placeholder={intent === 'computer' ? 'Ask Lumen to complete a browser task' : 'Search apps, files, and settings'}
+          placeholder={intent === 'computer' ? 'Describe browser task' : 'Search apps and files'}
           spellCheck={false}
           type="search"
           className="min-w-0 flex-1 border-0 bg-transparent p-0 font-sans text-[1.0625rem] font-normal leading-tight tracking-tight text-[color:var(--einui-command-text)] caret-accent outline-none placeholder:text-[color:var(--einui-command-muted-text)]"

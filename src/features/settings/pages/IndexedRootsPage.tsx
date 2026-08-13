@@ -55,7 +55,13 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
     try {
       const status = await nativeAiService.synchronizeRoots(nextRoots
         .filter((root) => !root.paused)
-        .map((root) => ({path: root.path, cloudEnrichment: cloudIds.includes(root.id)})));
+        .map((root) => ({
+          path: root.path,
+          cloudEnrichment: cloudIds.includes(root.id),
+          exclusions: root.exclusions,
+          includeHidden: root.includeHidden,
+          maxFileSizeMb: root.maxFileSizeMb,
+        })));
       setNotice({text: status.message, tone: 'info'});
       return true;
     } catch (error) {
@@ -114,19 +120,6 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
     }
   };
 
-  const deleteIndex = async () => {
-    if (!window.confirm('Delete Lumen\'s local index? Your files will not be changed.')) return;
-    setIndexBusy(true);
-    try {
-      const status = await nativeAiService.deleteIndex();
-      setNotice({text: status.message, tone: 'info'});
-    } catch (error) {
-      setNotice({text: `The local index could not be deleted: ${errorMessage(error)}`, tone: 'error'});
-    } finally {
-      setIndexBusy(false);
-    }
-  };
-
   return (
     <SettingsPage>
       <div className="flex items-center justify-between gap-4">
@@ -134,9 +127,6 @@ export function IndexedRootsPage({rootService = defaultRootService}: {rootServic
         <div className="flex flex-wrap items-center gap-3">
           <LumenButton isDisabled={indexBusy || roots.length === 0} size="small" onPress={rebuildIndex}>
             {indexBusy ? 'Working…' : 'Rebuild index'}
-          </LumenButton>
-          <LumenButton isDisabled={indexBusy} size="small" variant="danger" onPress={deleteIndex}>
-            Delete index
           </LumenButton>
           <LumenButton aria-label="Add root" isDisabled={choosing} size="small" variant="primary" onPress={addRoot}>
             <LumenUiIcon name="folderOpen" size="small" />

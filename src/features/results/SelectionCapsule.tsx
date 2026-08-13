@@ -2,22 +2,25 @@ import {useLayoutEffect, useRef, type RefObject} from 'react';
 import {motion, useMotionValue, useSpring} from 'motion/react';
 
 import {motionTokens} from '../../design-system/motion';
+import {useSelectionStore} from '../launcher/selection.store';
 import {comfortableResultHeight} from './useResultVirtualizer';
 
 export interface SelectionCapsuleProps {
   containerRef: RefObject<HTMLDivElement | null>;
   reducedMotion?: boolean;
+  rowHeight?: number;
   selectedId: string | null;
 }
 
 export function SelectionCapsule({
   containerRef,
   reducedMotion = false,
+  rowHeight = comfortableResultHeight,
   selectedId,
 }: SelectionCapsuleProps) {
   const targetY = useMotionValue(0);
   const springY = useSpring(targetY, motionTokens.selectionSpring);
-  const height = useMotionValue(comfortableResultHeight);
+  const height = useMotionValue(rowHeight);
   const opacity = useMotionValue(0);
   const hasPositioned = useRef(false);
 
@@ -42,7 +45,7 @@ export function SelectionCapsule({
           springY.jump(selected.offsetTop);
         }
         targetY.set(selected.offsetTop);
-        height.set(selected.offsetHeight || comfortableResultHeight);
+        height.set(selected.offsetHeight || rowHeight);
         opacity.set(1);
       };
       measure();
@@ -51,14 +54,16 @@ export function SelectionCapsule({
         observer.observe(selected);
       }
     };
-    const handlePreview = (event: Event) => updateSelection((event as CustomEvent<string | null>).detail);
     updateSelection(selectedId);
-    window.addEventListener('lumen:selection-preview', handlePreview);
+    const unsubscribe = useSelectionStore.subscribe(
+      (state) => state.selectedId,
+      updateSelection,
+    );
     return () => {
       observer?.disconnect();
-      window.removeEventListener('lumen:selection-preview', handlePreview);
+      unsubscribe();
     };
-  }, [containerRef, height, opacity, selectedId, springY, targetY]);
+  }, [containerRef, height, opacity, rowHeight, selectedId, springY, targetY]);
 
   return (
     <motion.div

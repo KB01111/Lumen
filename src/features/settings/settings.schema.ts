@@ -33,10 +33,19 @@ export type IndexedRoot = z.infer<typeof indexedRootSchema>;
 export const applicationOverrideSchema = z.object({
   id: z.string().min(1),
   application: z.string().min(1),
+  identityHash: z.string().regex(/^[a-f0-9]{64}$/).nullable().default(null),
   policy: z.enum(['automatic', 'pause', 'cinema', 'allow']),
 });
 
 export type ApplicationOverride = z.infer<typeof applicationOverrideSchema>;
+
+export const activityExecutableSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  identityHash: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
+});
+
+export type ActivityExecutable = z.infer<typeof activityExecutableSchema>;
 
 const defaultAiSettings = {
   runtimeMode: 'auto' as const,
@@ -101,7 +110,10 @@ export const settingsSchema = z.object({
     pauseOnBattery: z.boolean(),
     resumeDelaySeconds: z.number().int().min(0).max(600),
     overrides: z.array(applicationOverrideSchema),
-    userGames: z.array(z.string()),
+    userGames: z.array(z.union([
+      activityExecutableSchema,
+      z.string().min(1).transform((name) => ({id: `legacy-${name}`, name, identityHash: null})),
+    ])),
   }),
   privacy: z.object({
     previewsEnabled: z.boolean(),
@@ -135,12 +147,12 @@ export const defaultSettings: LumenSettings = settingsSchema.parse({
   },
   roots: [],
   search: {
-    enabledScopes: ['all', 'files', 'folders', 'documents', 'code', 'images', 'recent', 'related'],
+    enabledScopes: ['all', 'files', 'folders', 'documents', 'code', 'images'],
     filenamePriority: 82,
     recency: 'balanced',
     showPinned: true,
     semanticEnabled: false,
-    rerankingEnabled: false,
+    rerankingEnabled: true,
   },
   ai: defaultAiSettings,
   computerUse: defaultComputerUseSettings,

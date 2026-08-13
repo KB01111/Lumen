@@ -256,6 +256,10 @@ export class DevelopmentSearchService implements SearchService {
     this.openedFolders.push(fileId);
   }
 
+  async setPinned(): Promise<boolean> {
+    return false;
+  }
+
   subscribeToStatus(listener: (status: SearchStatus) => void): () => void {
     listener({
       phase: 'ready',

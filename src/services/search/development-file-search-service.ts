@@ -54,8 +54,13 @@ const rustIndexedHitSchema = z.object({
   timeStartMs: z.number().int().nonnegative().nullable().optional(),
   timeEndMs: z.number().int().nonnegative().nullable().optional(),
   rank: z.number(),
+  matchSource: z.enum(['filename', 'content', 'metadata', 'ocr', 'semantic', 'related']),
+  semanticScore: z.number().min(0).max(1).nullable().optional(),
+  embeddingModel: z.string().min(1).nullable().optional(),
+  pinned: z.boolean(),
 });
 const rustIndexedHitsSchema = z.array(rustIndexedHitSchema);
+const pinUpdateSchema = z.object({applied: z.boolean(), pinned: z.boolean()});
 
 const rustPreviewSchema = z.object({
   kind: previewKindSchema,
@@ -79,9 +84,31 @@ interface KnownFile {
 
 export interface DevelopmentFileSearchServiceOptions {
   getRoots(): readonly string[];
-  getRootConfigurations?(): readonly {id: string; path: string; cloudEnrichment: boolean}[];
+  getRootConfigurations?(): readonly {
+    id: string;
+    path: string;
+    cloudEnrichment: boolean;
+    exclusions: string[];
+    includeHidden: boolean;
+    maxFileSizeMb: number;
+  }[];
+  getSearchPreferences?(): {
+    filenamePriority: number;
+    recency: 'low' | 'balanced' | 'high';
+    showPinned: boolean;
+    semanticEnabled: boolean;
+    rerankingEnabled: boolean;
+  };
   invoke?: InvokeCommand;
 }
+
+const defaultSearchPreferences = {
+  filenamePriority: 82,
+  recency: 'balanced',
+  showPinned: true,
+  semanticEnabled: false,
+  rerankingEnabled: false,
+} as const;
 
 function normalizedPath(value: string) {
   return value.replace(/\\/g, '/').replace(/\/+$/, '').toLocaleLowerCase();
@@ -138,7 +165,7 @@ function isInScope(kind: SearchResult['kind'], scope: SearchScope) {
     case 'documents': return ['pdf', 'document', 'spreadsheet', 'presentation'].includes(kind);
     case 'code': return kind === 'source';
     case 'images': return kind === 'image';
-    case 'related': return false;
+    case 'related': return true;
     default: return true;
   }
 }
@@ -196,6 +223,7 @@ function commandFailure(error: unknown, fallbackMessage: string): SearchError {
 export class DevelopmentFileSearchService implements SearchService {
   private readonly getRoots: () => readonly string[];
   private readonly getRootConfigurations?: DevelopmentFileSearchServiceOptions['getRootConfigurations'];
+  private readonly getSearchPreferences: NonNullable<DevelopmentFileSearchServiceOptions['getSearchPreferences']>;
   private readonly invoke: InvokeCommand;
   private readonly knownFiles = new Map<string, KnownFile>();
   private readonly listeners = new Set<(status: SearchStatus) => void>();
@@ -203,9 +231,10 @@ export class DevelopmentFileSearchService implements SearchService {
   private pendingRootSignature = '';
   private rootSynchronization: Promise<void> = Promise.resolve();
 
-  constructor({getRoots, getRootConfigurations, invoke = defaultInvoke}: DevelopmentFileSearchServiceOptions) {
+  constructor({getRoots, getRootConfigurations, getSearchPreferences = () => defaultSearchPreferences, invoke = defaultInvoke}: DevelopmentFileSearchServiceOptions) {
     this.getRoots = getRoots;
     this.getRootConfigurations = getRootConfigurations;
+    this.getSearchPreferences = getSearchPreferences;
     this.invoke = invoke;
   }
 
@@ -220,11 +249,29 @@ export class DevelopmentFileSearchService implements SearchService {
     const startedAt = performance.now();
     await abortable(this.synchronizeRoots(roots), signal);
     throwIfAborted(signal);
-    const indexedRequest = this.invoke('search_indexed', {query: request.query, limit: request.limit});
+    if (request.scope === 'related' && !request.relatedTo) {
+      return {requestId: request.requestId, groups: [], elapsedMs: performance.now() - startedAt, total: 0};
+    }
+    const preferences = this.getSearchPreferences();
+    const indexedRequest = request.scope === 'related'
+      ? this.invoke('search_related', {stableId: request.relatedTo, limit: request.limit})
+      : this.invoke('search_hybrid', {
+          requestId: request.requestId,
+          query: request.query,
+          scope: request.scope,
+          filters: request.filters.map(({id, value}) => ({id, value})),
+          limit: request.limit,
+          filenamePriority: preferences.filenamePriority,
+          recency: preferences.recency,
+          showPinned: preferences.showPinned,
+          semanticEnabled: preferences.semanticEnabled,
+          rerankingEnabled: preferences.rerankingEnabled,
+        });
+    const filenameRequests = request.scope === 'recent' || request.scope === 'related'
+      ? []
+      : roots.map((root) => this.invoke('search_filenames', {root, query: request.query}));
     const [settled, indexedSettled] = await abortable(Promise.all([
-      Promise.allSettled(
-        roots.map((root) => this.invoke('search_filenames', {root, query: request.query})),
-      ),
+      Promise.allSettled(filenameRequests),
       Promise.allSettled([indexedRequest]),
     ]), signal);
     throwIfAborted(signal);
@@ -297,16 +344,18 @@ export class DevelopmentFileSearchService implements SearchService {
           path: displayPath(item.path),
           kind: indexedKind(item.path),
           match: {
-            source: item.extractionKind === 'ocr' ? 'ocr' as const : 'content' as const,
-            score: 1 / (1 + Math.abs(item.rank)),
+            source: item.matchSource,
+            score: item.semanticScore ?? 1 / (1 + Math.abs(item.rank)),
           },
           metadata: {},
+          pinned: item.pinned,
           provenance: {
             extractionKind: item.extractionKind,
             fileHash: item.contentHash,
             page: item.page ?? undefined,
             timeStartMs: item.timeStartMs ?? undefined,
             timeEndMs: item.timeEndMs ?? undefined,
+            embeddingModel: item.embeddingModel ?? undefined,
             indexRevision: item.indexRevision,
           },
           availability: 'available' as const,
@@ -316,9 +365,21 @@ export class DevelopmentFileSearchService implements SearchService {
     if (responses.length === 0 && firstFailure && indexedMatches.length === 0) {
       throw commandFailure(firstFailure ?? indexedFailure, 'Local filename search failed.');
     }
-    const seenPaths = new Set(filenameMatches.map((item) => normalizedPath(item.path)));
+    const indexedByPath = new Map(indexedMatches.map((item) => [normalizedPath(item.path), item]));
+    const mergedFilenameMatches = filenameMatches.map((item) => {
+      const indexed = indexedByPath.get(normalizedPath(item.path));
+      if (!indexed) return item;
+      this.knownFiles.set(indexed.id, {root: this.knownFiles.get(item.id)?.root ?? '', path: this.knownFiles.get(item.id)?.path ?? item.path});
+      return {
+        ...item,
+        id: indexed.id,
+        pinned: indexed.pinned,
+        provenance: indexed.provenance,
+      } satisfies SearchResult;
+    });
+    const seenPaths = new Set(mergedFilenameMatches.map((item) => normalizedPath(item.path)));
     const mapped = [
-      ...filenameMatches,
+      ...mergedFilenameMatches,
       ...indexedMatches.filter((item) => !seenPaths.has(normalizedPath(item.path))),
     ];
     const total = mapped.length;
@@ -393,6 +454,22 @@ export class DevelopmentFileSearchService implements SearchService {
     }
   }
 
+  async setPinned(fileId: string, pinned: boolean): Promise<boolean> {
+    if (!fileId.startsWith('indexed:')) {
+      return false;
+    }
+    try {
+      const parsed = pinUpdateSchema.parse(await this.invoke('set_indexed_file_pinned', {
+        stableId: fileId,
+        pinned,
+      }));
+      return parsed.applied && parsed.pinned === pinned;
+    } catch (error) {
+      const message = commandFailure(error, 'The selected file pin could not be updated.').message;
+      throw Object.assign(new Error(message), {cause: error});
+    }
+  }
+
   subscribeToStatus(listener: (status: SearchStatus) => void): () => void {
     this.listeners.add(listener);
     listener(this.createStatus());
@@ -423,11 +500,17 @@ export class DevelopmentFileSearchService implements SearchService {
       id: normalizedPath(path),
       path,
       cloudEnrichment: false,
+      exclusions: [],
+      includeHidden: false,
+      maxFileSizeMb: 256,
     }));
-    const signature = JSON.stringify(configuredRoots.map((root) => [
-      normalizedPath(root.path),
-      root.cloudEnrichment,
-    ]));
+    const signature = JSON.stringify(configuredRoots.map((root) => ({
+      path: normalizedPath(root.path),
+      cloudEnrichment: root.cloudEnrichment,
+      exclusions: root.exclusions,
+      includeHidden: root.includeHidden,
+      maxFileSizeMb: root.maxFileSizeMb,
+    })));
     if (signature === this.synchronizedRootSignature && !this.pendingRootSignature) {
       return Promise.resolve();
     }
@@ -442,6 +525,9 @@ export class DevelopmentFileSearchService implements SearchService {
         roots: configuredRoots.map((root) => ({
           path: root.path,
           cloudEnrichment: root.cloudEnrichment,
+          exclusions: root.exclusions,
+          includeHidden: root.includeHidden,
+          maxFileSizeMb: root.maxFileSizeMb,
         })),
       });
       this.synchronizedRootSignature = signature;

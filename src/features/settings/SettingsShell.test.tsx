@@ -22,18 +22,32 @@ afterEach(() => {
 });
 
 describe('SettingsShell', () => {
-  it('exposes all ten pages in one persistent navigation rail', () => {
+  it('exposes only implemented pages in one persistent navigation rail', () => {
     renderShell();
 
+    const surface = screen.getByLabelText('Lumen settings');
+    const header = screen.getByRole('banner');
     expect(screen.getByRole('navigation', {name: 'Settings'})).toBeVisible();
     expect(screen.getAllByRole('navigation', {name: 'Settings'})).toHaveLength(1);
     expect(screen.getByRole('main', {name: 'Settings content'})).toBeVisible();
     expect(screen.getAllByRole('main', {name: 'Settings content'})).toHaveLength(1);
     expect(screen.getAllByRole('tab')).toHaveLength(10);
+    expect(screen.getByRole('tab', {name: 'Activity'})).toBeVisible();
     expect(screen.getByRole('tab', {name: 'General'})).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('heading', {name: 'General'})).toBeVisible();
     expect(screen.getByTestId('settings-content')).toHaveClass('overflow-y-auto');
     expect(screen.getByTestId('settings-content')).not.toHaveAttribute('style');
+    expect(header.parentElement).toBe(surface);
+    expect(screen.getByRole('navigation', {name: 'Settings'}).parentElement?.parentElement?.parentElement).toBe(surface);
+  });
+
+  it('restores the operational activity route', () => {
+    useSettingsStore.setState({activePage: 'activity'});
+
+    renderShell();
+
+    expect(screen.getByRole('tab', {name: 'Activity'})).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', {name: 'Activity'})).toBeVisible();
   });
 
   it('keeps the close action visibly focusable', () => {

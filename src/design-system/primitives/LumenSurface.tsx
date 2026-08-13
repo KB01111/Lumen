@@ -39,7 +39,7 @@ export const LumenSurface = forwardRef<HTMLDivElement, LumenSurfaceProps>(
         <span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-30 bg-[var(--lumen-surface-glass)]" />
         <span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(120%_90%_at_14%_-18%,rgba(255,255,255,0.19),transparent_54%)] bg-[var(--lumen-surface-glass)] mix-blend-screen" />
         <span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[image:var(--lumen-surface-noise)] bg-repeat opacity-[0.045] mix-blend-soft-light [background-size:180px_180px]" style={noiseStyle} />
-        <div className="relative z-0 h-full w-full">{children}</div>
+        {children}
       </div>
     );
   },

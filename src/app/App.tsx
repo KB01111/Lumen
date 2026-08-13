@@ -1,10 +1,12 @@
 import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
+import type {CSSProperties} from 'react';
 
 import {LumenMark} from '../design-system/icons/LumenMark';
 import {LumenSurface} from '../design-system/primitives/LumenSurface';
 import {LumenText} from '../design-system/primitives/LumenText';
 import type {AppearancePreferences} from '../design-system/theme';
 import {SearchExperience} from '../features/launcher/SearchExperience';
+import {useActivityStore} from '../features/activity/activity.store';
 import {useLauncherStore} from '../features/launcher/launcher.store';
 import {useQueryStore} from '../features/launcher/query.store';
 import {
@@ -15,13 +17,19 @@ import {useOnboardingStore} from '../features/onboarding/onboarding.store';
 import {createIndexedRoot} from '../features/settings/indexed-root';
 import {useSettingsStore} from '../features/settings/settings.store';
 import {createWindowService} from '../platform/window/tauri-window-service';
-import type {WindowService} from '../platform/window/window-service';
+import {windowGeometry} from '../platform/window/window-service';
+import type {WindowMode, WindowService} from '../platform/window/window-service';
 import {TauriAnswerService} from '../services/answer/tauri-answer-service';
 import {UnavailableAnswerService} from '../services/answer/unavailable-answer-service';
 import {TauriComputerUseService} from '../services/computer-use/tauri-computer-use-service';
 import {UnavailableComputerUseService} from '../services/computer-use/unavailable-computer-use-service';
 import {DevelopmentComputerUseService} from '../services/computer-use/development-computer-use-service';
 import {isNativeRuntime, nativeAiService} from '../services/ai/native-ai-service';
+import {
+  createActivityService,
+  type ActivityService,
+  toActivityMode,
+} from '../services/activity/activity-service';
 import {DevelopmentFileSearchService} from '../services/search/development-file-search-service';
 import {DevelopmentSearchService} from '../services/search/development-search-service';
 import {AppProviders} from './AppProviders';
@@ -65,6 +73,9 @@ function createDefaultSearchService() {
           id: root.id,
           path: root.path,
           cloudEnrichment: settings.ai.cloudEnrichedRootIds.includes(root.id),
+          exclusions: root.exclusions,
+          includeHidden: root.includeHidden,
+          maxFileSizeMb: root.maxFileSizeMb,
         }));
       if (configuredRoots.length > 0) {
         return configuredRoots;
@@ -74,12 +85,26 @@ function createDefaultSearchService() {
         id: `onboarding:${onboardingRoot}`,
         path: onboardingRoot,
         cloudEnrichment: false,
+        exclusions: [],
+        includeHidden: false,
+        maxFileSizeMb: 256,
       }] : [];
+    },
+    getSearchPreferences: () => {
+      const {
+        filenamePriority,
+        recency,
+        rerankingEnabled,
+        semanticEnabled,
+        showPinned,
+      } = useSettingsStore.getState().search;
+      return {filenamePriority, recency, rerankingEnabled, semanticEnabled, showPinned};
     },
   });
 }
 
 const defaultSearchService = createDefaultSearchService();
+const defaultActivityService = createActivityService();
 const defaultAnswerService = isNativeRuntime()
   ? new TauriAnswerService()
   : new UnavailableAnswerService();
@@ -152,10 +177,14 @@ function getOnboardingMode() {
 }
 
 export interface AppProps {
+  activityService?: ActivityService;
   windowService?: WindowService;
 }
 
-export function App({windowService = appWindowService}: AppProps = {}) {
+export function App({
+  activityService = defaultActivityService,
+  windowService = appWindowService,
+}: AppProps = {}) {
   const foundationPreview = isFoundationPreview();
   const galleryPreview = isGalleryPreview();
   const galleryPresentation = galleryPreview ? galleryAppearance() : null;
@@ -215,15 +244,53 @@ export function App({windowService = appWindowService}: AppProps = {}) {
     }
   }, [keepLocalWarm, runtimeMode]);
 
-  const completeOnboarding = useCallback(() => {
+  useEffect(() => {
+    let active = true;
+    const refreshActivity = async () => {
+      try {
+        const snapshot = await activityService.status();
+        if (!active) return;
+        const mode = toActivityMode(snapshot.mode);
+        useActivityStore.setState({
+          active: mode !== 'indexing',
+          mode,
+          detectedApplication: null,
+          message: '',
+        });
+      } catch {
+        // Search remains available when activity classification is unavailable.
+      }
+    };
+    void refreshActivity();
+    const timer = window.setInterval(() => void refreshActivity(), 2_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [activityService]);
+
+  const completeOnboarding = useCallback(async () => {
     const root = useOnboardingStore.getState().root;
     if (!root) {
-      return;
+      return false;
     }
     const settings = useSettingsStore.getState();
     if (!settings.roots.some((item) => item.path.toLocaleLowerCase() === root.toLocaleLowerCase())) {
-      void settings.setRoots([...settings.roots, createIndexedRoot(root)]);
+      if (!await settings.setRoots([...settings.roots, createIndexedRoot(root)])) {
+        return false;
+      }
     }
+    if (isNativeRuntime()) {
+      const current = useSettingsStore.getState();
+      await nativeAiService.synchronizeRoots(current.roots.filter((item) => !item.paused).map((item) => ({
+        path: item.path,
+        cloudEnrichment: current.ai.cloudEnrichedRootIds.includes(item.id),
+        exclusions: item.exclusions,
+        includeHidden: item.includeHidden,
+        maxFileSizeMb: item.maxFileSizeMb,
+      })));
+    }
+    return true;
   }, []);
 
   const showOnboarding = !foundationPreview && !galleryPreview && (
@@ -233,6 +300,23 @@ export function App({windowService = appWindowService}: AppProps = {}) {
   const onboardingPending = !foundationPreview && !galleryPreview &&
     onboardingMode === 'persisted' &&
     !onboardingHydrated;
+  const browserWindowMode: WindowMode = galleryPreview
+    ? 'gallery'
+    : showOnboarding
+      ? 'onboarding'
+      : foundationPreview
+        ? 'collapsed'
+        : launcherMode;
+  const browserWindowStyle: CSSProperties | undefined = import.meta.env.DEV && !isNativeRuntime()
+    ? {
+        height: `min(100%, ${windowGeometry[browserWindowMode].height}px)`,
+        left: '50%',
+        position: 'absolute',
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: `min(100%, ${windowGeometry[browserWindowMode].width}px)`,
+      }
+    : undefined;
 
   const closeSettings = useCallback(() => {
     const targetMode = useQueryStore.getState().committed ? 'expanded' : 'collapsed';
@@ -258,7 +342,11 @@ export function App({windowService = appWindowService}: AppProps = {}) {
       )}
       forceHighContrast={galleryPresentation?.forceHighContrast}
     >
-      <main className="grid h-full w-full items-stretch overflow-x-clip bg-transparent p-1.5">
+      <main
+        className="grid h-full min-h-0 min-w-0 w-full grid-rows-[minmax(0,1fr)] items-stretch overflow-x-clip bg-transparent p-1.5"
+        data-browser-window-mode={browserWindowStyle ? browserWindowMode : undefined}
+        style={browserWindowStyle}
+      >
         {galleryPreview && VisualStateGallery ? (
           <Suspense fallback={null}><VisualStateGallery windowService={windowService} /></Suspense>
         ) : foundationPreview ? (

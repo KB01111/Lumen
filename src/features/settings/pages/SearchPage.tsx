@@ -1,9 +1,15 @@
+import {useEffect, useState} from 'react';
+
 import {LumenText} from '../../../design-system/primitives/LumenText';
+import {
+  semanticSearchService as defaultSemanticSearchService,
+  type SemanticSearchService,
+  type SemanticSearchStatus,
+} from '../../../services/search/semantic-search-service';
 import {SettingRow} from '../components/SettingRow';
 import {SettingSection} from '../components/SettingSection';
 import {LumenCheckbox, LumenSelect, LumenSlider, LumenSwitch} from '../components/SettingsControls';
 import {SettingsPage} from '../components/SettingsPage';
-import {StatusBadge} from '../components/StatusBadge';
 import type {SearchSettings} from '../settings.schema';
 import {useSettingsStore} from '../settings.store';
 
@@ -14,13 +20,25 @@ const scopes = [
   ['documents', 'Documents'],
   ['code', 'Code'],
   ['images', 'Images'],
+] as const;
+
+const extendedScopes = [
   ['recent', 'Recent'],
   ['related', 'Related'],
 ] as const;
 
-export function SearchPage() {
+export function SearchPage({semanticService = defaultSemanticSearchService}: {semanticService?: SemanticSearchService}) {
   const search = useSettingsStore((state) => state.search);
   const updateSearch = useSettingsStore((state) => state.updateSearch);
+  const [semanticStatus, setSemanticStatus] = useState<SemanticSearchStatus | null>(null);
+
+  useEffect(() => {
+    let current = true;
+    void semanticService.status()
+      .then((status) => { if (current) setSemanticStatus(status); })
+      .catch(() => { if (current) setSemanticStatus(null); });
+    return () => { current = false; };
+  }, [semanticService]);
 
   const toggleScope = (scope: SearchSettings['enabledScopes'][number], selected: boolean) => {
     const enabledScopes = selected
@@ -44,6 +62,19 @@ export function SearchPage() {
               {label}
             </LumenCheckbox>
           ))}
+          {extendedScopes.map(([id, label]) => {
+            const available = id === 'recent' || semanticStatus?.relatedAvailable === true;
+            return (
+              <LumenCheckbox
+                key={id}
+                isDisabled={!available}
+                isSelected={search.enabledScopes.includes(id)}
+                onChange={(selected) => toggleScope(id, selected)}
+              >
+                {label}
+              </LumenCheckbox>
+            );
+          })}
         </div>
       </SettingSection>
       <SettingSection title="Ranking" description="Tune exact filename and recent-item emphasis for the local adapter.">
@@ -58,27 +89,23 @@ export function SearchPage() {
             onChange={(recency) => void updateSearch({recency})}
           />
         </SettingRow>
-        <SettingRow label="Pinned items" description="Keep pinned local files visible when they match.">
+        {semanticStatus?.semanticAvailable ? (
+            <SettingRow label="Semantic search" description="Combine exact and content matches with local vector similarity.">
+              <LumenSwitch aria-label="Semantic search" isSelected={search.semanticEnabled} onChange={(semanticEnabled) => void updateSearch({semanticEnabled})} />
+            </SettingRow>
+        ) : null}
+        <SettingRow label="Reranking" description="Blend filename, content, recent, pin, and available semantic signals in the native ranker.">
+          <LumenSwitch aria-label="Reranking" isSelected={search.rerankingEnabled} onChange={(rerankingEnabled) => void updateSearch({rerankingEnabled})} />
+        </SettingRow>
+        <SettingRow label="Pinned items" description="Give pinned indexed files a small bounded ranking preference.">
           <LumenSwitch aria-label="Pinned items" isSelected={search.showPinned} onChange={(showPinned) => void updateSearch({showPinned})} />
         </SettingRow>
       </SettingSection>
-      <SettingSection title="Future relevance" description="These controls expose the planned state without pretending the backend exists.">
-        <SettingRow
-          label="Semantic search"
-          description="Semantic search is not connected in phase one."
-          status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}
-        >
-          <LumenSwitch aria-label="Semantic search" isDisabled isSelected={false} />
-        </SettingRow>
-        <SettingRow
-          label="Reranking"
-          description="Reranking is not connected in phase one."
-          status={<StatusBadge tone="neutral">Unavailable</StatusBadge>}
-        >
-          <LumenSwitch aria-label="Reranking" isDisabled isSelected={false} />
-        </SettingRow>
-      </SettingSection>
-      <LumenText tone="tertiary" variant="caption">Exact filename and folder search remains available with every AI provider off.</LumenText>
+      <LumenText tone="tertiary" variant="caption">
+        {semanticStatus?.semanticAvailable
+          ? `${semanticStatus.indexedChunks} embedded chunks`
+          : semanticStatus?.reason ?? 'Exact filename and folder search remains available with every AI provider off.'}
+      </LumenText>
     </SettingsPage>
   );
 }

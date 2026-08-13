@@ -31,6 +31,7 @@ export interface RecordedSearchRequest {
 
 export class MemorySearchService implements SearchService {
   readonly requests: RecordedSearchRequest[] = [];
+  readonly previewRequests: Array<{fileId: string; signal?: AbortSignal}> = [];
   readonly openedFiles: string[] = [];
   readonly openedFolders: string[] = [];
 
@@ -82,6 +83,7 @@ export class MemorySearchService implements SearchService {
   }
 
   getPreview(fileId: string, signal?: AbortSignal): Promise<FilePreview> {
+    this.previewRequests.push({fileId, signal});
     return new Promise((resolve, reject) => {
       this.pendingPreviews.push({fileId, signal, settled: false, resolve, reject});
     });
@@ -117,6 +119,10 @@ export class MemorySearchService implements SearchService {
 
   async openContainingFolder(fileId: string): Promise<void> {
     this.openedFolders.push(fileId);
+  }
+
+  async setPinned(): Promise<boolean> {
+    return false;
   }
 
   subscribeToStatus(listener: (status: SearchStatus) => void): () => void {

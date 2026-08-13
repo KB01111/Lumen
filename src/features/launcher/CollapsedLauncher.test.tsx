@@ -4,6 +4,7 @@ import {StrictMode} from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {readDiagnosticMetrics, resetDiagnosticMetrics} from '../diagnostics/diagnostics.metrics';
+import {useSettingsStore} from '../settings/settings.store';
 import {BrowserWindowService} from '../../platform/window/browser-window-service';
 import {useLauncherStore} from './launcher.store';
 import {CollapsedLauncher} from './CollapsedLauncher';
@@ -16,6 +17,7 @@ afterEach(() => {
   useLauncherStore.getState().reset();
   useQueryStore.getState().reset();
   useScopeStore.getState().reset();
+  useSettingsStore.getState().reset();
 });
 
 describe('CollapsedLauncher', () => {
@@ -116,7 +118,7 @@ describe('CollapsedLauncher', () => {
     expect(useLauncherStore.getState().visible).toBe(false);
   });
 
-  it('exposes named controls and all eight scopes when expanded', async () => {
+  it('exposes named controls and all implemented scopes when expanded', async () => {
     const user = userEvent.setup();
     useQueryStore.getState().setDraft('docs');
     render(
@@ -130,10 +132,22 @@ describe('CollapsedLauncher', () => {
     await waitFor(() => expect(
       screen.getByRole('tablist', {name: 'Search scopes'}),
     ).toBeVisible());
-    expect(screen.getAllByRole('tab')).toHaveLength(8);
+    expect(screen.getAllByRole('tab')).toHaveLength(6);
 
     await user.click(screen.getByRole('tab', {name: 'Documents'}));
     expect(useScopeStore.getState().activeScope).toBe('documents');
+  });
+
+  it('shows only the search scopes enabled in settings', async () => {
+    useSettingsStore.setState((state) => ({
+      search: {...state.search, enabledScopes: ['all', 'documents', 'recent']},
+    }));
+    useQueryStore.getState().setDraft('docs');
+
+    render(<CollapsedLauncher windowService={new BrowserWindowService()} />);
+
+    await waitFor(() => expect(screen.getByRole('tablist', {name: 'Search scopes'})).toBeVisible());
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['All', 'Documents', 'Recent']);
   });
 
   it('switches to an explicit browser-agent task without exposing file scopes', async () => {

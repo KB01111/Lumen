@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import type {RuntimeMode} from '../../services/answer/answer.types';
@@ -45,6 +45,7 @@ export function AnswerPanel({
 }: AnswerPanelProps) {
   const [copied, setCopied] = useState(false);
   const canStop = answer.phase === 'waiting' || answer.phase === 'streaming';
+  const canRetry = answer.phase === 'error' || answer.phase === 'cancelled' || answer.phase === 'completed';
   const hasAnswer = answer.text.length > 0;
   const runtimeDetail = [answer.provider, answer.model, answer.route].filter(Boolean).join(' · ');
 
@@ -52,6 +53,10 @@ export function AnswerPanel({
     await navigator.clipboard.writeText(answer.text);
     setCopied(true);
   };
+
+  useEffect(() => {
+    setCopied(false);
+  }, [answer.text]);
 
   return (
     <section aria-label="AI answer" className="grid min-h-[150px] gap-3 border-b border-[color:var(--einui-command-divider)] px-4 py-3">
@@ -103,10 +108,12 @@ export function AnswerPanel({
           ) : null}
           {canStop ? (
             <button aria-label="Stop answer" className={quietButtonClass} type="button" onClick={onStop}><LumenUiIcon name="stop" size="small" /> Stop</button>
-          ) : (
+          ) : canRetry ? (
             <button aria-label="Retry answer" className={quietButtonClass} type="button" onClick={onRetry}><LumenUiIcon name="retry" size="small" /> Retry</button>
-          )}
-          <button aria-label="Copy answer" className={quietButtonClass} disabled={!hasAnswer} type="button" onClick={() => void copyAnswer()}><LumenUiIcon name="copy" size="small" /> {copied ? 'Copied' : 'Copy'}</button>
+          ) : null}
+          {hasAnswer ? (
+            <button aria-label="Copy answer" className={quietButtonClass} type="button" onClick={() => void copyAnswer()}><LumenUiIcon name="copy" size="small" /> {copied ? 'Copied' : 'Copy'}</button>
+          ) : null}
         </div>
       </footer>
     </section>

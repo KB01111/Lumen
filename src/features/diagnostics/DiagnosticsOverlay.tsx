@@ -26,7 +26,7 @@ export function DiagnosticsOverlay() {
 
   if (!open) return null;
 
-  const latestInput = [...snapshot.timings].reverse().find((sample) => sample.name === 'input-paint');
+  const latestInput = [...snapshot.timings].reverse().find((sample) => sample.name === 'input-response');
   const latestSelection = [...snapshot.timings].reverse().find((sample) => sample.name === 'selection-paint');
 
   return (

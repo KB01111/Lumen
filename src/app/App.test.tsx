@@ -3,11 +3,13 @@ import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it} from 'vitest';
 
 import {defaultAppearance} from '../design-system/theme';
+import {useActivityStore} from '../features/activity/activity.store';
 import {useLauncherStore} from '../features/launcher/launcher.store';
 import {useQueryStore} from '../features/launcher/query.store';
 import {useOnboardingStore} from '../features/onboarding/onboarding.store';
 import {useSettingsStore} from '../features/settings/settings.store';
 import {BrowserWindowService} from '../platform/window/browser-window-service';
+import type {ActivityService} from '../services/activity/activity-service';
 import {App} from './App';
 
 class ReactivatableWindowService extends BrowserWindowService {
@@ -21,6 +23,7 @@ afterEach(() => {
   useQueryStore.getState().reset();
   useOnboardingStore.getState().reset();
   useSettingsStore.getState().reset();
+  useActivityStore.getState().reset();
   window.history.replaceState({}, '', '/');
 });
 
@@ -82,7 +85,11 @@ describe('App', () => {
 
     render(<App windowService={windowService} />);
 
-    expect(await screen.findByRole('region', {name: 'Lumen visual state gallery'})).toBeVisible();
+    expect(await screen.findByRole(
+      'region',
+      {name: 'Lumen visual state gallery'},
+      {timeout: 5_000},
+    )).toBeVisible();
     await waitFor(() => expect(windowService.snapshot()).toMatchObject({
       mode: 'gallery',
       visible: true,
@@ -100,5 +107,29 @@ describe('App', () => {
       height: 760,
     }));
     expect(useLauncherStore.getState()).toMatchObject({mode: 'gallery', visible: true});
+  });
+
+  it('reflects native activity without making exact search unavailable', async () => {
+    window.history.replaceState({}, '', '/?service=memory');
+    const activityService: ActivityService = {
+      status: async () => ({
+        mode: 'gaming',
+        backgroundPolicy: 'paused',
+        foregroundIdentity: 'a'.repeat(64),
+        fullscreen: true,
+        onBattery: false,
+      }),
+      setUserPause: async () => Promise.reject(new Error('unused')),
+      setPolicy: async () => Promise.reject(new Error('unused')),
+      chooseExecutable: async () => null,
+    };
+
+    render(<App activityService={activityService} />);
+
+    expect(await screen.findByRole('searchbox', {name: 'Search files'})).toBeVisible();
+    await waitFor(() => expect(useActivityStore.getState()).toMatchObject({
+      active: true,
+      mode: 'gaming',
+    }));
   });
 });

@@ -1,4 +1,12 @@
-import {Suspense, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+} from 'react';
 
 import {motionTokens} from '../../design-system/motion';
 import {createWindowService} from '../../platform/window/tauri-window-service';
@@ -24,7 +32,6 @@ import {useQueryStore} from './query.store';
 import {useScopeStore} from './scope.store';
 import {
   readSelectionIntent,
-  rememberSelectionIntent,
   useSelectionStore,
 } from './selection.store';
 import {useSearchController} from './useSearchController';
@@ -32,6 +39,14 @@ import {requestWindowHide, requestWindowShow} from './useLauncherPresentation';
 
 const unavailableAnswerService = new UnavailableAnswerService();
 const unavailableComputerUseService = new UnavailableComputerUseService();
+const queryDebounceMs = 80;
+
+function QueryBoundComputerUsePanel(
+  props: Omit<ComponentProps<typeof ComputerUsePanel>, 'draftTask'>,
+) {
+  const draftTask = useQueryStore((state) => state.committed);
+  return <ComputerUsePanel {...props} draftTask={draftTask} />;
+}
 
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
@@ -72,14 +87,15 @@ export function SearchExperience({
     () => providedWindowService ?? createWindowService(),
     [providedWindowService],
   );
-  const controller = useSearchController(service);
+  const activeFilters = useScopeStore((state) => state.activeFilters);
+  const controller = useSearchController(service, activeFilters);
   const intent = useLauncherStore((state) => state.intent);
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
   const cloudAnswerConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
   const updateAi = useSettingsStore((state) => state.updateAi);
   const computerUseSettings = useSettingsStore((state) => state.computerUse);
+  const previewsEnabled = useSettingsStore((state) => state.privacy.previewsEnabled);
   const setActiveSettingsPage = useSettingsStore((state) => state.setActivePage);
-  const committedQuery = useQueryStore((state) => state.committed);
   const submittedQuery = useQueryStore((state) => state.submitted);
   const submissionRevision = useQueryStore((state) => state.submissionRevision);
   const answer = useAnswerController(answerService, {
@@ -91,7 +107,6 @@ export function SearchExperience({
   });
   const computerUse = useComputerUseController(computerUseService, computerUseSettings);
   const activeScope = useScopeStore((state) => state.activeScope);
-  const activeFilters = useScopeStore((state) => state.activeFilters);
   const clearFilters = useScopeStore((state) => state.clearFilters);
   const toggleFilter = useScopeStore((state) => state.toggleFilter);
   const mode = useLauncherStore((state) => state.mode);
@@ -103,21 +118,14 @@ export function SearchExperience({
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const pendingSelectionFrame = useRef(0);
-  const pendingSelectionTimer = useRef(0);
-
-  useEffect(() => () => {
-    window.cancelAnimationFrame(pendingSelectionFrame.current);
-    window.clearTimeout(pendingSelectionTimer.current);
-  }, []);
 
   useEffect(() => {
-    let pendingFrame = 0;
+    let pendingQuery = 0;
     const scheduleQuery = (query: string) => {
-      window.cancelAnimationFrame(pendingFrame);
-      pendingFrame = window.requestAnimationFrame(() => controller.setQuery(
+      window.clearTimeout(pendingQuery);
+      pendingQuery = window.setTimeout(() => controller.setQuery(
         intent === 'search' ? query : '',
-      ));
+      ), queryDebounceMs);
     };
     scheduleQuery(useQueryStore.getState().committed);
     const unsubscribe = useQueryStore.subscribe(
@@ -125,7 +133,7 @@ export function SearchExperience({
       scheduleQuery,
     );
     return () => {
-      window.cancelAnimationFrame(pendingFrame);
+      window.clearTimeout(pendingQuery);
       unsubscribe();
     };
   }, [controller.setQuery, intent]);
@@ -136,9 +144,6 @@ export function SearchExperience({
   useEffect(
     () => {
       selectStoreResult(controller.selectedId);
-      window.dispatchEvent(new CustomEvent('lumen:selection-preview', {
-        detail: controller.selectedId,
-      }));
     },
     [controller.selectedId, selectStoreResult],
   );
@@ -152,14 +157,8 @@ export function SearchExperience({
   const handleSelect = useCallback((fileId: string | null) => {
     const startedAt = performance.now();
     controller.rememberSelection(fileId);
-    rememberSelectionIntent(fileId);
-    window.dispatchEvent(new CustomEvent('lumen:selection-preview', {detail: fileId}));
+    selectStoreResult(fileId);
     measureAfterPaint('selection-paint', startedAt);
-    window.cancelAnimationFrame(pendingSelectionFrame.current);
-    window.clearTimeout(pendingSelectionTimer.current);
-    pendingSelectionFrame.current = window.requestAnimationFrame(() => {
-      pendingSelectionTimer.current = window.setTimeout(() => selectStoreResult(fileId), 0);
-    });
   }, [controller.rememberSelection, selectStoreResult]);
 
   const handleOpen = useCallback(async (requestedId?: string) => {
@@ -206,14 +205,33 @@ export function SearchExperience({
     }
   }, [controller.results, controller.selectedId, service]);
 
+  const handlePin = useCallback(async () => {
+    const fileId = readSelectionIntent() ?? controller.selectedId;
+    const result = controller.results.find((item) => item.id === fileId);
+    if (!fileId || !result?.provenance) return;
+    try {
+      const applied = await service.setPinned(fileId, !result.pinned);
+      if (applied) {
+        setActionMessage(result.pinned ? `Unpinned ${result.name}` : `Pinned ${result.name}`);
+        controller.refresh();
+      }
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'The pin could not be updated.');
+    }
+  }, [controller, service]);
+
   const handleShowDetails = useCallback(() => {
+    if (!previewsEnabled) {
+      setActionMessage('File previews are disabled in Privacy settings.');
+      return;
+    }
     const fileId = readSelectionIntent() ?? controller.selectedId;
     if (fileId) {
       setDetailsFileId(fileId);
       setDetailsMounted(true);
       setDetailsOpen(true);
     }
-  }, [controller.selectedId]);
+  }, [controller.selectedId, previewsEnabled]);
 
   const handleRequestHide = useCallback(async () => {
     await requestWindowHide(windowService);
@@ -282,10 +300,9 @@ export function SearchExperience({
     <div className="contents" data-launcher-visible={visible}>
       <CollapsedLauncher
         expandedContent={intent === 'computer' ? (
-          <ComputerUsePanel
+          <QueryBoundComputerUsePanel
             cloudConsent={computerUseSettings.cloudConsent}
             controller={computerUse}
-            draftTask={committedQuery}
             onOpenSettings={() => void handleOpenSettings('computer-use')}
             onStart={handleStartComputerUse}
           />
@@ -293,7 +310,7 @@ export function SearchExperience({
           <ExpandedWorkspace
             activeFilters={activeFilters}
             announcement={announcement}
-            answerPanel={(
+            answerPanel={submittedQuery.trim() ? (
               <AnswerPanel
                 answer={answer}
                 mode={runtimeMode}
@@ -302,16 +319,18 @@ export function SearchExperience({
                 onRetry={answer.retry}
                 onStop={answer.stop}
               />
-            )}
+            ) : null}
             error={controller.error}
             lifecycle={controller.lifecycle}
             openingId={openingId}
+            previewAllowed={previewsEnabled}
             results={controller.results}
             service={service}
             onClearFilters={clearFilters}
             onDetails={handleShowDetails}
             onOpen={handleOpen}
             onOpenContainingFolder={handleOpenContainingFolder}
+            onPin={handlePin}
             onRemoveFilter={handleRemoveFilter}
             onSelectionChange={handleSelect}
           />
@@ -331,7 +350,7 @@ export function SearchExperience({
         windowService={windowService}
         onComputerSubmit={handleSubmitComputerUse}
       />
-      {detailsMounted ? (
+      {detailsMounted && previewsEnabled ? (
         <Suspense fallback={null}>
           <LazyPreviewPane
             fileId={detailsFileId}
