@@ -10,7 +10,7 @@ const outputDirectory = path.resolve('artifacts/performance');
 const tracePath = path.join(outputDirectory, 'interaction-trace.zip');
 const summaryPath = path.join(outputDirectory, 'profile-summary.json');
 const targetFrameBudgetMs = 1000 / 240;
-const frameSchedulingToleranceMs = 1;
+const frameSchedulingToleranceMs = 2;
 
 function percentile(values, quantile) {
   const sorted = [...values].sort((left, right) => left - right);

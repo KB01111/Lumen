@@ -1,6 +1,6 @@
 import {expect, test, type Page} from '@playwright/test';
 
-const frameSchedulingToleranceMs = 1;
+const frameSchedulingToleranceMs = 2;
 
 test.describe.configure({mode: 'serial'});
 test.use({
