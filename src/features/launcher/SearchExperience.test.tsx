@@ -48,6 +48,50 @@ describe('SearchExperience answer submission', () => {
     expect(wrapper).not.toHaveAttribute('style');
   });
 
+  it('keeps the single launcher indicator active while an answer waits and streams', async () => {
+    const user = userEvent.setup();
+    const service = new MemorySearchService();
+    const answers = new MemoryAnswerService();
+    const {container} = render(
+      <SearchExperience
+        answerService={answers}
+        service={service}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    const input = screen.getByRole('searchbox', {name: 'Search files'});
+    await user.type(input, 'release');
+    await waitFor(() => expect(
+      service.requests.some(({request}) => request.query === 'release'),
+    ).toBe(true));
+    await act(() => service.resolve('release', []));
+    await user.keyboard('{Enter}');
+
+    const activityIndicator = container.querySelector('[data-activity-indicator]');
+    expect(await screen.findByText('Answering', {selector: 'output span'})).toBeVisible();
+    expect(activityIndicator).toHaveAttribute(
+      'data-activity-state',
+      'active',
+    );
+
+    await waitFor(() => expect(answers.requests).toHaveLength(1));
+    await act(() => answers.emit('release', {
+      type: 'started', provider: 'memory', model: 'memory', route: 'local',
+    }));
+    expect(screen.getByText('Answering', {selector: 'output span'})).toBeVisible();
+
+    await act(() => answers.emit('release', {
+      type: 'completed', provider: 'memory', model: 'memory', route: 'local',
+    }));
+    await waitFor(() => expect(screen.queryByText('Answering', {selector: 'output span'}))
+      .not.toBeInTheDocument());
+    expect(activityIndicator).toHaveAttribute(
+      'data-activity-state',
+      'idle',
+    );
+  });
+
   it('keeps the real streaming answer region mounted when local search fails', async () => {
     const user = userEvent.setup();
     const service = new MemorySearchService();

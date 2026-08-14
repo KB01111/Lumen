@@ -295,6 +295,7 @@ export function SearchExperience({
     controller.lifecycle,
     controller.results.length,
   ]);
+  const answerRunning = answer.phase === 'waiting' || answer.phase === 'streaming';
 
   return (
     <div className="contents" data-launcher-visible={visible}>
@@ -339,14 +340,15 @@ export function SearchExperience({
         intentLocked={computerUse.phase === 'starting' || computerUse.phase === 'running' || computerUse.phase === 'approval'}
         searching={intent === 'computer'
           ? computerUse.phase === 'starting' || computerUse.phase === 'running'
-          : controller.lifecycle === 'searching'}
+          : controller.lifecycle === 'searching' || answerRunning}
         statusLabel={intent === 'computer'
           ? computerUse.phase === 'approval' ? 'Approval'
             : computerUse.phase === 'completed' ? 'Done'
               : computerUse.phase === 'error' ? 'Unavailable'
                 : computerUse.phase === 'running' || computerUse.phase === 'starting' ? 'Working'
                   : 'Browser agent'
-          : statusLabel(controller.lifecycle, controller.results.length)}
+          : answerRunning ? 'Answering'
+            : statusLabel(controller.lifecycle, controller.results.length)}
         windowService={windowService}
         onComputerSubmit={handleSubmitComputerUse}
       />
