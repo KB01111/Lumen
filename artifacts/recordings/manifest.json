@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-14T01:39:59.259Z",
-  "gitSha": "2a2912582edf5b83c145bc37dc56735797a6892d",
+  "generatedAt": "2026-08-14T02:30:58.220Z",
+  "gitSha": "ff835e42d12071011a1973654a847b2697b2e744",
   "browser": {
     "name": "Microsoft Edge"
   },
@@ -8,6 +8,7 @@
     "width": 1120,
     "height": 760
   },
+  "reducedMotion": "no-preference",
   "count": 6,
   "recordings": [
     {
@@ -25,7 +26,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "2a2912582edf5b83c145bc37dc56735797a6892d"
+      "gitSha": "ff835e42d12071011a1973654a847b2697b2e744"
     },
     {
       "id": "settings-routing",
@@ -40,7 +41,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "2a2912582edf5b83c145bc37dc56735797a6892d"
+      "gitSha": "ff835e42d12071011a1973654a847b2697b2e744"
     },
     {
       "id": "onboarding",
@@ -56,7 +57,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "2a2912582edf5b83c145bc37dc56735797a6892d"
+      "gitSha": "ff835e42d12071011a1973654a847b2697b2e744"
     },
     {
       "id": "answer-submission",
@@ -72,7 +73,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "2a2912582edf5b83c145bc37dc56735797a6892d"
+      "gitSha": "ff835e42d12071011a1973654a847b2697b2e744"
     },
     {
       "id": "answer-approval-states",
@@ -89,7 +90,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "2a2912582edf5b83c145bc37dc56735797a6892d"
+      "gitSha": "ff835e42d12071011a1973654a847b2697b2e744"
     },
     {
       "id": "activity-provider-states",
@@ -105,7 +106,7 @@
       ],
       "deterministicAdapter": true,
       "audio": false,
-      "gitSha": "2a2912582edf5b83c145bc37dc56735797a6892d"
+      "gitSha": "ff835e42d12071011a1973654a847b2697b2e744"
     }
   ]
 }

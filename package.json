@@ -11,7 +11,7 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/run-e2e.mjs",
     "profile": "node scripts/performance-profile.mjs",
     "capture:gallery": "node scripts/capture-gallery.mjs",
     "record:interactions": "node scripts/record-interactions.mjs",
