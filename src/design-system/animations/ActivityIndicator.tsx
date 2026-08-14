@@ -2,7 +2,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from 'react';
 
 import {gsap} from 'gsap';
 import {CustomEase} from 'gsap/CustomEase';
-import lottie, {type AnimationItem} from 'lottie-web';
+import type {AnimationItem} from 'lottie-web/build/player/lottie_svg';
 
 import activityAnimation from './activity-indicator.json';
 
@@ -64,26 +64,37 @@ export function ActivityIndicator({
   useEffect(() => {
     const host = hostRef.current;
     if (!animationRunning || !host) return;
+    let cancelled = false;
     let instance: AnimationItem | undefined;
-    try {
-      instance = lottie.loadAnimation({
-        animationData: activityAnimation,
-        autoplay: true,
-        container: host,
-        loop: true,
-        renderer: 'svg',
-        rendererSettings: {
-          hideOnTransparent: true,
-          progressiveLoad: false,
-        },
+    void import('lottie-web/build/player/lottie_svg')
+      .then(({default: lottie}) => {
+        if (cancelled) return;
+        try {
+          instance = lottie.loadAnimation({
+            animationData: activityAnimation,
+            autoplay: true,
+            container: host,
+            loop: true,
+            renderer: 'svg',
+            rendererSettings: {
+              hideOnTransparent: true,
+              progressiveLoad: false,
+            },
+          });
+          instance.setSubframe(false);
+        } catch {
+          instance?.destroy();
+          instance = undefined;
+          setLoadFailed(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
       });
-      instance.setSubframe(false);
-    } catch {
+    return () => {
+      cancelled = true;
       instance?.destroy();
-      setLoadFailed(true);
-      return;
-    }
-    return () => instance.destroy();
+    };
   }, [animationRunning]);
 
   return (

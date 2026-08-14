@@ -1,5 +1,4 @@
-import {motion} from 'motion/react';
-
+import {ActivityIndicator} from '../../design-system/animations/ActivityIndicator';
 import {useLumenMotion} from '../../design-system/MotionProvider';
 import {activityPresentations} from '../activity/activity.types';
 import {useActivityStore} from '../activity/activity.store';
@@ -14,7 +13,7 @@ export function LauncherStatus({label = 'Ready', searching = false}: LauncherSta
   const activityActive = useActivityStore((state) => state.active);
   const activityMode = useActivityStore((state) => state.mode);
   const activityLabel = activityPresentations[activityMode].compactLabel;
-  const pulse = searching && !activityActive && !reducedMotion;
+  const active = searching && !activityActive;
   return (
     <output
       aria-live="polite"
@@ -22,21 +21,11 @@ export function LauncherStatus({label = 'Ready', searching = false}: LauncherSta
       data-testid={activityActive ? 'launcher-activity' : undefined}
       className="inline-flex shrink-0 items-center gap-1.5"
     >
-      {pulse ? (
-        <motion.span
-          aria-hidden="true"
-          className="size-1.5 rounded-full bg-success shadow-[0_0_9px_var(--lumen-success)]"
-          animate={{opacity: [1, 0.3, 1]}}
-          transition={{duration: 1.1, ease: 'easeInOut', repeat: Infinity}}
-        />
-      ) : (
-        <span
-          aria-hidden="true"
-          className={activityActive
-            ? 'size-1.5 rounded-full bg-warning'
-            : 'size-1.5 rounded-full bg-success shadow-[0_0_9px_var(--lumen-success)]'}
-        />
-      )}
+      <ActivityIndicator
+        active={active}
+        reducedMotion={reducedMotion}
+        tone={activityActive ? 'warning' : 'success'}
+      />
       <span className="text-xs text-[color:var(--einui-command-muted-text)]">
         {activityActive ? activityLabel : label}
       </span>

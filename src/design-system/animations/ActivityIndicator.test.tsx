@@ -12,7 +12,7 @@ const animation = vi.hoisted(() => ({
   setSubframe: vi.fn(),
 }));
 
-vi.mock('lottie-web', () => ({
+vi.mock('lottie-web/build/player/lottie_svg', () => ({
   default: {loadAnimation: animation.loadAnimation},
 }));
 
@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 
 describe('ActivityIndicator', () => {
-  it('owns one local SVG animation and destroys it when activity settles', () => {
+  it('owns one local SVG animation and destroys it when activity settles', async () => {
     const {container, rerender} = render(
       <ActivityIndicator active reducedMotion={false} tone="success" />,
     );
@@ -52,13 +52,15 @@ describe('ActivityIndicator', () => {
     expect(indicator).toHaveAttribute('data-activity-state', 'active');
     expect(indicator).toHaveAttribute('data-activity-running', 'true');
     expect(container.querySelector('[data-lottie-host]')).toBeInTheDocument();
-    expect(animation.loadAnimation).toHaveBeenCalledWith(expect.objectContaining({
-      animationData: expect.objectContaining({fr: 60, h: 24, w: 48}),
-      autoplay: true,
-      loop: true,
-      renderer: 'svg',
-    }));
-    expect(animation.setSubframe).toHaveBeenCalledWith(false);
+    await waitFor(() => {
+      expect(animation.loadAnimation).toHaveBeenCalledWith(expect.objectContaining({
+        animationData: expect.objectContaining({fr: 60, h: 24, w: 48}),
+        autoplay: true,
+        loop: true,
+        renderer: 'svg',
+      }));
+      expect(animation.setSubframe).toHaveBeenCalledWith(false);
+    });
 
     rerender(<ActivityIndicator active={false} reducedMotion={false} tone="success" />);
 

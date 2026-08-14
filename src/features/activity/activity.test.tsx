@@ -38,6 +38,10 @@ describe('activity classifications', () => {
     expect(screen.getByText('Gaming pause')).toBeVisible();
     expect(screen.queryByText('8 results')).not.toBeInTheDocument();
     expect(screen.getByTestId('launcher-activity')).toHaveAttribute('data-activity-compact', 'true');
+    expect(document.querySelector('[data-activity-indicator]')).toHaveAttribute(
+      'data-activity-state',
+      'idle',
+    );
   });
 
   it('updates automatic detection and battery policies', async () => {
