@@ -4,6 +4,7 @@ import {gsap} from 'gsap';
 import {CustomEase} from 'gsap/CustomEase';
 import type {AnimationItem} from 'lottie-web/build/player/lottie_svg';
 
+import {useMediaPreference} from '../../app/AppProviders';
 import activityAnimation from './activity-indicator.json';
 
 gsap.registerPlugin(CustomEase);
@@ -23,9 +24,9 @@ function ThreeDotMark({forcedColorsOnly = false}: {forcedColorsOnly?: boolean}) 
         : 'inline-flex items-center gap-0.5 opacity-55'}
       data-static-activity="three"
     >
-      <span className="size-1 rounded-full bg-current" data-static-activity="dot" />
-      <span className="size-1 rounded-full bg-current" data-static-activity="dot" />
-      <span className="size-1 rounded-full bg-current" data-static-activity="dot" />
+      <span className="size-1.5 rounded-full bg-current" data-static-activity="dot" />
+      <span className="size-1.5 rounded-full bg-current" data-static-activity="dot" />
+      <span className="size-1.5 rounded-full bg-current" data-static-activity="dot" />
     </span>
   );
 }
@@ -38,12 +39,13 @@ export function ActivityIndicator({
   const wrapperRef = useRef<HTMLSpanElement>(null);
   const hostRef = useRef<HTMLSpanElement>(null);
   const [loadFailed, setLoadFailed] = useState(false);
-  const animationRunning = active && !reducedMotion && !loadFailed;
+  const forcedColors = useMediaPreference('(forced-colors: active)');
+  const animationRunning = active && !reducedMotion && !loadFailed && !forcedColors;
   const color = active ? 'text-accent' : tone === 'warning' ? 'text-warning' : 'text-success';
 
   useLayoutEffect(() => {
     const wrapper = wrapperRef.current;
-    if (!wrapper || reducedMotion) return;
+    if (!wrapper || reducedMotion || forcedColors) return;
     const context = gsap.context(() => {
       gsap.fromTo(
         wrapper,
@@ -59,7 +61,7 @@ export function ActivityIndicator({
       );
     }, wrapper);
     return () => context.revert();
-  }, [active, reducedMotion]);
+  }, [active, reducedMotion, forcedColors]);
 
   useEffect(() => {
     const host = hostRef.current;

@@ -36,7 +36,7 @@ mass: 0.7
 - Preview loading shows a static skeleton crossed by one transform-based shimmer sweep; the sweep never renders under reduced motion.
 - The details dialog (React Aria `ModalOverlay`/`Modal`) animates through the Tailwind CSS-first `global.css` keyframes driven by the `data-entering`/`data-exiting` attributes: the overlay fades (160/120 ms) while the dialog rises and settles from a slight scale (190 ms in, 120 ms out). React Aria waits for these animations before unmounting.
 - Onboarding scenes slide in the direction of travel: forward moves enter from the right and exit left, backward moves the reverse, resolved through `AnimatePresence custom` so exits use the latest direction.
-- The launcher status dot pulses only while a search is actively running; it is static in every idle, ready, or paused state.
+- The launcher activity indicator is active only while file search, Computer Use, or an AI answer is running; it is static in every idle, ready, or paused state.
 - Opening a file briefly confirms the selected row before the window is hidden.
 - Large lists use compositor transforms from TanStack Virtual. React state is never updated per animation frame.
 

@@ -77,8 +77,10 @@ describe('SearchExperience answer submission', () => {
     await act(() => service.resolve('release', []));
     await user.keyboard('{Enter}');
 
-    const activityIndicator = container.querySelector('[data-activity-indicator]');
     expect(await screen.findByText('Answering', {selector: 'output span'})).toBeVisible();
+    const indicators = container.querySelectorAll('[data-activity-indicator]');
+    expect(indicators).toHaveLength(1);
+    const activityIndicator = indicators[0];
     expect(activityIndicator).toHaveAttribute(
       'data-activity-state',
       'active',
@@ -95,7 +97,9 @@ describe('SearchExperience answer submission', () => {
     }));
     await waitFor(() => expect(screen.queryByText('Answering', {selector: 'output span'}))
       .not.toBeInTheDocument());
-    expect(activityIndicator).toHaveAttribute(
+    const idleIndicators = container.querySelectorAll('[data-activity-indicator]');
+    expect(idleIndicators).toHaveLength(1);
+    expect(idleIndicators[0]).toHaveAttribute(
       'data-activity-state',
       'idle',
     );

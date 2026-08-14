@@ -1,5 +1,5 @@
 import {render, waitFor} from '@testing-library/react';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 const animation = vi.hoisted(() => ({
   context: vi.fn(),
@@ -30,8 +30,16 @@ vi.mock('gsap/CustomEase', () => ({
 
 import {ActivityIndicator} from './ActivityIndicator';
 
+let forcedColorsActive = false;
+
 beforeEach(() => {
   vi.clearAllMocks();
+  forcedColorsActive = false;
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: query === '(forced-colors: active)' ? forcedColorsActive : false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
   animation.context.mockImplementation((callback: () => void) => {
     callback();
     return {revert: animation.revert};
@@ -40,6 +48,10 @@ beforeEach(() => {
     destroy: animation.destroy,
     setSubframe: animation.setSubframe,
   });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('ActivityIndicator', () => {
@@ -131,6 +143,33 @@ describe('ActivityIndicator', () => {
       container.querySelector('[data-activity-running]'),
     ).not.toBeInTheDocument());
     expect(animation.destroy).toHaveBeenCalledOnce();
+    expect(container.querySelectorAll('[data-static-activity="dot"]')).toHaveLength(3);
+  });
+
+  it('creates a Lottie animation for an active non-reduced-motion indicator and destroys it on unmount', async () => {
+    const {container, unmount} = render(
+      <ActivityIndicator active reducedMotion={false} tone="success" />,
+    );
+
+    await waitFor(() => {
+      expect(animation.loadAnimation).toHaveBeenCalled();
+    });
+    expect(container.querySelector('[data-activity-running]')).toBeInTheDocument();
+
+    unmount();
+
+    expect(animation.destroy).toHaveBeenCalledOnce();
+  });
+
+  it('prevents GSAP and Lottie when forced colors are active', () => {
+    forcedColorsActive = true;
+    const {container} = render(
+      <ActivityIndicator active reducedMotion={false} tone="success" />,
+    );
+
+    expect(animation.loadAnimation).not.toHaveBeenCalled();
+    expect(animation.fromTo).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-activity-running]')).not.toBeInTheDocument();
     expect(container.querySelectorAll('[data-static-activity="dot"]')).toHaveLength(3);
   });
 });

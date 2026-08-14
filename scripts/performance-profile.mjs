@@ -184,11 +184,15 @@ async function profile(baseUrl) {
       .locator('[data-result-id][data-selected="true"]')
       .count();
 
-    // Measure active activity indicators BEFORE navigating to reduced-motion mode.
-    // In reduced-motion mode, ActivityIndicator never sets data-activity-running="true"
-    // (since animationRunning = active && !reducedMotion), so we must capture this
-    // on the normal page where Lottie animations are actually running.
-    await page.waitForTimeout(500);
+    // Exercise activity indicator: initiate search, wait for it to settle to inactive state
+    await search.fill('activity-test');
+    await page.getByRole('grid', {name: 'Search results'}).waitFor();
+    await page.waitForTimeout(100);
+    await search.fill('');
+    await page.waitForTimeout(200);
+
+    // Measure active activity indicators AFTER the activity has settled.
+    // This verifies that no indicators remain running after work completes.
     const activeActivityIndicators = await page
       .locator('[data-activity-running="true"]')
       .count();
