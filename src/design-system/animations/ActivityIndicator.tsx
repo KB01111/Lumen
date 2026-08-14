@@ -24,9 +24,9 @@ function ThreeDotMark({forcedColorsOnly = false}: {forcedColorsOnly?: boolean}) 
         : 'inline-flex items-center gap-0.5 opacity-55'}
       data-static-activity="three"
     >
-      <span className="size-1.5 rounded-full bg-current" data-static-activity="dot" />
-      <span className="size-1.5 rounded-full bg-current" data-static-activity="dot" />
-      <span className="size-1.5 rounded-full bg-current" data-static-activity="dot" />
+      <span className="size-1 rounded-full bg-current" data-static-activity="dot" />
+      <span className="size-1 rounded-full bg-current" data-static-activity="dot" />
+      <span className="size-1 rounded-full bg-current" data-static-activity="dot" />
     </span>
   );
 }
