@@ -217,6 +217,9 @@ async function profile(baseUrl) {
     const activeAnimations = await page.evaluate(() => document
       .getAnimations()
       .filter((animation) => animation.playState === 'running').length);
+    const activeActivityIndicators = await page
+      .locator('[data-activity-running="true"]')
+      .count();
     const session = await context.newCDPSession(page);
     await session.send('Performance.enable');
     const before = await session.send('Performance.getMetrics');
@@ -243,6 +246,7 @@ async function profile(baseUrl) {
       ordinaryReactCommitP95Ms: percentile(selectionMetrics.reactCommits, 0.95),
       repeatedBrowserLongTasksOver50Ms: selectionMetrics.browserLongTasks,
       activeAnimationsAfterSettle: activeAnimations,
+      activeActivityIndicatorsAfterSettle: activeActivityIndicators,
       idleCpuPercent,
       jsHeapMegabytes: heapMegabytes,
       observedRefreshEstimateHz: Math.round(1000 / refresh.medianFrameIntervalMs),
@@ -295,6 +299,7 @@ async function profile(baseUrl) {
       synchronousWorkMs: 16,
       browserLongTaskMs: 50,
       activeAnimationsAfterSettle: 0,
+      activeActivityIndicatorsAfterSettle: 0,
       idleCpuPercent: 2,
       jsHeapMegabytes: 100,
     };
@@ -308,6 +313,8 @@ async function profile(baseUrl) {
       reactCommit: measured.ordinaryReactCommitP95Ms < budgets.ordinaryReactCommitP95Ms,
       browserLongTasks: measured.repeatedBrowserLongTasksOver50Ms.length === 0,
       settledAnimations: measured.activeAnimationsAfterSettle === 0,
+      settledActivityIndicator: measured.activeActivityIndicatorsAfterSettle ===
+        budgets.activeActivityIndicatorsAfterSettle,
       idleCpu: measured.idleCpuPercent < budgets.idleCpuPercent,
       memory: measured.jsHeapMegabytes < budgets.jsHeapMegabytes,
       environmentEligibility: environmentEligibility.cadenceAwareRelease,
@@ -324,7 +331,7 @@ async function profile(baseUrl) {
       generatedAt: new Date().toISOString(),
       gitSha: execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
       browser: {name: 'Microsoft Edge', version: browserVersion},
-      profile: 'warm deterministic browser adapter, 800x540 viewport, 30 paced input samples, 120 paced selection samples, 80 contemporaneously paired hover/frame samples with direct dispatch timing, plus renderer-side synchronous 30-event input and selection bursts',
+      profile: 'warm deterministic browser adapter, 800x540 viewport, 30 paced input samples, 120 paced selection samples, 80 contemporaneously paired hover/frame samples with direct dispatch timing, renderer-side synchronous 30-event input and selection bursts, plus activity-indicator settle verification',
       target: {
         refreshRateHz: 240,
         frameBudgetMs: targetFrameBudgetMs,

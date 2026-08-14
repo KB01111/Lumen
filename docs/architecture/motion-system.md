@@ -40,6 +40,8 @@ mass: 0.7
 - Opening a file briefly confirms the selected row before the window is hidden.
 - Large lists use compositor transforms from TanStack Virtual. React state is never updated per animation frame.
 
+The compact launcher activity mark is the only Lottie/GSAP-owned motion path. A local, monochrome three-dot Lottie SVG loops only while file search, Computer Use, or an AI answer is active; GSAP scopes one transform/opacity settle transition to that mark and reverts it on state changes and unmount. Reduced motion uses the resting frame, forced colors use the static mark, and every other Lumen transition remains owned by Motion, WAAPI, React Aria, or CSS as described above.
+
 ## Reduced motion
 
 Windows and application preferences resolve into one motion setting. Reduced motion makes layout movement immediate and retains at most an 80 ms opacity transition so state changes remain legible. Persistent loading shimmer is disabled. The same geometry, focus order, announcements, and action timing remain available.
@@ -49,3 +51,5 @@ Reduced motion is enforced on three levels: `MotionConfig reducedMotion="always"
 ## Performance constraints
 
 Only `opacity` and `transform` are used for continuous visual movement. Blur and noise are static material properties, pointer movement is not bound to React renders, and no idle animation loop is allowed (the searching pulse and loading shimmer run only while work is actually in flight). Performance reports must name the tested hardware, display refresh rate, and measurement method; Lumen does not claim a fixed 240 FPS result without measurement.
+
+WebView2 keeps its default GPU-enabled configuration. Lumen adds no browser flag that disables GPU rendering; transform/opacity movement is compositor-eligible, but reports do not claim that hardware compositing is available when Windows, WebView2, a graphics driver, policy, or a remote session selects software fallback.
