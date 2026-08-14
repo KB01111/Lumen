@@ -71,4 +71,18 @@ describe('Lumen CSS appearance contract', () => {
   --lumen-shadow-control: none;
 }`);
   });
+  it('keeps the Lottie activity mark semantic and static in forced colors', () => {
+    expect(normalizedCss).toContain(`
+.lumen-activity-lottie path {
+  fill: currentColor !important;
+}`);
+    expect(normalizedCss).toContain(`
+  .lumen-activity-lottie {
+    display: none;
+  }
+
+  .lumen-activity-forced-fallback {
+    display: inline-flex;
+  }`);
+  });
 });

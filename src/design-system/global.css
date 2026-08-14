@@ -197,9 +197,21 @@ input[type='search']::-webkit-search-cancel-button {
   }
 }
 
+.lumen-activity-lottie path {
+  fill: currentColor !important;
+}
+
 @media (forced-colors: active) {
   * {
     forced-color-adjust: auto;
+  }
+
+  .lumen-activity-lottie {
+    display: none;
+  }
+
+  .lumen-activity-forced-fallback {
+    display: inline-flex;
   }
 }
 
