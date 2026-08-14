@@ -17,6 +17,9 @@ test.use({
 test('keeps the ready activity indicator settled', async ({page}) => {
   await page.goto('/?onboarded=1&service=memory');
 
+  await page.getByRole('searchbox', {name: 'Search files'}).fill('report');
+  await expect(page.getByRole('grid', {name: 'Search results'})).toBeVisible();
+
   const indicator = page.locator('[data-activity-indicator]');
   await expect(indicator).toHaveAttribute('data-activity-state', 'idle');
   await expect(page.locator('[data-activity-running="true"]')).toHaveCount(0);
