@@ -184,6 +184,15 @@ async function profile(baseUrl) {
       .locator('[data-result-id][data-selected="true"]')
       .count();
 
+    // Measure active activity indicators BEFORE navigating to reduced-motion mode.
+    // In reduced-motion mode, ActivityIndicator never sets data-activity-running="true"
+    // (since animationRunning = active && !reducedMotion), so we must capture this
+    // on the normal page where Lottie animations are actually running.
+    await page.waitForTimeout(500);
+    const activeActivityIndicators = await page
+      .locator('[data-activity-running="true"]')
+      .count();
+
     await page.goto(`${baseUrl}/?gallery=1&scenario=expanded-results&capture=1&theme=reduced-motion`);
     const row = page.getByRole('row').first();
     await row.waitFor();
@@ -217,9 +226,6 @@ async function profile(baseUrl) {
     const activeAnimations = await page.evaluate(() => document
       .getAnimations()
       .filter((animation) => animation.playState === 'running').length);
-    const activeActivityIndicators = await page
-      .locator('[data-activity-running="true"]')
-      .count();
     const session = await context.newCDPSession(page);
     await session.send('Performance.enable');
     const before = await session.send('Performance.getMetrics');
