@@ -15,9 +15,34 @@ async function pause(page, milliseconds = 320) {
   await page.waitForTimeout(milliseconds);
 }
 
+async function sustainSearchActivity(page) {
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const scopeTabs = [...document.querySelectorAll('[role="tab"]')]
+      .filter((tab) => tab.textContent === 'All' || tab.textContent === 'Files');
+    if (scopeTabs.length !== 2) {
+      reject(new Error('Expected the All and Files search scopes.'));
+      return;
+    }
+
+    let lottieSeen = false;
+    let pulse = 0;
+    const interval = window.setInterval(() => {
+      scopeTabs[pulse % scopeTabs.length].click();
+      lottieSeen ||= document.querySelector('[data-lottie-host] svg') !== null;
+      pulse += 1;
+      if (pulse === 101) {
+        window.clearInterval(interval);
+        if (lottieSeen) resolve();
+        else reject(new Error('The active Lottie loop did not mount.'));
+      }
+    }, 12);
+  }));
+}
+
 async function saveRecordedFlow(browser, filename, run) {
   const context = await browser.newContext({
     viewport,
+    reducedMotion: 'no-preference',
     recordVideo: {dir: outputDirectory, size: viewport},
   });
   const page = await context.newPage();
@@ -61,6 +86,7 @@ async function record(baseUrl) {
       await pause(page, 500);
       await page.setViewportSize(expandedViewport);
       await search.pressSequentially('report', {delay: 70});
+      await sustainSearchActivity(page);
       await page.getByRole('grid', {name: 'Search results'}).waitFor();
       await pause(page);
       await page.keyboard.press('ArrowDown');
@@ -232,6 +258,7 @@ async function record(baseUrl) {
     gitSha,
     browser: {name: 'Microsoft Edge'},
     viewport,
+    reducedMotion: 'no-preference',
     count: recordings.length,
     recordings: recordings.map((item) => ({
       ...item,

@@ -1,6 +1,15 @@
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {afterEach, describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
+
+vi.mock('lottie-web/build/player/lottie_svg', () => ({
+  default: {
+    loadAnimation: () => ({
+      destroy: () => undefined,
+      setSubframe: () => undefined,
+    }),
+  },
+}));
 
 import {MemoryAnswerService} from '../../services/answer/memory-answer-service';
 import {BrowserWindowService} from '../../platform/window/browser-window-service';
@@ -46,6 +55,54 @@ describe('SearchExperience answer submission', () => {
     const wrapper = container.querySelector<HTMLElement>('[data-launcher-visible]');
     expect(wrapper).toHaveClass('contents');
     expect(wrapper).not.toHaveAttribute('style');
+  });
+
+  it('keeps the single launcher indicator active while an answer waits and streams', async () => {
+    const user = userEvent.setup();
+    const service = new MemorySearchService();
+    const answers = new MemoryAnswerService();
+    const {container} = render(
+      <SearchExperience
+        answerService={answers}
+        service={service}
+        windowService={new BrowserWindowService()}
+      />,
+    );
+
+    const input = screen.getByRole('searchbox', {name: 'Search files'});
+    await user.type(input, 'release');
+    await waitFor(() => expect(
+      service.requests.some(({request}) => request.query === 'release'),
+    ).toBe(true));
+    await act(() => service.resolve('release', []));
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByText('Answering', {selector: 'output span'})).toBeVisible();
+    const indicators = container.querySelectorAll('[data-activity-indicator]');
+    expect(indicators).toHaveLength(1);
+    const activityIndicator = indicators[0];
+    expect(activityIndicator).toHaveAttribute(
+      'data-activity-state',
+      'active',
+    );
+
+    await waitFor(() => expect(answers.requests).toHaveLength(1));
+    await act(() => answers.emit('release', {
+      type: 'started', provider: 'memory', model: 'memory', route: 'local',
+    }));
+    expect(screen.getByText('Answering', {selector: 'output span'})).toBeVisible();
+
+    await act(() => answers.emit('release', {
+      type: 'completed', provider: 'memory', model: 'memory', route: 'local',
+    }));
+    await waitFor(() => expect(screen.queryByText('Answering', {selector: 'output span'}))
+      .not.toBeInTheDocument());
+    const idleIndicators = container.querySelectorAll('[data-activity-indicator]');
+    expect(idleIndicators).toHaveLength(1);
+    expect(idleIndicators[0]).toHaveAttribute(
+      'data-activity-state',
+      'idle',
+    );
   });
 
   it('keeps the real streaming answer region mounted when local search fails', async () => {

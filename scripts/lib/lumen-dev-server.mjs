@@ -1,6 +1,9 @@
 import {spawn} from 'node:child_process';
+import {once} from 'node:events';
+import {fileURLToPath} from 'node:url';
 
 const defaultUrl = 'http://127.0.0.1:1420';
+const viteCli = fileURLToPath(new URL('../../node_modules/vite/bin/vite.js', import.meta.url));
 
 async function isReady(url) {
   try {
@@ -23,6 +26,13 @@ async function waitUntilReady(url, child) {
   throw new Error(`Lumen development server did not become ready at ${url}.`);
 }
 
+async function stopDevelopmentServer(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const exited = once(child, 'exit');
+  if (!child.kill()) throw new Error('Lumen development server could not be stopped.');
+  await exited;
+}
+
 export async function withLumenDevServer(task, url = defaultUrl) {
   if (await isReady(url)) {
     return task(url);
@@ -30,11 +40,9 @@ export async function withLumenDevServer(task, url = defaultUrl) {
 
   const target = new URL(url);
   const child = spawn(
-    'bun',
+    process.execPath,
     [
-      'run',
-      'dev',
-      '--',
+      viteCli,
       '--host',
       target.hostname,
       '--port',
@@ -63,6 +71,6 @@ export async function withLumenDevServer(task, url = defaultUrl) {
     if (serverOutput) process.stderr.write(serverOutput);
     throw error;
   } finally {
-    child.kill();
+    await stopDevelopmentServer(child);
   }
 }

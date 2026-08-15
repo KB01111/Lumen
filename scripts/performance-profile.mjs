@@ -184,6 +184,19 @@ async function profile(baseUrl) {
       .locator('[data-result-id][data-selected="true"]')
       .count();
 
+    // Exercise activity indicator: initiate search, wait for it to settle to inactive state
+    await search.fill('activity-test');
+    await page.getByRole('grid', {name: 'Search results'}).waitFor();
+    await page.waitForTimeout(100);
+    await search.fill('');
+    await page.waitForTimeout(200);
+
+    // Measure active activity indicators AFTER the activity has settled.
+    // This verifies that no indicators remain running after work completes.
+    const activeActivityIndicators = await page
+      .locator('[data-activity-running="true"]')
+      .count();
+
     await page.goto(`${baseUrl}/?gallery=1&scenario=expanded-results&capture=1&theme=reduced-motion`);
     const row = page.getByRole('row').first();
     await row.waitFor();
@@ -243,6 +256,7 @@ async function profile(baseUrl) {
       ordinaryReactCommitP95Ms: percentile(selectionMetrics.reactCommits, 0.95),
       repeatedBrowserLongTasksOver50Ms: selectionMetrics.browserLongTasks,
       activeAnimationsAfterSettle: activeAnimations,
+      activeActivityIndicatorsAfterSettle: activeActivityIndicators,
       idleCpuPercent,
       jsHeapMegabytes: heapMegabytes,
       observedRefreshEstimateHz: Math.round(1000 / refresh.medianFrameIntervalMs),
@@ -295,6 +309,7 @@ async function profile(baseUrl) {
       synchronousWorkMs: 16,
       browserLongTaskMs: 50,
       activeAnimationsAfterSettle: 0,
+      activeActivityIndicatorsAfterSettle: 0,
       idleCpuPercent: 2,
       jsHeapMegabytes: 100,
     };
@@ -308,6 +323,8 @@ async function profile(baseUrl) {
       reactCommit: measured.ordinaryReactCommitP95Ms < budgets.ordinaryReactCommitP95Ms,
       browserLongTasks: measured.repeatedBrowserLongTasksOver50Ms.length === 0,
       settledAnimations: measured.activeAnimationsAfterSettle === 0,
+      settledActivityIndicator: measured.activeActivityIndicatorsAfterSettle ===
+        budgets.activeActivityIndicatorsAfterSettle,
       idleCpu: measured.idleCpuPercent < budgets.idleCpuPercent,
       memory: measured.jsHeapMegabytes < budgets.jsHeapMegabytes,
       environmentEligibility: environmentEligibility.cadenceAwareRelease,
@@ -324,7 +341,7 @@ async function profile(baseUrl) {
       generatedAt: new Date().toISOString(),
       gitSha: execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
       browser: {name: 'Microsoft Edge', version: browserVersion},
-      profile: 'warm deterministic browser adapter, 800x540 viewport, 30 paced input samples, 120 paced selection samples, 80 contemporaneously paired hover/frame samples with direct dispatch timing, plus renderer-side synchronous 30-event input and selection bursts',
+      profile: 'warm deterministic browser adapter, 800x540 viewport, 30 paced input samples, 120 paced selection samples, 80 contemporaneously paired hover/frame samples with direct dispatch timing, renderer-side synchronous 30-event input and selection bursts, plus activity-indicator settle verification',
       target: {
         refreshRateHz: 240,
         frameBudgetMs: targetFrameBudgetMs,
