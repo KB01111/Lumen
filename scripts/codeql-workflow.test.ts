@@ -66,7 +66,7 @@ describe('CodeQL workflow', () => {
     expect(workflow.on.pull_request).toEqual({branches: ['main']});
     expect(workflow.on.push).toEqual({branches: ['main']});
     expect(workflow.on).toHaveProperty('workflow_dispatch');
-    expect(workflow.on.schedule).toEqual([{cron: expect.stringMatching(/^\d+ \d+ \* \* [0-6]$/)}]);
+    expect(workflow.on.schedule).toEqual([{cron: expect.stringMatching(/^([0-5]?\d) ([01]?\d|2[0-3]) \* \* [0-6]$/)}]);
     expect(workflow.on).not.toHaveProperty('pull_request_target');
   });
 

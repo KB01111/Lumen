@@ -5,6 +5,15 @@ import {installReactRendererProbe, readReactRenderers} from '../../scripts/lib/r
 import {sampleFrameCadence} from '../../src/features/diagnostics/diagnostics.refresh.mjs';
 
 const frameSchedulingToleranceMs = 2;
+// Paint latency is bounded by one frame interval plus the handler's own work and
+// frame-interval jitter, which grow with the interval. A fixed tolerance only fits
+// very short frames, so slower cadences (60 Hz CI runners) get a quarter frame.
+const frameSchedulingToleranceFraction = 0.25;
+
+function observedFrameBudgetMs(cadenceP95Ms: number) {
+  const nominalMs = Math.max(cadenceP95Ms, 1000 / 240);
+  return nominalMs + Math.max(frameSchedulingToleranceMs, nominalMs * frameSchedulingToleranceFraction);
+}
 
 test.describe.configure({mode: 'serial'});
 test.use({
@@ -153,8 +162,7 @@ test('warm launcher and ordinary interactions stay inside browser budgets', asyn
   await search.fill('report');
   await expect(page.getByRole('grid', {name: 'Search results'})).toBeVisible();
   const frameCadence = await measureFrameCadence(page);
-  const observedFrameBudget = Math.max(frameCadence.p95Ms!, 1000 / 240) +
-    frameSchedulingToleranceMs;
+  const observedFrameBudget = observedFrameBudgetMs(frameCadence.p95Ms!);
   const inputP95 = percentile(
     inputMetrics.timings.filter((sample) => sample.name === 'input-response').map((sample) => sample.durationMs),
     0.95,
