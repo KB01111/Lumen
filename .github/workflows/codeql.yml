@@ -1,0 +1,84 @@
+name: CodeQL
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    # The helper targets net10.0-windows, so C# can only be built on Windows.
+    runs-on: windows-2025
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          - language: rust
+            build-mode: none
+          # build-mode none leaves C# call targets/types unresolved (the
+          # Windows App SDK projections need a real restore + compile).
+          - language: csharp
+            build-mode: manual
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Build C# helper
+        if: matrix.language == 'csharp'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $worker = 'workers/windows-ai'
+          $project = "$worker/Lumen.WindowsAi.csproj"
+          # Same restore as scripts/stage-windows-ai.ts so the lock file and
+          # Windows App SDK package graph resolve identically.
+          dotnet restore $project -r win-x64 -p:RuntimeIdentifier=win-x64 --configfile "$worker/nuget.config" --locked-mode
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          dotnet build $project -c Release -r win-x64 --no-restore --no-incremental -p:UseSharedCompilation=false
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          dotnet build "$worker/Tests/Lumen.WindowsAi.Tests.csproj" -c Release --no-incremental -p:UseSharedCompilation=false
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: /language:${{ matrix.language }}

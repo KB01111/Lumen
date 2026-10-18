@@ -75,7 +75,8 @@
     "typescript": "6.0.3",
     "typescript-eslint": "^8.65.0",
     "vite": "^8.2.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "yaml": "^2.9.0"
   },
   "patchedDependencies": {
     "rivetkit@2.3.10": "patches/rivetkit@2.3.10.patch"
