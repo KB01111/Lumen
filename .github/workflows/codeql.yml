@@ -36,6 +36,8 @@ jobs:
             build-mode: none
           - language: javascript-typescript
             build-mode: none
+          - language: python
+            build-mode: none
           - language: rust
             build-mode: none
           # build-mode none leaves C# call targets/types unresolved (the
