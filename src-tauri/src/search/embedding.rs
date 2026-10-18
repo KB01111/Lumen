@@ -289,7 +289,9 @@ mod tests {
             )
             .into_bytes(),
             body.as_bytes().to_vec(),
-            Duration::from_secs(21),
+            // Hold the reply well past the 20 s client deadline so a loaded runner's
+            // scheduling delay cannot be mistaken for the client waiting on the server.
+            Duration::from_secs(25),
         );
         let began = std::time::Instant::now();
         let result =
@@ -298,7 +300,7 @@ mod tests {
         server.join().unwrap();
         assert!(result.is_err());
         assert!(elapsed >= Duration::from_secs(19));
-        assert!(elapsed < Duration::from_secs(21));
+        assert!(elapsed < Duration::from_secs(24));
     }
 
     #[test]
