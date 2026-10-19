@@ -124,3 +124,42 @@ Schema version 4 adds a durable `file_inventory` metadata row for every admitted
 ## Backend evolution rule
 
 Future index optimizations must preserve request IDs, abort behavior, stable IDs, structured errors, confinement, and the rule that exact local filename and FTS search remain available without AI. UI components should not change merely because the backend implementation evolves.
+
+## WinSearch native startup
+
+The application manages a lazy `WinSearch` engine runtime in
+`src-tauri/src/search/winsearch_engine.rs`. The typed native
+`get_winsearch_engine_status` command starts that owned process and returns its
+status. Normal `SearchService` queries still use the existing SQLite adapter;
+search streaming, current folder-policy forwarding, identity migration,
+previews/actions/answers and the single-index cutover remain pending.
+
+Startup verifies the payload manifest against the independent build-time hash,
+checks every declared file's SHA-256/length and rejects unexpected files or
+unsafe paths. Rust checks reparse ancestors, opens payload handles without
+write/delete sharing, and checks the opened resources for reparse/offline/recall
+attributes before reading. The manifest, executable, DLL and directory handles
+remain owned for the process lifetime. A volume's offline attribute does not
+classify every descendant as offline.
+
+The executable and arguments are fixed by Rust. The existing stdin assignment
+barrier holds daemon initialization until attachment to a kill-on-close Windows
+Job Object. The child receives a System32-only PATH, a small environment
+allowlist, an independent per-user instance identity and the application-private
+`winsearch-engine` data directory. Inherited inference, model and executable-path
+overrides are excluded. Each typed pipe connection checks the actual server PID
+before Hello against the retained child handle's PID.
+
+The engine starts with deferred root admission. This status lane never admits
+folders or downloads a model, so the existing adapter remains the active crawler
+while integration is incomplete. Startup hashing and process creation run on the
+blocking pool. Shutdown closes admission and terminates the owned job without
+waiting on pipe/control operations; application exit does this before joining
+the existing index worker. Actual settings hydration, root policy, result-stream
+and installed-consumer acceptance remain required before the backend cutover.
+
+Missing/unverified payloads return a structured recoverable unavailable error.
+An invalid packaged payload cannot fall back to a different development payload.
+Development builds may use the fixed staged directory when no packaged resource
+directory exists. The payload's open handles require closing the application
+before replacing staged native files.
