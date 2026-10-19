@@ -26,6 +26,7 @@
     "stage:computer-use": "bun scripts/stage-computer-use.ts",
     "stage:improvement": "bun scripts/stage-improvement.ts",
     "stage:windows-ai": "bun scripts/stage-windows-ai.ts",
+    "stage:winsearch": "bun scripts/stage-winsearch.mjs stage",
     "preview": "vite preview",
     "tauri": "tauri",
     "release:preflight": "bun scripts/release.ts preflight",
