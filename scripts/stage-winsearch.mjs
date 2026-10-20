@@ -68,12 +68,16 @@ async function recoverAbandoned(parent, destination, manifestSha256) {
     if (match[2]) {
       await assertNoLinks(path);
       if ((await readdir(path)).length === 0) { await removeCandidate(parent, path); continue; }
-      await verifyPayload(path, manifestSha256);
+      await inventory(path);
       if (!await exists(destination) || (await readdir(destination)).length === 0) {
+        // An older pin stays retained until the new package is verified in place.
+        try { await verifyPayload(path, manifestSha256); }
+        catch { continue; }
         await move(path, destination);
         continue;
       }
-      await verifyPayload(destination, manifestSha256);
+      try { await verifyPayload(destination, manifestSha256); }
+      catch { continue; }
     }
     await removeCandidate(parent, path);
   }
@@ -145,6 +149,7 @@ export async function stagePayload(workspace, source) {
       throw error;
     }
     if (retained) await removeCandidate(parent, previous);
+    await recoverAbandoned(parent, destination, lock.manifestSha256);
     return sha;
   } finally { await removeCandidate(parent, candidate); }
 }

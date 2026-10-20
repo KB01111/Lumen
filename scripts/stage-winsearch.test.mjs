@@ -203,6 +203,39 @@ test('rejects a changed vendored archive before extraction', async () => {
   assert.deepEqual((await readdir(workspace)).sort(), ['changed.tar.gz','src-tauri']);
 });
 
+test('an interrupted upgrade retains the older backup until the new pinned package is published', async () => {
+  const source = await fixture();
+  const workspace = await workspaceFixture(digest(await readFile(join(source.root,'payload.json'))));
+  await stagePayload(workspace,source.root);
+  const parent = join(workspace,'src-tauri/binaries');
+  const deadPid = Number(spawnSync(process.execPath,['-e','process.stdout.write(String(process.pid))']).stdout);
+  const previous = join(parent,`.winsearch-${deadPid}-upgrade-previous`);
+  await fs.rename(join(parent,'winsearch'),previous);
+  const upgraded = 'verified upgraded worker';
+  await writeFile(join(source.root,'winsearchd.exe'),upgraded);
+  Object.assign(source.manifest.files.find(file => file.path === 'winsearchd.exe'),{sha256:digest(upgraded),sizeBytes:Buffer.byteLength(upgraded)});
+  await save(source);
+  const sha = digest(await readFile(join(source.root,'payload.json')));
+  const lockPath = join(workspace,'src-tauri/winsearch-payload.lock.json');
+  const lock = JSON.parse(await readFile(lockPath,'utf8'));
+  await writeFile(lockPath,JSON.stringify({...lock,manifestSha256:sha}));
+  assert.equal(await readFile(join(previous,'winsearchd.exe'),'utf8'),'winsearchd.exe');
+  const originalRead = fs.readFile;
+  let lockReads = 0;
+  const fault = mock.method(fs,'readFile',async (path,...args) => {
+    if (path === lockPath && ++lockReads === 2) throw new Error('new publication refused');
+    return originalRead(path,...args);
+  });
+  syncBuiltinESMExports();
+  try { await assert.rejects(stagePayload(workspace,source.root),/new publication refused/); }
+  finally { fault.mock.restore(); syncBuiltinESMExports(); }
+  assert.equal(await readFile(join(previous,'winsearchd.exe'),'utf8'),'winsearchd.exe');
+  assert.equal(await stagePayload(workspace,source.root),sha);
+  assert.equal(await verifyBuildPayload(workspace,true),sha);
+  assert.equal(await readFile(join(parent,'winsearch/winsearchd.exe'),'utf8'),upgraded);
+  assert.deepEqual(await readdir(parent),['winsearch']);
+});
+
 test('a fresh checkout stages the actual model-free vendored package against the independent lock', async () => {
   const lock = JSON.parse(await readFile(new URL('../src-tauri/winsearch-payload.lock.json',import.meta.url),'utf8'));
   const workspace = await workspaceFixture(lock.manifestSha256);
