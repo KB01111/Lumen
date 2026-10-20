@@ -22,13 +22,15 @@ test('keeps every Computer Use safety action in native keyboard order', async ({
   const run = page.getByRole('button', {name: 'Run in Edge'});
   await expect(run).toBeEnabled();
   await expect(page.getByText('Gemini · Fast · Simulated')).toBeVisible();
-  const target = page.getByRole('button', {name: /Computer Use target/});
+  const target = page.getByRole('combobox', {name: 'Computer Use target'});
   const refreshTargets = page.getByRole('button', {name: 'Refresh targets'});
   const visibleBrowser = page.getByRole('checkbox', {name: 'Request visible browser (Fast only)'});
 
   await task.focus();
   await tab(page);
   await expectFocused(clear);
+  await tab(page);
+  await expectFocused(page.getByRole('button', {name: 'Switch to file search'}));
   await tab(page);
   await expectFocused(target);
   await tab(page);

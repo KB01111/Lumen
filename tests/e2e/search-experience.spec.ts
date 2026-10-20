@@ -43,6 +43,8 @@ test('completes search, selection, details, folder, and open without a pointer',
 
   await capture(page, testInfo, 'expanded-results');
   await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', {name: 'Switch to Computer Use'})).toBeFocused();
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(page.locator('[data-launcher-visible="false"]')).toBeAttached();
