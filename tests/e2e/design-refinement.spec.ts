@@ -1,5 +1,43 @@
 import {expect, test} from '@playwright/test';
 
+test('Fluent launcher controls share theme and keep streaming safety actions clear at 200 percent text', async ({page}) => {
+  await page.setViewportSize({width: 520, height: 340});
+  await page.goto('/?gallery=1&scenario=constrained-work-area&capture=1&scale=200');
+  const input = page.getByRole('searchbox', {name: 'Search files'});
+  await expect(input).toBeEditable();
+  await input.focus();
+  await expect(input).toBeFocused();
+  await expect(page.getByRole('application', {name: 'Lumen'})).toHaveClass(/fui-FluentProvider/);
+  await expect(page.getByRole('tab', {name: 'All', exact: true})).toHaveClass(/fui-Tab/);
+  const stop = page.getByRole('button', {name: 'Stop answer'});
+  await expect(stop).toHaveClass(/fui-Button/);
+  await expect(stop).toBeInViewport();
+  const overlap = await stop.evaluate((button) => {
+    const bounds = button.getBoundingClientRect();
+    const group = document.querySelector('[role="radiogroup"][aria-label="Answer runtime"]')!.getBoundingClientRect();
+    return Math.min(bounds.right, group.right) - Math.max(bounds.left, group.left) > 1 &&
+      Math.min(bounds.bottom, group.bottom) - Math.max(bounds.top, group.top) > 1;
+  });
+  expect(overlap).toBe(false);
+  await stop.click();
+  await expect(page.getByText('Stopped', {exact: true})).toBeVisible();
+});
+
+test('launcher footer separates status from actions at 200 percent text at narrow and native widths', async ({page}) => {
+  for (const width of [520, 720, 800]) {
+    await page.setViewportSize({width, height: 540});
+    await page.goto('/?gallery=1&scenario=expanded-results&capture=1&theme=dark&scale=200');
+    const footer = page.locator('[data-einui-slot="footer"]');
+    const status = footer.getByRole('status');
+    const open = footer.getByRole('button', {name: 'Open selected result'});
+    await expect(open).toBeVisible();
+    const [statusBounds, openBounds] = await Promise.all([status.boundingBox(), open.boundingBox()]);
+    expect(statusBounds).not.toBeNull();
+    expect(openBounds).not.toBeNull();
+    expect(statusBounds!.x + statusBounds!.width + 4, `${width}px`).toBeLessThanOrEqual(openBounds!.x);
+  }
+});
+
 test('primary buttons preserve readable accent foregrounds and authored type in both themes', async ({page}) => {
   for (const theme of ['light', 'dark']) {
     await page.goto(`/?gallery=1&scenario=onboarding-welcome&capture=1&theme=${theme}`);

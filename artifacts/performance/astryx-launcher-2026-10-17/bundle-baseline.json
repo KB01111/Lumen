@@ -1,0 +1,154 @@
+{
+  "directory": "C:\\Users\\kevin\\.codex\\worktrees\\9b6b\\Lumen\\.superpowers\\unified-baseline-dist",
+  "generatedAt": "2026-10-17T20:56:38.859Z",
+  "method": "Exact emitted JS/CSS bytes; gzip per file; initial includes HTML assets and transitive static ESM imports, excludes dynamic imports.",
+  "totalJavaScript": {
+    "rawBytes": 1433717,
+    "gzipBytes": 433463
+  },
+  "totalCss": {
+    "rawBytes": 63025,
+    "gzipBytes": 11449
+  },
+  "initial": {
+    "rawBytes": 1069271,
+    "gzipBytes": 329319
+  },
+  "initialFiles": [
+    "assets/index-ByRD--up.js",
+    "assets/rolldown-runtime-B0Z9INg1.js",
+    "assets/react-aria-CNPPvd_H.js",
+    "assets/react-core-DVoh6Tdv.js",
+    "assets/LumenUiIcon-BJIxFuhY.js",
+    "assets/search.types-VuXA_4HS.js",
+    "assets/tauri-CVWoFdDw.js",
+    "assets/data-state-DtgTkagA.js",
+    "assets/MotionProvider-BOgUmeP9.js",
+    "assets/motion-BEKgtDhx.js",
+    "assets/AnimatePresence-C5-1pO7n.js",
+    "assets/diagnostics.metrics-VkEbk1KI.js",
+    "assets/index-C4XoHZ55.css"
+  ],
+  "files": [
+    {
+      "file": "assets/AnimatePresence-C5-1pO7n.js",
+      "bytes": 4799,
+      "gzipBytes": 2165,
+      "sha256": "f9752008f5ee75c5f975ef3557af5dbcaa97bdb6011735c6871e5f1a576009f3"
+    },
+    {
+      "file": "assets/data-state-DtgTkagA.js",
+      "bytes": 98051,
+      "gzipBytes": 26685,
+      "sha256": "76c17e4528f999cdb22708d95de0cbf06df0056a0338f12b2be1432f8cca3736"
+    },
+    {
+      "file": "assets/diagnostics.metrics-VkEbk1KI.js",
+      "bytes": 1101,
+      "gzipBytes": 578,
+      "sha256": "9b2e77d94860a48e2fc38223bdfe0c7137534b4471adff0cce675f583cfa8c40"
+    },
+    {
+      "file": "assets/diagnostics.store-DDwa4Zoq.js",
+      "bytes": 6011,
+      "gzipBytes": 2621,
+      "sha256": "1cf2f0d85408f53ab182b8a9b341d53de10fb3c9cca1bcca6254d7d8e74cfccb"
+    },
+    {
+      "file": "assets/DiagnosticsOverlay-Ctqe3omj.js",
+      "bytes": 2503,
+      "gzipBytes": 1080,
+      "sha256": "a74f3127693552637c991dc289038e760233afb61c3a82a5b1c5aac9d97a170a"
+    },
+    {
+      "file": "assets/index-ByRD--up.js",
+      "bytes": 208919,
+      "gzipBytes": 70458,
+      "sha256": "15a0db327c89b34891d3832a3f136f29972d3c15ea57a836aa8a2b59575af34f"
+    },
+    {
+      "file": "assets/index-C4XoHZ55.css",
+      "bytes": 63025,
+      "gzipBytes": 11449,
+      "sha256": "570c9570c6c7adad549c85c41577435924d9e85cbee11108dc16bc7d35d7e97f"
+    },
+    {
+      "file": "assets/lottie_svg-DvETgvxg.js",
+      "bytes": 243364,
+      "gzipBytes": 63286,
+      "sha256": "e0ae48f6389f1a692a2d2e744371bf42bfa4776531c0ee93915981f1aec804ea"
+    },
+    {
+      "file": "assets/LumenUiIcon-BJIxFuhY.js",
+      "bytes": 80946,
+      "gzipBytes": 26769,
+      "sha256": "e544be9e43edacaf1c556a1dc4327fefcb92269b893d015e1f92dc5ae447b98c"
+    },
+    {
+      "file": "assets/motion-BEKgtDhx.js",
+      "bytes": 123217,
+      "gzipBytes": 39543,
+      "sha256": "ff102242764242f1726d4677d6dc09c6ed8b678291a5ec862d31d72fc5298415"
+    },
+    {
+      "file": "assets/MotionProvider-BOgUmeP9.js",
+      "bytes": 12243,
+      "gzipBytes": 4464,
+      "sha256": "3bb9f809634ab329caf9143d2693966076271528df7a8e8dadf966932ee7da7d"
+    },
+    {
+      "file": "assets/OnboardingFlow-BxQxAkpI.js",
+      "bytes": 7965,
+      "gzipBytes": 3063,
+      "sha256": "bf9b0adad150f8b9e2de322b2325637e695a24616e68b43a058122661ea1071d"
+    },
+    {
+      "file": "assets/PreviewPane-DVCpbiHj.js",
+      "bytes": 17482,
+      "gzipBytes": 5426,
+      "sha256": "1c5f1d78bd5bc688d10e8cc2510b245b0609052404ee2d7a94073aec9195969c"
+    },
+    {
+      "file": "assets/react-aria-CNPPvd_H.js",
+      "bytes": 251527,
+      "gzipBytes": 76435,
+      "sha256": "ea8d0dacc8e9769e18298457966574632f529a8ba1327f433b76d742b04a4cec"
+    },
+    {
+      "file": "assets/react-core-DVoh6Tdv.js",
+      "bytes": 178621,
+      "gzipBytes": 55829,
+      "sha256": "d3bd7ecc346404f72f4375ffa360be54e939474f49a1d5c22ab1f7dc2938c2ca"
+    },
+    {
+      "file": "assets/rolldown-runtime-B0Z9INg1.js",
+      "bytes": 901,
+      "gzipBytes": 510,
+      "sha256": "5e9b0d884d2ebb14e241ab38b43e41efb61bce2e74d71507b0b95b264fba4047"
+    },
+    {
+      "file": "assets/root-selection-service-eof-Uh4-.js",
+      "bytes": 350,
+      "gzipBytes": 269,
+      "sha256": "ed76c5473bf20371642f28a931bd4b7ee074dcdc637aaee180874dcae6a86198"
+    },
+    {
+      "file": "assets/search.types-VuXA_4HS.js",
+      "bytes": 40536,
+      "gzipBytes": 12653,
+      "sha256": "87b11d840a5454328a4b1d70b2dae7db4cacf81a94b7c315a4756b690d29917f"
+    },
+    {
+      "file": "assets/SettingsShell-Cgnvnd7Y.js",
+      "bytes": 149796,
+      "gzipBytes": 39848,
+      "sha256": "d8be3b367865f1923210051a5bbe6fd8cbb698436f40aea9f16584857410ad19"
+    },
+    {
+      "file": "assets/tauri-CVWoFdDw.js",
+      "bytes": 5385,
+      "gzipBytes": 1781,
+      "sha256": "9271ab916128ba52ed8ebe2c641651c45be69699b7f92e1090bcf4c2663b690a"
+    }
+  ]
+}

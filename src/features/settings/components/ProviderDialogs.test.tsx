@@ -8,6 +8,38 @@ import type {ProviderProfile, ProviderProfileInput} from '../../../services/prov
 const profile: ProviderProfile = {app: 'codex', id: 'fixture', baseUrl: 'https://example.com', model: 'model', active: false, enabled: false};
 
 describe('provider dialogs', () => {
+  it.each(['add', 'edit'] as const)('keeps %s fields disabled during persistence and restores the trigger', async (kind) => {
+    const user = userEvent.setup();
+    let finish!: (value: ProviderProfile) => void;
+    const writes: ProviderProfileInput[] = [];
+    const save = (input: ProviderProfileInput) => {
+      writes.push(input);
+      return new Promise<ProviderProfile>((resolve) => { finish = resolve; });
+    };
+    render(kind === 'add'
+      ? <AddProviderDialog api={{add: save}} />
+      : <EditProviderDialog provider={profile} api={{update: save}} />);
+    const trigger = screen.getByRole('button', {name: kind === 'add' ? 'Add provider' : 'Edit provider'});
+    await user.click(trigger);
+    if (kind === 'add') await user.click(screen.getByRole('button', {name: 'Use OpenAI Codex'}));
+    const baseUrl = screen.getByRole('textbox', {name: 'Base URL'});
+    const model = screen.getByRole('textbox', {name: 'Model'});
+    const key = screen.getByLabelText('API key', {exact: true});
+    await user.type(key, 'temporary-secret');
+    await user.click(screen.getByRole('button', {name: kind === 'add' ? 'Add' : 'Save'}));
+
+    expect(baseUrl).toBeDisabled();
+    expect(model).toBeDisabled();
+    expect(key).toBeDisabled();
+    await user.type(model, 'ignored-during-save');
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatchObject({apiKey: 'temporary-secret'});
+    expect(model).toHaveValue(writes[0].model);
+    await act(async () => finish(profile));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
   it('marks unsupported tools unavailable and requires an API key even for an OAuth preset', async () => {
     const user = userEvent.setup();
     render(<AddProviderDialog api={{add: vi.fn()}} />);

@@ -53,6 +53,22 @@ afterEach(() => {
 });
 
 describe('Lumen keyboard coordination', () => {
+  it('reaches the trailing mode switch between the expanded search and scopes in both directions', async () => {
+    const user = userEvent.setup();
+    const service = new MemorySearchService();
+    render(<SearchExperience service={service} windowService={new BrowserWindowService()} />);
+    await searchFor(service, user, 'alpha', [file('alpha')]);
+    await user.tab();
+    const mode = screen.getByRole('button', {name: 'Switch to Computer Use'});
+    expect(mode).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('tab', {name: 'All'})).toHaveFocus();
+    await user.tab({shift: true});
+    expect(mode).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('searchbox', {name: 'Describe a computer task'})).toBeVisible();
+  });
+
   it('scrolls only the latest keyboard selection on the next frame without taking input focus and cancels on hide', async () => {
     const frames = new Map<number, FrameRequestCallback>();
     let next = 0;
@@ -115,11 +131,12 @@ describe('Lumen keyboard coordination', () => {
     await user.tab();
     expect(screen.getByRole('button', {name: 'Clear search'})).toHaveFocus();
     await user.tab();
-    const target = screen.getByRole('button', {name: /Computer Use target/});
+    expect(screen.getByRole('button', {name: 'Switch to file search'})).toHaveFocus();
+    await user.tab();
+    const target = screen.getByRole('combobox', {name: 'Computer Use target'});
     expect(target).toHaveFocus();
-    await user.keyboard('{ArrowDown}');
-    expect(await screen.findByRole('listbox')).toBeVisible();
-    expect(screen.getByRole('option', {name: 'Fresh Microsoft Edge'})).toBeVisible();
+    await user.selectOptions(target, 'browser');
+    expect(screen.getByRole('option', {name: 'Fresh Microsoft Edge'})).toHaveProperty('selected', true);
     await user.keyboard('{Escape}');
     await waitFor(() => expect(target).toHaveFocus());
     expect(input).toHaveValue('Review the support form');
@@ -194,6 +211,8 @@ describe('Lumen keyboard coordination', () => {
     await searchFor(service, user, 'alpha', [file('alpha'), file('beta')]);
     expect(useLauncherStore.getState().mode).toBe('expanded');
     await user.keyboard('{Tab}');
+    expect(screen.getByRole('button', {name: 'Switch to Computer Use'})).toHaveFocus();
+    await user.keyboard('{Tab}');
     expect(screen.getByRole('tab', {name: 'All'})).toHaveFocus();
     await user.keyboard('{Tab}');
     expect(screen.getByRole('row', {name: /alpha\.tsx/i})).toHaveFocus();
@@ -251,7 +270,14 @@ describe('Lumen keyboard coordination', () => {
 
     await searchFor(service, user, 'alpha', [file('alpha')]);
     await user.keyboard('{Tab}');
+    expect(screen.getByRole('button', {name: 'Switch to Computer Use'})).toHaveFocus();
+    await user.keyboard('{Tab}');
     expect(screen.getByRole('tab', {name: 'All'})).toHaveFocus();
+    // Tabster checks visibility using layout, which jsdom does not calculate.
+    vi.spyOn(document.body, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 800, 540));
+    for (const tab of screen.getAllByRole('tab')) {
+      Object.defineProperty(tab, 'offsetParent', {configurable: true, value: document.body});
+    }
     await user.keyboard('{ArrowRight}');
     expect(useScopeStore.getState().activeScope).toBe('files');
 

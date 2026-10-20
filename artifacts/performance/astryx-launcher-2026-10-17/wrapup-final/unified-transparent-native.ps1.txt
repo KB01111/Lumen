@@ -1,0 +1,21 @@
+$ErrorActionPreference = 'Stop'
+$vsPath = & 'C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe' -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+$devShell = Join-Path $vsPath 'Common7/Tools/VsDevCmd.bat'
+$environmentLines = & $env:ComSpec /d /c "`"$devShell`" -no_logo -arch=x64 -host_arch=x64 >nul && set"
+foreach ($line in $environmentLines) {
+  if ($line -match '^([^=]+)=(.*)$') { [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process') }
+}
+$env:CARGO_TARGET_DIR = 'D:/CodexBuilds/Lumen/astryx-launcher-refinement/target'
+$env:CARGO_INCREMENTAL = '0'
+$env:CARGO_BUILD_JOBS = '2'
+$env:CARGO_PROFILE_DEV_DEBUG = '0'
+$ErrorActionPreference = 'Continue'
+Push-Location src-tauri
+try {
+  cargo fmt --all -- --check *> ../.superpowers/unified-transparent-native-fmt.log
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  cargo test --all-features window::tests *> ../.superpowers/unified-transparent-native-tests.log
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  cargo build -j 2 *> ../.superpowers/unified-transparent-native-build.log
+  exit $LASTEXITCODE
+} finally { Pop-Location }

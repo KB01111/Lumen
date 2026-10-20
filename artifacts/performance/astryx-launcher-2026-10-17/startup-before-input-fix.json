@@ -1,0 +1,447 @@
+{
+  "generatedAt": "2026-10-19T20:20:46.311Z",
+  "htmlHashes": {
+    "baseline": "e20a93fc43d483bcbdf8c0f28bbfbfce713a8eb4c193e456d366f2e3e8d7dc41",
+    "final": "6727de31350315b2dfed3213240c6c5c18d644da88fdb986bd17113ded3aedbb"
+  },
+  "displayBefore": {
+    "Name": "AMD Radeon(TM) 890M Graphics",
+    "DriverVersion": "32.0.31041.1004",
+    "CurrentHorizontalResolution": 2560,
+    "CurrentVerticalResolution": 1600,
+    "CurrentRefreshRate": 240
+  },
+  "captureValid": true,
+  "boundary": "Paired normal production browser bootstrap, 20 fresh installed-Edge processes and empty browser caches per variant. Navigation start to first visible search input and its next rAF callback; excludes browser-process launch, native startup, compositor presentation and live providers. A valid browser-only onboarding record avoids first-run scenes. No builds, tracing or screenshots during timing.",
+  "samples": [
+    {
+      "pair": 0,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 379.30000001192093,
+      "inputNextCallbackMs": 382.5,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 0,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 260.59999999403954,
+      "inputNextCallbackMs": 264.19999998807907,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 1,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 310.40000000596046,
+      "inputNextCallbackMs": 323,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 1,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 272.59999999403954,
+      "inputNextCallbackMs": 276.30000001192093,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 2,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 308.40000000596046,
+      "inputNextCallbackMs": 311.10000002384186,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 2,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 330.40000000596046,
+      "inputNextCallbackMs": 333.7000000178814,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 3,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 334.5,
+      "inputNextCallbackMs": 338.10000002384186,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 3,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 267.40000000596046,
+      "inputNextCallbackMs": 272.19999998807907,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 4,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 283.59999999403954,
+      "inputNextCallbackMs": 320.59999999403954,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 4,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 287.09999999403954,
+      "inputNextCallbackMs": 290.5,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 5,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 420.90000000596046,
+      "inputNextCallbackMs": 424.09999999403954,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 5,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 279.89999997615814,
+      "inputNextCallbackMs": 283.09999999403954,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 6,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 286.5,
+      "inputNextCallbackMs": 290,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 6,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 403,
+      "inputNextCallbackMs": 406.09999999403954,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 7,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 293.59999999403954,
+      "inputNextCallbackMs": 297.69999998807907,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 7,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 218.2999999821186,
+      "inputNextCallbackMs": 221.5,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 8,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 258.90000000596046,
+      "inputNextCallbackMs": 262.40000000596046,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 8,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 247.7999999821186,
+      "inputNextCallbackMs": 250.7999999821186,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 9,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 261.2000000178814,
+      "inputNextCallbackMs": 264.7000000178814,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 9,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 264.5,
+      "inputNextCallbackMs": 269.19999998807907,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 10,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 220.69999998807907,
+      "inputNextCallbackMs": 237.5,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 10,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 235.30000001192093,
+      "inputNextCallbackMs": 240.30000001192093,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 11,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 221.19999998807907,
+      "inputNextCallbackMs": 230.5,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 11,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 242.59999999403954,
+      "inputNextCallbackMs": 245.2999999821186,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 12,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 253.5,
+      "inputNextCallbackMs": 256,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 12,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 210,
+      "inputNextCallbackMs": 213.09999999403954,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 13,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 226.60000002384186,
+      "inputNextCallbackMs": 229.60000002384186,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 13,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 206.40000000596046,
+      "inputNextCallbackMs": 209.40000000596046,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 14,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 236.40000000596046,
+      "inputNextCallbackMs": 239.60000002384186,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 14,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 291.69999998807907,
+      "inputNextCallbackMs": 297.7999999821186,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 15,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 261,
+      "inputNextCallbackMs": 277.5,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 15,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 259.30000001192093,
+      "inputNextCallbackMs": 262.2000000178814,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 16,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 232.19999998807907,
+      "inputNextCallbackMs": 235.2999999821186,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 16,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 332.5,
+      "inputNextCallbackMs": 336.59999999403954,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 17,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 274.2000000178814,
+      "inputNextCallbackMs": 277.5,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 17,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 213.7999999821186,
+      "inputNextCallbackMs": 224.19999998807907,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 18,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 257.90000000596046,
+      "inputNextCallbackMs": 262.80000001192093,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 18,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 235.40000000596046,
+      "inputNextCallbackMs": 237.90000000596046,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 19,
+      "variant": "final",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 219.2000000178814,
+      "inputNextCallbackMs": 222.30000001192093,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    },
+    {
+      "pair": 19,
+      "variant": "baseline",
+      "browserVersion": "155.0.4283.62",
+      "inputVisibleMs": 215.5,
+      "inputNextCallbackMs": 218.80000001192093,
+      "firstContentfulPaintMs": null,
+      "diagnosticsExposed": false,
+      "nativeRuntime": false
+    }
+  ],
+  "summary": {
+    "baseline": {
+      "inputVisibleMs": {
+        "p50": 258.90000000596046,
+        "p95": 379.30000001192093
+      },
+      "inputNextCallbackMs": {
+        "p50": 262.40000000596046,
+        "p95": 382.5
+      }
+    },
+    "final": {
+      "inputVisibleMs": {
+        "p50": 274.2000000178814,
+        "p95": 420.90000000596046
+      },
+      "inputNextCallbackMs": {
+        "p50": 277.5,
+        "p95": 424.09999999403954
+      }
+    }
+  },
+  "displayAfter": {
+    "Name": "AMD Radeon(TM) 890M Graphics",
+    "DriverVersion": "32.0.31041.1004",
+    "CurrentHorizontalResolution": 2560,
+    "CurrentVerticalResolution": 1600,
+    "CurrentRefreshRate": 240
+  }
+}

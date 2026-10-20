@@ -1,0 +1,27 @@
+{
+  "base": "8ab5a6fdde39013c867d2caca314a738de23de00",
+  "branch": "codex/astryx-launcher-refinement",
+  "sourceDirty": true,
+  "sourcePatchSha256": "96eba24edec7f8105bdfd242057fbe738273fcf13d81aa8e973327e48732349a",
+  "sourceHashes": {
+    "AGENTS.md": "91b8d0be4a263fce63197bf2fcce3f35fa46df1196b654a66a1d08d3291749fb",
+    "bun.lock": "d07ef5f78ec532b70e6751e8844afe70feab833ffc0ff8975c87e71678d9fc0e",
+    "package.json": "b549fbca4c27d3bb38caa1aee43efbfeeccecc81cde92ef8b6e0a1289420d899",
+    "src/design-system/global.css": "033d8c96f54a4cbe40ff2403e67cd8cd4c3ae4a582f34dcd625d3a25e04d4178",
+    "src/design-system/motion.ts": "8c38e07ae8d39a397e3ed725e3b9f4c53d773c0639201f8bb13df3a239905ddb",
+    "src/features/gallery/VisualStateGallery.tsx": "933b4378284fff0539410611b0fc3884364305147ed9ff2f6f5689d8290a62a3",
+    "src/features/keyboard/useLumenKeyboard.test.tsx": "02e78757e72b0873bbcdd7cfa2813c2bf0d5b94c8922f77801d2a47286e2f157",
+    "src/features/keyboard/useLumenKeyboard.ts": "d340af020efcdbb8dab6b141f92b7cd868918e8024d18feeb94da6614f18fd93",
+    "src/features/launcher/CollapsedLauncher.tsx": "63cf7c038e106f511ff8954db4356d593079fc845a8cce0e8982e7f365b1fb81",
+    "src/features/launcher/ContextActions.tsx": "d9604f4edd5ddad8024a2b04ba5cd7d0f0df818c6866e60f414592cb37b98ce5",
+    "src/features/launcher/ExpandedWorkspace.test.tsx": "44919b2a55a406ce1a7e199b7d3b2c91d642a697d4af3032bab1a1a5099a113f",
+    "src/features/launcher/ExpandedWorkspace.tsx": "386a09a5b05579b1af12c431b593dcc949177af90c9a4a13a6063de49b5463a8",
+    "src/features/launcher/LauncherStatus.tsx": "394ffecfbf7948b483b12e2568bfc1dbd3d7c6818e5be8dfcf4ab063b34a396d",
+    "src/features/launcher/SearchExperience.test.tsx": "17135776aeb51811bb2fa17839b5b4e1031f0421949c17a455c013ec3f6562f6",
+    "src/features/launcher/SearchExperience.tsx": "5b3fe1e809bf53073436a653bd0416a6b0eddd1185c533f5402e58ea9191f2d6",
+    "src/features/preview/PreviewPane.tsx": "3fb95fee6d683d6edf62cc37b2c2dd836fc9a36105a7e19f677c0a2f9e6fecd5",
+    "src/features/results/ResultGrid.test.tsx": "b4f1709efd64d2ae5fd4f5a310967b0babc98d48274fb5d148c8d17ae580f0b5",
+    "src/features/results/ResultGrid.tsx": "4d22575f4aebea60347ef571bd9ef854446f58ef907df96b19c5531067185be9",
+    "src/features/results/ResultRow.tsx": "68ee517b966a33460e42e8430f68b756a1c48fbe7144918939c321483313413d"
+  }
+}

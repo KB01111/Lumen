@@ -1,0 +1,88 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index a6180992a1a764f6b5462bb68596cc71dd9ca3f4..39466a54008a474892763e566ee93b51492183ab 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -27,12 +27,17 @@ const LAST_FOCUSED_PROGRAMMATICALLY = 3;
+ function canOverrideNativeFocus(win) {
+ 	const HTMLElement = win.HTMLElement;
+ 	const origFocus = HTMLElement.prototype.focus;
++	const focusDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "focus");
+ 	let isCustomFocusCalled = false;
+-	HTMLElement.prototype.focus = function focus() {
++	// Preserve getter-only focus instrumentation used by user-event.
++	Reflect.defineProperty(HTMLElement.prototype, "focus", {configurable: true, writable: true, value: function focus() {
+ 		isCustomFocusCalled = true;
+-	};
+-	win.document.createElement("button").focus();
+-	HTMLElement.prototype.focus = origFocus;
++	}});
++	try {
++		win.document.createElement("button").focus();
++	} finally {
++		Reflect.defineProperty(HTMLElement.prototype, "focus", focusDescriptor ?? {configurable: true, writable: true, value: origFocus});
++	}
+ 	return isCustomFocusCalled;
+ }
+ let _canOverrideNativeFocus = false;
+@@ -54,7 +59,7 @@ function setupFocusEvent(win) {
+ 	if (!_canOverrideNativeFocus) _canOverrideNativeFocus = canOverrideNativeFocus(kwin);
+ 	const origFocus = proto.focus;
+ 	if (origFocus.__keyborgNativeFocus) return;
+-	proto.focus = focus;
++	Reflect.defineProperty(proto, "focus", {configurable: true, writable: true, value: focus});
+ 	const shadowTargets = /* @__PURE__ */ new Set();
+ 	const focusOutHandler = (e) => {
+ 		const target = e.target;
+@@ -204,7 +209,7 @@ function disposeFocusEvent(win) {
+ 		data[SHADOW_TARGETS].clear();
+ 		delete kwin.__keyborgData;
+ 	}
+-	if (origFocus) proto.focus = origFocus;
++	if (origFocus) Reflect.defineProperty(proto, "focus", {configurable: true, writable: true, value: origFocus});
+ }
+ /**
+ * @param win The window that stores keyborg focus events
+diff --git a/dist/index.js b/dist/index.js
+index 00dc0ded6669e0cef13ea489aee4c6d667748606..e5e3b8b6a2e3602305372b02949e556210c01a4b 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -25,12 +25,17 @@ const LAST_FOCUSED_PROGRAMMATICALLY = 3;
+ function canOverrideNativeFocus(win) {
+ 	const HTMLElement = win.HTMLElement;
+ 	const origFocus = HTMLElement.prototype.focus;
++	const focusDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "focus");
+ 	let isCustomFocusCalled = false;
+-	HTMLElement.prototype.focus = function focus() {
++	// Preserve getter-only focus instrumentation used by user-event.
++	Reflect.defineProperty(HTMLElement.prototype, "focus", {configurable: true, writable: true, value: function focus() {
+ 		isCustomFocusCalled = true;
+-	};
+-	win.document.createElement("button").focus();
+-	HTMLElement.prototype.focus = origFocus;
++	}});
++	try {
++		win.document.createElement("button").focus();
++	} finally {
++		Reflect.defineProperty(HTMLElement.prototype, "focus", focusDescriptor ?? {configurable: true, writable: true, value: origFocus});
++	}
+ 	return isCustomFocusCalled;
+ }
+ let _canOverrideNativeFocus = false;
+@@ -52,7 +57,7 @@ function setupFocusEvent(win) {
+ 	if (!_canOverrideNativeFocus) _canOverrideNativeFocus = canOverrideNativeFocus(kwin);
+ 	const origFocus = proto.focus;
+ 	if (origFocus.__keyborgNativeFocus) return;
+-	proto.focus = focus;
++	Reflect.defineProperty(proto, "focus", {configurable: true, writable: true, value: focus});
+ 	const shadowTargets = /* @__PURE__ */ new Set();
+ 	const focusOutHandler = (e) => {
+ 		const target = e.target;
+@@ -202,7 +207,7 @@ function disposeFocusEvent(win) {
+ 		data[SHADOW_TARGETS].clear();
+ 		delete kwin.__keyborgData;
+ 	}
+-	if (origFocus) proto.focus = origFocus;
++	if (origFocus) Reflect.defineProperty(proto, "focus", {configurable: true, writable: true, value: origFocus});
+ }
+ /**
+ * @param win The window that stores keyborg focus events

@@ -21,12 +21,9 @@ export const motionTokens = {
     damping: 38,
     mass: 0.7,
   },
-  // Result-set entrance cascade. WAAPI opacity fades staggered per row;
-  // capped so long lists finish quickly and never stagger during scroll.
+  // One collection fade; selection and virtual scrolling never replay it.
   rowEntrance: {
-    duration: 0.14,
-    stagger: 0.014,
-    maxStaggered: 8,
+    duration: 0.12,
     reducedDuration: 0.08,
   },
   launcher: {

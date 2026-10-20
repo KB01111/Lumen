@@ -1,0 +1,76 @@
+{
+  "visibility": "visible",
+  "body": "Computer Use\nAll\nFiles\nFolders\nDocuments\nCode\nImages\nLocal results\n3 results\nQuarterly report.pdf\nPDF\nC:\\Lumen Demo\\Reports\\Quarterly report.pdf\n18 KB\nEnter\nreport-summary.md\nMD\nC:\\Lumen Demo\\Notes\\report-summary.md\nRelease summary and operating highlights\nContent\n18 KB\nEnter\nÅrsrapport 2026 – 東京 終.docx\nDOCX\nC:\\Lumen Demo\\International\\Årsrapport 2026 – 東京 終.docx\nAnnual report, international edition\nMeaning\n18 KB\nEnter\n3 results. Quarterly report.pdf selected\n3 results\nAlt + Space\nQuarterly report.pdf\nOpen\n↵\nFolder\nPin\nDetails",
+  "query": {
+    "draft": "report",
+    "committed": "report",
+    "submitted": "",
+    "submissionRevision": 0,
+    "isComposing": false
+  },
+  "launcher": {
+    "mode": "expanded",
+    "visible": true,
+    "focusRegion": "search",
+    "intent": "search",
+    "externalAgentId": "",
+    "agentActivationId": null,
+    "agentActivationPending": false
+  },
+  "diagnostics": {
+    "timings": [
+      {
+        "name": "launcher-visible",
+        "durationMs": 77.39999997615814,
+        "timestamp": 1792466492835,
+        "frame": {
+          "startedAt": 10321.100000023842,
+          "queuedAt": 10397.700000017881,
+          "nominalAt": 10299.1,
+          "callbackAt": 10398.5
+        }
+      },
+      {
+        "name": "launcher-visible",
+        "durationMs": 90.59999999403954,
+        "timestamp": 1792466492848,
+        "frame": {
+          "startedAt": 10321.100000023842,
+          "queuedAt": 10409,
+          "nominalAt": 10399.1,
+          "callbackAt": 10411.700000017881
+        }
+      },
+      {
+        "name": "input-response",
+        "durationMs": 0,
+        "timestamp": 1792466492969
+      },
+      {
+        "name": "input-next-frame",
+        "durationMs": 272.40000000596046,
+        "timestamp": 1792466493241
+      }
+    ],
+    "browserLongTasks": [
+      189
+    ],
+    "logs": [],
+    "reactCommits": [
+      22.700000017881393,
+      1.7000000178813934,
+      0,
+      0.09999999403953552,
+      1.199999988079071,
+      0.09999999403953552,
+      68,
+      3.2000000178813934,
+      6.5999999940395355,
+      0.19999998807907104,
+      20.400000005960464,
+      28.400000005960464,
+      5.100000023841858
+    ],
+    "reactCommitMs": 5.100000023841858
+  }
+}

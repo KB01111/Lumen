@@ -44,6 +44,7 @@
     "targets": "nsis",
     "externalBin": ["binaries/agentgateway", "binaries/cliproxy-sidecar", "binaries/lumen-enrichment", "binaries/lumen-rivet-engine", "binaries/lumen-computer-use"],
     "resources": {
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
       "resources/rivet-engine/THIRD-PARTY-NOTICES.txt": "rivet-engine/THIRD-PARTY-NOTICES.txt",
       "binaries/vector.dll": "vector.dll",
       "binaries/windows-ai/": "windows-ai/",

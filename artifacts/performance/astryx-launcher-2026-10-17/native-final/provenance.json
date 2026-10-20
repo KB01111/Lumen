@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-10-20T02:53:55.161Z",
+  "executable": "D:/CodexBuilds/Lumen/astryx-launcher-refinement/target/debug/lumen.exe",
+  "executableSha256": "7a9ad10a2fc3a2da8906f3c061d92bad65bc24eb30ad6ab0e9ee115db937592d",
+  "gitSha": "3b60ba43104ec7c450423c13db4bc5ee06662e68",
+  "sourceDirty": "M .gitattributes\n M AGENTS.md\n M THIRD_PARTY_NOTICES.md\n M artifacts/performance/interaction-trace.zip\n M artifacts/performance/profile-summary.json\n M bun.lock\n M docs/architecture/design-system.md\n M docs/architecture/management-surfaces.md\n M docs/architecture/motion-system.md\n M package.json\n A patches/keyborg@2.14.1.patch\n M playwright.performance.config.ts\n A scripts/generate-astryx-theme.mjs\n M scripts/native-performance-profile.mjs\n M scripts/record-interactions.mjs\n M src-tauri/Cargo.toml\n M src-tauri/tauri.conf.json\n M src/app/AppProviders.test.tsx\n M src/app/AppProviders.tsx\n A src/design-system/fluent-theme.ts\n M src/design-system/global.css\n A src/design-system/integrations/astryx/AgentActivityHistory.tsx\n A src/design-system/integrations/astryx/LumenAgentActivity.test.tsx\n A src/design-system/integrations/astryx/LumenAgentActivity.tsx\n A src/design-system/integrations/astryx/README.md\n A src/design-system/integrations/astryx/styles.css\n A src/design-system/integrations/astryx/theme.css\n A src/design-system/integrations/openai/AiStatusBadge.tsx\n M src/design-system/motion.ts\n M src/features/answer/AnswerPanel.tsx\n M src/features/answer/RuntimeModeSwitch.tsx\n A src/features/computer-use/AgentActivity.tsx\n M src/features/computer-use/ComputerUsePanel.tsx\n M src/features/gallery/VisualStateGallery.tsx\n A src/features/gateway/ProviderRegistryList.test.tsx\n M src/features/gateway/ProviderRegistryList.tsx\n M src/features/keyboard/useLumenKeyboard.test.tsx\n M src/features/keyboard/useLumenKeyboard.ts\n M src/features/launcher/CollapsedLauncher.test.tsx\n M src/features/launcher/CollapsedLauncher.tsx\n M src/features/launcher/ContextActions.performance.test.tsx\n M src/features/launcher/ContextActions.tsx\n M src/features/launcher/ExpandedWorkspace.test.tsx\n M src/features/launcher/ExpandedWorkspace.tsx\n M src/features/launcher/FilterChips.tsx\n M src/features/launcher/LauncherStatus.tsx\n M src/features/launcher/ScopeRail.tsx\n M src/features/launcher/SearchExperience.test.tsx\n M src/features/launcher/SearchExperience.tsx\n M src/features/launcher/SearchInput.test.tsx\n M src/features/launcher/SearchInput.tsx\n M src/features/preview/PreviewPane.tsx\n M src/features/results/ResultGrid.test.tsx\n M src/features/results/ResultGrid.tsx\n M src/features/results/ResultRow.tsx\n M src/features/settings/components/AddProviderDialog.tsx\n M src/features/settings/components/EditProviderDialog.tsx\n M src/features/settings/components/ProviderDialogs.test.tsx\n M src/main.tsx\n M tests/e2e/computer-use-keyboard.spec.ts\n M tests/e2e/design-refinement.spec.ts\n M tests/e2e/dpi-responsive.spec.ts\n M tests/e2e/performance.spec.ts\n M tests/e2e/search-experience.spec.ts\n A tests/e2e/unified-ui.spec.ts\n?? artifacts/performance/astryx-launcher-2026-10-17/\n?? docs/reports/2026-10-17-astryx-launcher-refinement.md\n?? docs/superpowers/plans/2026-10-17-astryx-launcher-refinement.md\n?? docs/superpowers/plans/2026-10-17-unified-ui-integration.md",
+  "trackedDiffSha256": "4c93c093fa920eeeed7ad89455cff6abf3b813c6b0cefd199681eba25b1e16fc",
+  "sourceHashes": {
+    "scripts/native-performance-profile.mjs": "7107c3c787928e6fb86f5aa9c37eead91af360ce05e76380ec208844074819b7",
+    "scripts/native-performance.html": "dd355e5cf283f8d1d4604013d3afd81352f3a12f98f9609a25f62aabfeaa1572",
+    "src-tauri/src/lib.rs": "2bfccb039fd1e0f1adf6e92d061017e284d12e21a465ae0d4abb41bf804f03c2",
+    "src-tauri/src/window.rs": "13ac34064173e1359815d80fedfc480211dca3c5d3cfe1ab3b1602aa5cf92d6a",
+    "src-tauri/src/native_performance.rs": "c58f79b4404ff017757229f7d8803ac17823aefbdddc95baf357769155b8cce0",
+    "src-tauri/src/native_performance_root.rs": "cc8e7da8ac08a97cc56942da454afbbedce91721da9dae050c3573c21cbde167",
+    "src/test/NativePerformanceFixture.tsx": "60470703cc9efacfce786bfa36ca77196122e731538063676611e48c4e8ffb8a",
+    "src/test/native-performance.tsx": "4b96e92e9aa03b05ded446379c36630c88f9acfa58fa7cbf95a87d44cc7fa68d",
+    "src/features/launcher/ContextActions.tsx": "1cdb4ac1bfec3759bd28a88087f3bd3f61b2286a2e9778c1365fed129ffc01c3",
+    "src/features/launcher/ScopeRail.tsx": "7f68c170480f3262842e32a7d2a4c5d2adf0ed235b1fd3c98dbf87f441b1fbc4",
+    "src/features/launcher/semantic-search-context.ts": "b94827781a5662bc0609e0e889126163f34bbc11a17bda5536443660a0f48b54",
+    "src/services/search/semantic-search-service.ts": "1eb5c531757c93dbb7cc66ddc9b4eb9cf7a0c1168649cc1de31e5bffd3f501f4"
+  },
+  "root": "C:\\Users\\kevin\\AppData\\Local\\Temp\\lumen-native-performance-QaBHB7",
+  "physicalDisplays": [
+    {
+      "Name": "USB Mobile Monitor Virtual Display",
+      "CurrentHorizontalResolution": null,
+      "CurrentVerticalResolution": null,
+      "CurrentRefreshRate": null,
+      "DriverVersion": "2.0.0.1"
+    },
+    {
+      "Name": "AMD Radeon(TM) 890M Graphics",
+      "CurrentHorizontalResolution": 2560,
+      "CurrentVerticalResolution": 1600,
+      "CurrentRefreshRate": 240,
+      "DriverVersion": "32.0.31041.1004"
+    }
+  ]
+}

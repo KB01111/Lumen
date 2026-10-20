@@ -21,7 +21,7 @@ export function LauncherStatus({label = 'Ready', searching = false}: LauncherSta
       aria-live="polite"
       data-activity-compact={activityActive || undefined}
       data-testid={activityActive ? 'launcher-activity' : undefined}
-      className="inline-flex shrink-0 items-center gap-1.5"
+      className="inline-flex min-w-0 items-center gap-1.5"
     >
       <ActivityIndicator
         active={active}
@@ -29,7 +29,7 @@ export function LauncherStatus({label = 'Ready', searching = false}: LauncherSta
         reducedMotion={reducedMotion}
         tone={activityActive ? 'warning' : 'success'}
       />
-      <span className="text-xs text-[color:var(--einui-command-muted-text)]">
+      <span className="min-w-0 truncate text-xs text-[color:var(--einui-command-muted-text)]">
         {activityActive ? activityLabel : label}
       </span>
     </output>

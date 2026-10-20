@@ -1,0 +1,20 @@
+import {mkdir,writeFile} from 'node:fs/promises';
+import {chromium} from 'playwright';
+import {withLumenDevServer} from '../scripts/lib/lumen-dev-server.mjs';
+const output='artifacts/native/astryx-launcher-2026-10-20/final-browser-preview';
+await mkdir(output,{recursive:true});
+await withLumenDevServer(async url=>{
+ const browser=await chromium.launch({channel:'msedge',headless:true});
+ try {
+  const page=await browser.newPage({viewport:{width:800,height:540},reducedMotion:'reduce'});
+  const evidence=[];
+  for(const scenario of ['collapsed-idle','expanded-results']){
+   await page.goto(`${url}/?gallery=1&scenario=${scenario}&capture=1&theme=dark`);
+   const surface=page.locator('[data-einui-layer="surface"]');await surface.waitFor();
+   if(scenario==='expanded-results')await page.getByRole('grid',{name:'Search results'}).waitFor();
+   await page.screenshot({path:`${output}/${scenario}.png`,omitBackground:true});
+   evidence.push({scenario,paint:await page.evaluate(()=>({documentScheme:getComputedStyle(document.documentElement).colorScheme,providerScheme:getComputedStyle(document.querySelector('[role=application]')).colorScheme,providerBackground:getComputedStyle(document.querySelector('[role=application]')).backgroundColor,surface:getComputedStyle(document.querySelector('[data-einui-layer=surface]')).backgroundColor}))});
+  }
+  await writeFile(`${output}/manifest.json`,JSON.stringify({generatedAt:new Date().toISOString(),boundary:'Browser fixture preview, not native compositor acceptance',browser:browser.version(),evidence},null,2));
+ }finally{await browser.close();}
+});

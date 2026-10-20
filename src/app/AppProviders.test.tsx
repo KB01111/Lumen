@@ -38,6 +38,7 @@ function renderAppearance(
 }
 
 function expectApplicationRoot(root: HTMLElement) {
+  expect(root).toHaveClass('fui-FluentProvider');
   expect(root).toHaveClass('h-full', 'w-full', 'bg-transparent', 'font-sans', 'text-text-primary');
 }
 

@@ -1,8 +1,8 @@
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
-import {LumenButton} from '../../design-system/primitives/LumenButton';
+import {Button, Checkbox, Select} from '@fluentui/react-components';
 import {LumenText} from '../../design-system/primitives/LumenText';
-import {LumenCheckbox, LumenSelect} from '../settings/components/SettingsControls';
 import type {ComputerUseController} from './useComputerUseController';
+import {AgentActivity} from './AgentActivity';
 
 function phaseLabel(controller: ComputerUseController) {
   switch (controller.phase) {
@@ -57,9 +57,11 @@ export function ComputerUsePanel({
             {controller.simulated ? 'This preview simulates progress and approvals. It sends no native input or provider requests.' : `Lumen sends task and selected-target observations to ${providerLabel} with your separate consent. Background refuses unsupported actions; Fast asks before foreground input.`}
           </LumenText>
           {!active ? <>
-            <LumenSelect aria-label="Computer Use target" options={targetOptions} value={selectedTargetId} onChange={controller.selectTarget} />
-            <LumenButton size="small" variant="quiet" onPress={() => void controller.refreshHealth()}>Refresh targets</LumenButton>
-            {controller.target?.kind === 'browser' ? <LumenCheckbox isDisabled={controller.executionMode === 'background' && !controller.target.visible} isSelected={controller.target.visible ?? false} onChange={controller.setVisibleBrowser}>Request visible browser (Fast only)</LumenCheckbox> : null}
+            <Select aria-label="Computer Use target" className="min-w-0 w-full max-w-[300px]" value={selectedTargetId} onChange={(event) => controller.selectTarget(event.target.value)}>
+              {targetOptions.map((target) => <option key={target.id} value={target.id}>{target.label}</option>)}
+            </Select>
+            <Button data-launcher-control size="small" appearance="subtle" onClick={() => void controller.refreshHealth()}>Refresh targets</Button>
+            {controller.target?.kind === 'browser' ? <Checkbox disabled={controller.executionMode === 'background' && !controller.target.visible} checked={controller.target.visible ?? false} label="Request visible browser (Fast only)" onChange={(_event, data) => controller.setVisibleBrowser(data.checked === true)} /> : null}
           </> : null}
         </div>
         {controller.task ? (
@@ -84,12 +86,12 @@ export function ComputerUsePanel({
             <LumenText weight="semibold">{controller.approval.scope === 'foreground' ? 'Allow one foreground action?' : controller.approval.scope === 'visibleBrowser' ? 'Allow visible browser launch?' : `${providerLabel} needs your approval`}</LumenText>
             <LumenText tone="secondary">{controller.approval.explanation}</LumenText>
             <div className="flex min-w-0 flex-wrap items-center gap-[8px]">
-              <LumenButton variant="primary" onPress={() => void controller.approve()}>
+              <Button data-launcher-control appearance="primary" onClick={() => void controller.approve()}>
                 <LumenUiIcon name="success" size="small" /> Approve once
-              </LumenButton>
-              <LumenButton variant="quiet" onPress={() => void controller.deny()}>
+              </Button>
+              <Button data-launcher-control appearance="subtle" onClick={() => void controller.deny()}>
                 <LumenUiIcon name="close" size="small" /> Deny and stop
-              </LumenButton>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -106,14 +108,7 @@ export function ComputerUsePanel({
           </div>
         ) : null}
         {controller.activity.length > 0 ? (
-          <ul aria-label="Computer Use activity" className="m-0 grid min-w-0 list-none gap-[8px] p-0">
-            {controller.activity.map((item) => (
-              <li key={item.id} className="flex min-w-0 items-center gap-[12px]">
-                <span aria-hidden="true" className={['size-1.5 shrink-0 rounded-pill', item.tone === 'accent' ? 'bg-accent' : item.tone === 'success' ? 'bg-success' : 'bg-text-tertiary'].join(' ')} />
-                <LumenText tone="secondary" variant="meta">{item.label}</LumenText>
-              </li>
-            ))}
-          </ul>
+          <AgentActivity phase={controller.phase} activity={controller.activity} />
         ) : null}
       </div>
       <footer className="flex min-w-0 flex-wrap items-center justify-between gap-[8px] border-t border-border-subtle px-[16px] py-[10px]">
@@ -122,21 +117,21 @@ export function ComputerUsePanel({
         </LumenText>
         <div className="flex min-w-0 flex-wrap items-center gap-[8px]">
           {!setupReady && !active ? (
-            <LumenButton size="small" variant="quiet" onPress={onOpenSettings}>
+            <Button data-launcher-control size="small" appearance="subtle" onClick={onOpenSettings}>
               <LumenUiIcon name="settings" size="small" /> Open settings
-            </LumenButton>
+            </Button>
           ) : null}
           {active ? (
             <>
-            <LumenButton size="small" variant="quiet" onPress={controller.stop}>
+            <Button data-launcher-control size="small" appearance="subtle" onClick={controller.stop}>
               <LumenUiIcon name="stop" size="small" /> Stop
-            </LumenButton>
-            <LumenButton size="small" variant="quiet" onPress={controller.takeOver}>Take Over</LumenButton>
+            </Button>
+            <Button data-launcher-control size="small" appearance="subtle" onClick={controller.takeOver}>Take Over</Button>
             </>
           ) : (
-            <LumenButton isDisabled={!setupReady || !draftTask.trim()} size="small" variant="primary" onPress={onStart}>
+            <Button data-launcher-control disabled={!setupReady || !draftTask.trim()} size="small" appearance="primary" onClick={onStart}>
               <LumenUiIcon name="computer" size="small" /> {windowTarget ? 'Run in selected window' : 'Run in Edge'}
-            </LumenButton>
+            </Button>
           )}
         </div>
       </footer>

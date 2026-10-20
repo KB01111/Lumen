@@ -1,5 +1,29 @@
 # Third-Party Notices
 
+## UI component packages
+
+- Microsoft Fluent UI React v9 (`@fluentui/react-components` 9.74.9): MIT, Microsoft Corporation. [Source and license](https://github.com/microsoft/fluentui/blob/master/LICENSE). Used for Windows interaction controls and the semantic theme contract; no legacy v8 package is introduced.
+- Meta Astryx (`@astryxdesign/core` 0.7.1 and development CLI 0.7.1): MIT, Meta Platforms, Inc. and affiliates. [Source and license](https://github.com/facebook/astryx/blob/main/LICENSE). Lumen uses the published precompiled components/CSS and public theme generator; generated theme artifacts retain their provenance. Upstream notices remain in the installed distribution.
+- OpenAI Apps SDK UI (`@openai/apps-sdk-ui` 0.2.2): MIT, OpenAI. [Source and license](https://github.com/openai/apps-sdk-ui/blob/main/LICENSE). Reused for interface icons and passive AI status presentation. Its aggregate global stylesheet and Markdown renderer are not imported.
+
+The narrow Keyborg 2.14.1 compatibility patch preserves the existing upstream package and license. It restores native focus through property descriptors so getter-based test instrumentation and library cleanup interoperate; it does not replace keyboard behavior.
+
+### MIT permission notice for the UI packages above
+
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+Copyright (c) 2026 Meta Platforms, Inc.
+
+Copyright 2025 OpenAI.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Fluent UI's additional notice: usage of referenced fonts and icons is subject to the terms at https://aka.ms/fluentui-assets-license. Lumen references installed Segoe fonts; it does not redistribute those font files.
+
 ## sqlite-vector
 
 - Project: sqlite-vector

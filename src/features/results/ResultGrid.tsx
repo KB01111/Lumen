@@ -63,22 +63,24 @@ export function ResultGrid({
   const enteredResults = useRef<readonly SearchResult[] | null>(null);
   useEffect(() => {
     if (!animateRows || enteredResults.current === results) return;
-    const animations: Animation[] = [];
+    let animation: Animation | undefined;
     const frame = requestAnimationFrame(() => {
       enteredResults.current = results;
       if (document.visibilityState === 'hidden' || !useLauncherStore.getState().visible) return;
-      const {duration, stagger, maxStaggered, reducedDuration} = motionTokens.rowEntrance;
-      const rows = [...(gridRef.current?.querySelectorAll<HTMLElement>('[data-result-id]') ?? [])];
-      for (const [index, row] of rows.slice(0, maxStaggered).entries()) {
-        if (typeof row.animate !== 'function') continue;
-        animations.push(row.animate([{opacity: 0}, {opacity: 1}], {
-          delay: reducedMotion ? 0 : index * stagger * 1000,
+      const {duration, reducedDuration} = motionTokens.rowEntrance;
+      const grid = gridRef.current;
+      if (typeof grid?.animate === 'function') {
+        animation = grid.animate([{opacity: 0}, {opacity: 1}], {
           duration: (reducedMotion ? reducedDuration : duration) * 1000,
           easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards',
-        }));
+        });
       }
     });
-    const stop = () => { for (const animation of animations) animation.cancel(); };
+    const stop = () => {
+      cancelAnimationFrame(frame);
+      animation?.cancel();
+      animation = undefined;
+    };
     const onVisibility = () => { if (document.visibilityState === 'hidden' || !useLauncherStore.getState().visible) stop(); };
     document.addEventListener('visibilitychange', onVisibility);
     const unsubscribeVisibility = useLauncherStore.subscribe((state) => state.visible, onVisibility);

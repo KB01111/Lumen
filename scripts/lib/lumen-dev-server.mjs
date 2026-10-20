@@ -1,10 +1,12 @@
-import {execFileSync, spawn} from 'node:child_process';
-import {Buffer} from 'node:buffer';
+import {spawn} from 'node:child_process';
+import {randomUUID} from 'node:crypto';
 import {once} from 'node:events';
+import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const defaultUrl = 'http://127.0.0.1:1420';
 const viteCli = fileURLToPath(new URL('../../node_modules/vite/bin/vite.js', import.meta.url));
+const ownedVite = fileURLToPath(new URL('./lumen-owned-vite.mjs', import.meta.url));
 
 async function isReady(url) {
   try {
@@ -15,34 +17,34 @@ async function isReady(url) {
   }
 }
 
-function ownsListener(url, child, remainingMs) {
-  const port = new URL(url).port || '80';
-  const source = `$ProgressPreference='SilentlyContinue'; @(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction Stop | Select-Object -ExpandProperty OwningProcess) | ConvertTo-Json`;
-  try {
-    const output = execFileSync('powershell.exe', ['-NoProfile', '-EncodedCommand', Buffer.from(source, 'utf16le').toString('base64')], {encoding: 'utf8', windowsHide: true, timeout: Math.max(1, remainingMs)});
-    const owners = [JSON.parse(output)].flat();
-    return owners.length > 0 && owners.every((pid) => pid === child.pid);
-  } catch {
-    return false;
-  }
+export function isOwnedServerReceipt(receipt, expected) {
+  return typeof receipt === 'object' && receipt !== null &&
+    receipt.type === 'lumen-owned-vite-ready' && receipt.pid === expected.pid &&
+    receipt.token === expected.token && receipt.root === expected.root &&
+    receipt.host === expected.host && receipt.address === expected.host &&
+    receipt.port === expected.port && receipt.listening === true;
+}
+
+export function isDevServerRunning(child, owned) {
+  return child.exitCode === null && child.signalCode === null && (!owned || child.connected);
 }
 
 async function waitUntilReady(url, child, reuseExistingServer, hasStarted) {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    if (!reuseExistingServer && child.exitCode !== null) {
-      throw new Error(`Lumen development server exited with code ${child.exitCode}.`);
+    if (!reuseExistingServer && !isDevServerRunning(child, true)) {
+      throw new Error(`Lumen development server stopped (${child.exitCode ?? child.signalCode ?? 'lost its IPC channel'}).`);
     }
     if (await isReady(url)) {
       if (reuseExistingServer) return;
       // HTTP readiness alone can come from a competing checkout before Vite binds.
       if (hasStarted()) {
-        if (!ownsListener(url, child, deadline - Date.now()) || child.exitCode !== null || Date.now() >= deadline) throw new Error('Lumen development server listener is not owned by the spawned child within the startup deadline.');
+        if (!isDevServerRunning(child, true) || Date.now() >= deadline) throw new Error('Lumen development server listener is not owned by the spawned child within the startup deadline.');
         return;
       }
     }
-    if (child.exitCode !== null) {
-      throw new Error(`Lumen development server exited with code ${child.exitCode}.`);
+    if (!isDevServerRunning(child, !reuseExistingServer)) {
+      throw new Error(`Lumen development server stopped (${child.exitCode ?? child.signalCode ?? 'lost its IPC channel'}).`);
     }
     await new Promise((resolve) => setTimeout(resolve, 150));
   }
@@ -58,29 +60,39 @@ async function stopDevelopmentServer(child) {
 
 export async function withLumenDevServer(task, url = defaultUrl, {reuseExistingServer = true} = {}) {
   if (!reuseExistingServer && process.platform !== 'win32') throw new Error('Owned Lumen server verification requires Windows.');
+  const target = new URL(url);
+  if (!reuseExistingServer && (target.protocol !== 'http:' || target.hostname !== '127.0.0.1' || !target.port)) throw new Error('Owned Lumen server requires an explicit loopback HTTP port.');
   if (await isReady(url)) {
     if (!reuseExistingServer) throw new Error('Lumen development server is already ready; owned startup required.');
     return task(url);
   }
 
-  const target = new URL(url);
+  const token = randomUUID();
+  const root = resolve(process.cwd());
   const child = spawn(
     process.execPath,
-    [
+    reuseExistingServer ? [
       viteCli,
       '--host',
       target.hostname,
       '--port',
       target.port,
       '--strictPort',
-    ],
+    ] : [ownedVite, target.hostname, target.port, token],
     {
       cwd: process.cwd(),
       env: {...process.env, NO_COLOR: '1'},
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: reuseExistingServer ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe', 'ipc'],
       windowsHide: true,
     },
   );
+
+  let ownership;
+  if (!reuseExistingServer) child.on('message', (receipt) => {
+    if (isOwnedServerReceipt(receipt, {pid: child.pid, root, host: target.hostname, port: Number(target.port), token})) ownership = receipt;
+  });
+  child.on('exit', () => { ownership = undefined; });
+  child.on('disconnect', () => { ownership = undefined; });
 
   let serverOutput = '';
   const rememberOutput = (chunk) => {
@@ -90,8 +102,8 @@ export async function withLumenDevServer(task, url = defaultUrl, {reuseExistingS
   child.stderr.on('data', rememberOutput);
 
   try {
-    await waitUntilReady(url, child, reuseExistingServer, () => /VITE[^\n]*ready in/.test(serverOutput) && serverOutput.includes(`${url}/`));
-    return await task(url);
+    await waitUntilReady(url, child, reuseExistingServer, () => ownership !== undefined);
+    return await task(url, ownership);
   } catch (error) {
     if (serverOutput) process.stderr.write(serverOutput);
     throw error;

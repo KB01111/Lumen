@@ -1,0 +1,387 @@
+{
+  "generatedAt": "2026-10-20T02:57:04.994Z",
+  "pid": 155764,
+  "address": {
+    "address": "127.0.0.1",
+    "family": "IPv4",
+    "port": 1420
+  },
+  "samples": [
+    {
+      "at": "2026-10-20T02:57:09.084Z",
+      "byPort": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        }
+      ],
+      "byOwner": [
+        {
+          "LocalAddress": "0.0.0.0",
+          "LocalPort": 10562,
+          "State": null,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 10562,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        }
+      ],
+      "cim": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        }
+      ],
+      "unfiltered": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        }
+      ],
+      "netstat": [
+        "  TCP    127.0.0.1:1420         127.0.0.1:10562        ESTABLISHED     155764",
+        "  TCP    127.0.0.1:10562        127.0.0.1:1420         ESTABLISHED     155764"
+      ]
+    },
+    {
+      "at": "2026-10-20T02:57:14.969Z",
+      "byPort": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        }
+      ],
+      "byOwner": [
+        {
+          "LocalAddress": "0.0.0.0",
+          "LocalPort": 4656,
+          "State": null,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 4656,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        }
+      ],
+      "cim": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        }
+      ],
+      "unfiltered": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        }
+      ],
+      "netstat": [
+        "  TCP    127.0.0.1:1420         127.0.0.1:4656         ESTABLISHED     155764",
+        "  TCP    127.0.0.1:1420         127.0.0.1:10562        TIME_WAIT       0",
+        "  TCP    127.0.0.1:4656         127.0.0.1:1420         ESTABLISHED     155764"
+      ]
+    },
+    {
+      "at": "2026-10-20T02:57:21.738Z",
+      "byPort": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        }
+      ],
+      "byOwner": [
+        {
+          "LocalAddress": "0.0.0.0",
+          "LocalPort": 4656,
+          "State": 6,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 4656,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        }
+      ],
+      "cim": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        }
+      ],
+      "unfiltered": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        }
+      ],
+      "netstat": [
+        "  TCP    127.0.0.1:1420         127.0.0.1:4656         ESTABLISHED     155764",
+        "  TCP    127.0.0.1:1420         127.0.0.1:10562        TIME_WAIT       0",
+        "  TCP    127.0.0.1:4656         127.0.0.1:1420         ESTABLISHED     155764"
+      ]
+    },
+    {
+      "at": "2026-10-20T02:57:28.335Z",
+      "byPort": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        }
+      ],
+      "byOwner": [
+        {
+          "LocalAddress": "0.0.0.0",
+          "LocalPort": 7617,
+          "State": 6,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 7617,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        }
+      ],
+      "cim": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        }
+      ],
+      "unfiltered": [
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": null,
+          "OwningProcess": 155764
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 11,
+          "OwningProcess": 0
+        },
+        {
+          "LocalAddress": "127.0.0.1",
+          "LocalPort": 1420,
+          "State": 5,
+          "OwningProcess": 155764
+        }
+      ],
+      "netstat": [
+        "  TCP    127.0.0.1:1420         127.0.0.1:4656         TIME_WAIT       0",
+        "  TCP    127.0.0.1:1420         127.0.0.1:7617         ESTABLISHED     155764",
+        "  TCP    127.0.0.1:1420         127.0.0.1:10562        TIME_WAIT       0",
+        "  TCP    127.0.0.1:7617         127.0.0.1:1420         ESTABLISHED     155764"
+      ]
+    }
+  ]
+}

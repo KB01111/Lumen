@@ -1,0 +1,10 @@
+{
+  "generatedAt": "2026-10-20T02:53:50.939Z",
+  "identicalMeasuredBundle": true,
+  "startupSampleCounts": {
+    "baseline": 20,
+    "final": 20
+  },
+  "agentContextSha256": "1d8a0c28d1161ca92bc8be1058bc20217a3f2c000a5952cdb18bcc9350494ac7",
+  "nativeAndServiceBoundariesUnchanged": true
+}
