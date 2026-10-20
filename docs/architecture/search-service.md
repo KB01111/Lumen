@@ -134,6 +134,13 @@ status. Normal `SearchService` queries still use the existing SQLite adapter;
 search streaming, current folder-policy forwarding, identity migration,
 previews/actions/answers and the single-index cutover remain pending.
 
+The pinned client and payload now use WinSearch source `d4f1448` and its verified
+optimized CPU runtime. The actual two-profile owned test requires database
+identity, per-folder policy and bounded search-total capabilities, distinct
+profile IDs and the existing PID/Stop checks. See the
+[release-pin evidence](../reports/2026-10-20-winsearch-release-pin.md) for exact
+scope, hashes and remaining consumer/installed gates.
+
 Startup verifies the payload manifest against the independent build-time hash,
 checks every declared file's SHA-256/length and rejects unexpected files or
 unsafe paths. Rust checks reparse ancestors, opens payload handles without

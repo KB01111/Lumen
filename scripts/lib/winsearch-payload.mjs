@@ -4,7 +4,7 @@ import {lstat, readdir, readFile} from 'node:fs/promises';
 import {dirname, join, resolve} from 'node:path';
 import {TextDecoder} from 'node:util';
 
-export const ENGINE_COMMIT = 'de3d18645dca3a47e4e5bbb6167c3165b7678093';
+export const ENGINE_COMMIT = 'd4f1448068d93d51120f7ec1e2a17395f88089f7';
 export const TARGET = 'x86_64-pc-windows-msvc';
 export const REQUIRED_FILES = [
   'winsearchd.exe', 'winsearch-embed.exe', 'winsearch-extract.exe',

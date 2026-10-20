@@ -14,7 +14,7 @@ use std::{
     },
 };
 
-const ENGINE_COMMIT: &str = "de3d18645dca3a47e4e5bbb6167c3165b7678093";
+const ENGINE_COMMIT: &str = "d4f1448068d93d51120f7ec1e2a17395f88089f7";
 
 fn unavailable() -> SearchFailure {
     SearchFailure::new(

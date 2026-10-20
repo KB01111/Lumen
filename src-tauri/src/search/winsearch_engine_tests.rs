@@ -104,6 +104,27 @@ fn engine_native_owned_profiles_authenticate_and_stop_independently() {
         );
         let owner = a.process.lock().unwrap().as_ref().unwrap().clone();
         let other = b.process.lock().unwrap().as_ref().unwrap().clone();
+        for process in [&owner, &other] {
+            let info = process.client.info().await.unwrap();
+            for capability in ["index.identity", "index.root_policies", "search.limits"] {
+                assert!(
+                    info.supports(capability),
+                    "missing engine capability: {capability}"
+                );
+            }
+        }
+        let a_status = serde_json::to_value(owner.client.status().await.unwrap()).unwrap();
+        let b_status = serde_json::to_value(other.client.status().await.unwrap()).unwrap();
+        for status in [&a_status, &b_status] {
+            let identity = status["index_id"].as_str().expect("durable index identity");
+            assert_eq!(identity.len(), 32);
+            assert!(
+                identity
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            );
+        }
+        assert_ne!(a_status["index_id"], b_status["index_id"]);
         let owner_pid = owner.child.lock().unwrap().id();
         let other_pid = other.child.lock().unwrap().id();
         assert_ne!(owner_pid, other_pid);
