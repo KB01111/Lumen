@@ -140,6 +140,7 @@ impl Harness2Generator {
     }
 }
 
+#[cfg(test)]
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeneratorDescriptor {
@@ -147,6 +148,7 @@ pub struct GeneratorDescriptor {
     pub state: &'static str,
     pub manifest_version: u32,
 }
+#[cfg(test)]
 pub fn descriptors() -> Vec<GeneratorDescriptor> {
     vec![
         GeneratorDescriptor {

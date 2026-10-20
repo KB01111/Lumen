@@ -58,6 +58,7 @@ async fn native_memory_requires_explicit_review_and_is_shared_by_harnesses() {
     let review = core.review_native(content("project-a")).unwrap();
     assert!(retrieve(&pi).await.memories.is_empty());
     core.approve(&review.review_id, RetentionPolicy::Days { days: 30 })
+        .await
         .unwrap();
     assert_eq!(retrieve(&pi).await.memories, retrieve(&deep).await.memories);
     assert_eq!(retrieve(&pi).await.memories.len(), 1);
@@ -103,6 +104,7 @@ async fn external_records_are_disabled_by_default_and_approval_is_content_bound(
         .await
         .unwrap();
     core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+        .await
         .unwrap();
     let core = Arc::new(core);
     let session = reader(&core, "project-a", vec!["fixture".into()]);
@@ -126,9 +128,11 @@ async fn expiry_provider_failures_and_cancellation_do_not_grant_access() {
     let review = core.review_native(content("project-a")).unwrap();
     assert!(
         core.approve(&review.review_id, RetentionPolicy::Days { days: 0 })
+            .await
             .is_err()
     );
     core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+        .await
         .unwrap();
     let session = reader(
         &core,
@@ -175,9 +179,11 @@ async fn session_scope_is_exact_and_review_handles_are_one_time() {
     record.scope.session_id = Some("session-1".into());
     let review = core.review_native(record.clone()).unwrap();
     core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+        .await
         .unwrap();
     assert_eq!(
         core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+            .await
             .unwrap_err(),
         MemoryError::ApprovalRequired
     );
@@ -207,6 +213,7 @@ async fn approval_and_provider_configuration_survive_database_reopen() {
         let core = MemoryCore::open(&path).unwrap();
         let review = core.review_native(content("project-a")).unwrap();
         core.approve(&review.review_id, RetentionPolicy::Days { days: 30 })
+            .await
             .unwrap();
         core.set_provider_enabled(NATIVE_PROVIDER, false).unwrap();
     }
@@ -257,7 +264,7 @@ impl MemoryProvider for PausingProvider {
 
 #[tokio::test]
 async fn deletion_or_disable_during_provider_io_prevents_publication() {
-    for disable in [false, true] {
+    for action in ["delete", "disable", "disable-reenable"] {
         let provider = Arc::new(PausingProvider {
             pause: false.into(),
             entered: tokio::sync::Notify::new(),
@@ -276,6 +283,7 @@ async fn deletion_or_disable_during_provider_io_prevents_publication() {
             .await
             .unwrap();
         core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+            .await
             .unwrap();
         let core = Arc::new(core);
         let reader = reader(&core, "project-a", vec!["pausing".into()]);
@@ -284,8 +292,11 @@ async fn deletion_or_disable_during_provider_io_prevents_publication() {
             .store(true, std::sync::atomic::Ordering::SeqCst);
         let (result, ()) = tokio::join!(retrieve(&reader), async {
             provider.entered.notified().await;
-            if disable {
+            if action != "delete" {
                 core.set_provider_enabled("pausing", false).unwrap();
+                if action == "disable-reenable" {
+                    core.set_provider_enabled("pausing", true).unwrap();
+                }
             } else {
                 core.forget("pausing", &scope("project-a"), "memory-1")
                     .unwrap();
@@ -294,6 +305,237 @@ async fn deletion_or_disable_during_provider_io_prevents_publication() {
         });
         assert!(result.memories.is_empty());
     }
+}
+
+#[tokio::test]
+async fn unicode_case_variants_match_approved_substrings() {
+    let core = Arc::new(MemoryCore::in_memory().unwrap());
+    let review = core
+        .review_native(MemoryRecord {
+            content: "Ångström CAFÉ Résumé".into(),
+            ..content("project-a")
+        })
+        .unwrap();
+    core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+        .await
+        .unwrap();
+    let session = reader(&core, "project-a", vec![NATIVE_PROVIDER.into()]);
+    for text in ["ångström", "café", "RÉSUMÉ"] {
+        let result = session
+            .retrieve(
+                MemoryQuery {
+                    text: text.into(),
+                    limit: 1,
+                },
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(result.memories.len(), 1, "query: {text}");
+    }
+}
+
+struct RecordsProvider(Arc<Mutex<Vec<MemoryRecord>>>);
+impl MemoryProvider for RecordsProvider {
+    fn id(&self) -> &str {
+        "records"
+    }
+    fn retrieve(&self, request: ProviderRequest, _cancel: CancellationToken) -> ProviderFuture<'_> {
+        assert!(request.source_ids.len() <= 20);
+        let records = self
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|record| request.source_ids.contains(&record.source_id))
+            .cloned()
+            .collect();
+        Box::pin(async move { Ok(records) })
+    }
+}
+
+#[tokio::test]
+async fn external_approval_rejects_content_changed_since_review() {
+    for malformed in [false, true] {
+        let mut core = MemoryCore::in_memory().unwrap();
+        let record = Arc::new(Mutex::new(content("project-a")));
+        core.register_provider(Arc::new(FixtureProvider(record.clone())))
+            .unwrap();
+        core.set_provider_enabled("fixture", true).unwrap();
+        let review = core
+            .review_provider(
+                "fixture",
+                scope("project-a"),
+                "memory-1",
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        if malformed {
+            record.lock().unwrap().content = "invalid\0content".into();
+        } else {
+            record.lock().unwrap().provenance.revision = "changed".into();
+        }
+        assert_eq!(
+            core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+                .await
+                .unwrap_err(),
+            if malformed {
+                MemoryError::Invalid
+            } else {
+                MemoryError::ApprovalRequired
+            }
+        );
+        *record.lock().unwrap() = content("project-a");
+        assert_eq!(
+            core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+                .await
+                .unwrap_err(),
+            MemoryError::ApprovalRequired
+        );
+    }
+}
+
+#[tokio::test]
+async fn deletion_or_disable_reenable_revokes_in_flight_reviews_and_approvals() {
+    for (approve, delete) in [(false, false), (true, false), (false, true), (true, true)] {
+        let provider = Arc::new(PausingProvider {
+            pause: false.into(),
+            entered: tokio::sync::Notify::new(),
+            release: tokio::sync::Notify::new(),
+        });
+        let mut core = MemoryCore::in_memory().unwrap();
+        core.register_provider(provider.clone()).unwrap();
+        core.set_provider_enabled("pausing", true).unwrap();
+        let review = core
+            .review_provider(
+                "pausing",
+                scope("project-a"),
+                "memory-1",
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        provider
+            .pause
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        let (result, ()) = tokio::join!(
+            async {
+                if approve {
+                    core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+                        .await
+                        .map(|_| ())
+                } else {
+                    core.review_provider(
+                        "pausing",
+                        scope("project-a"),
+                        "memory-1",
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .map(|_| ())
+                }
+            },
+            async {
+                provider.entered.notified().await;
+                if delete {
+                    core.forget("pausing", &scope("project-a"), "memory-1")
+                        .unwrap();
+                } else {
+                    core.set_provider_enabled("pausing", false).unwrap();
+                    core.set_provider_enabled("pausing", true).unwrap();
+                }
+                provider.release.notify_one();
+            }
+        );
+        assert_eq!(
+            result.unwrap_err(),
+            if approve {
+                MemoryError::ApprovalRequired
+            } else {
+                MemoryError::Unavailable
+            }
+        );
+    }
+}
+
+#[tokio::test]
+async fn retrieval_prunes_expired_rows_without_an_enabled_provider() {
+    for providers in [vec![], vec![NATIVE_PROVIDER.into()]] {
+        let path =
+            std::env::temp_dir().join(format!("lumen-prune-{}.sqlite3", uuid::Uuid::new_v4()));
+        {
+            let core = Arc::new(MemoryCore::open(&path).unwrap());
+            let review = core.review_native(content("project-a")).unwrap();
+            core.approve(&review.review_id, RetentionPolicy::Days { days: 1 })
+                .await
+                .unwrap();
+            core.set_provider_enabled(NATIVE_PROVIDER, false).unwrap();
+            let connection = rusqlite::Connection::open(&path).unwrap();
+            connection
+                .execute("UPDATE memory_records SET expires_at=0", [])
+                .unwrap();
+            assert!(
+                retrieve(&reader(&core, "project-a", providers))
+                    .await
+                    .memories
+                    .is_empty()
+            );
+            let count: u32 = connection
+                .query_row("SELECT count(*) FROM memory_records", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(count, 0);
+        }
+        std::fs::remove_file(path).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn stale_or_missing_records_do_not_consume_the_result_limit() {
+    let records = Arc::new(Mutex::new(
+        (0..22)
+            .map(|i| MemoryRecord {
+                source_id: format!("note-{i:02}"),
+                ..content("project-a")
+            })
+            .collect::<Vec<_>>(),
+    ));
+    let mut core = MemoryCore::in_memory().unwrap();
+    core.register_provider(Arc::new(RecordsProvider(records.clone())))
+        .unwrap();
+    core.set_provider_enabled("records", true).unwrap();
+    for i in 0..22 {
+        let review = core
+            .review_provider(
+                "records",
+                scope("project-a"),
+                &format!("note-{i:02}"),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+            .await
+            .unwrap();
+    }
+    records.lock().unwrap().drain(..10);
+    for record in records.lock().unwrap().iter_mut().take(11) {
+        record.provenance.revision = "changed".into();
+    }
+    let core = Arc::new(core);
+    let session = reader(&core, "project-a", vec!["records".into()]);
+    let result = session
+        .retrieve(
+            MemoryQuery {
+                text: "file tools".into(),
+                limit: 1,
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.memories.len(), 1);
+    assert_eq!(result.memories[0].record.source_id, "note-21");
 }
 
 #[test]
@@ -352,9 +594,11 @@ async fn provider_failure_does_not_hide_approved_native_memory() {
         .await
         .unwrap();
     core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+        .await
         .unwrap();
     let review = core.review_native(content("project-a")).unwrap();
     core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+        .await
         .unwrap();
     provider.0.store(true, std::sync::atomic::Ordering::SeqCst);
     let core = Arc::new(core);

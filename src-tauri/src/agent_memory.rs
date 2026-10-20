@@ -67,12 +67,12 @@ pub async fn review_provider_agent_memory(
         .await
 }
 #[tauri::command]
-pub fn approve_agent_memory(
+pub async fn approve_agent_memory(
     runtime: State<'_, AgentMemoryRuntime>,
     review_id: String,
     retention: RetentionPolicy,
 ) -> Result<MemoryApproval, MemoryError> {
-    runtime.core()?.approve(&review_id, retention)
+    runtime.core()?.approve(&review_id, retention).await
 }
 #[tauri::command]
 pub fn delete_agent_memory(

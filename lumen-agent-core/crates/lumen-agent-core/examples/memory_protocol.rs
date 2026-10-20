@@ -1,7 +1,7 @@
 //! Offline protocol acceptance fixture, never packaged or registered as an agent runtime.
 use lumen_agent_core::memory::*;
 use std::{
-    io::{self, BufRead},
+    io::{self, BufRead, Read},
     sync::Arc,
 };
 use tokio_util::sync::CancellationToken;
@@ -25,6 +25,7 @@ async fn main() {
         })
         .expect("review");
     core.approve(&review.review_id, RetentionPolicy::Days { days: 30 })
+        .await
         .expect("approval");
     let _unapproved = core
         .review_native(MemoryRecord {
@@ -44,15 +45,31 @@ async fn main() {
             MemoryRoute::Local,
         )
         .expect("native binding");
-    for line in io::stdin().lock().lines() {
-        let request = line.expect("fixture input");
-        let response = match reader
-            .handle(request.as_bytes(), CancellationToken::new())
-            .await
+    let mut input = io::stdin().lock();
+    loop {
+        let mut request = Vec::new();
+        if input
+            .by_ref()
+            .take(2050)
+            .read_until(b'\n', &mut request)
+            .expect("fixture input")
+            == 0
         {
+            break;
+        }
+        if request.last() == Some(&b'\n') {
+            request.pop();
+            if request.last() == Some(&b'\r') {
+                request.pop();
+            }
+        }
+        let response = match reader.handle(&request, CancellationToken::new()).await {
             Ok(response) => serde_json::to_value(response).expect("fixture response"),
             Err(error) => serde_json::json!({"error": error}),
         };
         println!("{response}");
+        if request.len() > 2048 {
+            break;
+        }
     }
 }

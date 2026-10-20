@@ -46,3 +46,38 @@ No UI/performance behavior changed, so gallery/recording/performance evidence wa
 Beacon wire compatibility was checked against the pinned official source and a local protocol fixture, not a live installed Beacon server. No user memory or agent history was captured or forwarded for verification. Harness2, full Pi/DeepAgents engines, native MXC containment, live Prime evaluation, signed distribution and the existing ignored native runtime gates remain unverified. These are not prerequisites for the addendum interfaces; enabling research optimization remains deferred behind the existing improvement acceptance gates.
 
 The native Windows/MXC direction is recorded in `lumen-agent-core/ARCHITECTURE.md`. MXC containment does not replace durable queue persistence; the existing Rivet and Docker migration requires its own native scheduling, recovery and containment acceptance.
+
+## PR #29 review follow-up
+
+Reviewed all 12 inline comments, the submitted reviews and the conversation comments. The duplicate findings and two conversation suggestions reduce to ten valid issues:
+
+| Finding | Change and verification |
+| --- | --- |
+| Stale/missing snapshots consume the SQL result limit | Page approved candidates in batches of at most 20 source IDs, with one shared three-second provider deadline. Apply the final limit after live validation. A regression skips 21 missing/changed records and retrieves the valid record on the next page. Beacon per-record tool errors omit that record and continue with later selected IDs; transport and malformed-response errors still fail closed. |
+| SQLite ASCII-only lowercase hides international text | Compare Unicode lowercase substrings in Rust while retaining exact SQL provider/scope filtering. Tests cover Ångström, CAFÉ and Résumé case variants. |
+| External approval can use a stale review | Re-read the exact external record before approval, reject changed/missing content or provenance, and consume the stale handle. Native approval remains local. The native command now awaits this check. |
+| Disable/re-enable can admit earlier in-flight work | Capture a per-provider revocation generation and compare it at admission. Tests cover retrieval, review and approval across disable/re-enable, alongside existing deletion and disable coverage. |
+| Redirect test cannot distinguish rejection from a failed connection | Redirect to a reachable listener and assert that no connection arrives. Temporarily enabling redirect following made this test fail at that assertion; restoring the policy made it pass. |
+| Shared fixture hardcodes the Windows executable suffix | Select the suffix from `process.platform` and honor `CARGO_TARGET_DIR`. Both clients passed against the current Windows fixture; Linux/macOS execution was not available locally. |
+| Retrieval skips physical expiry cleanup without enabled providers | Prune before inspecting the bound provider list. Disk-backed tests verify deletion with no providers and with the native provider disabled. |
+| Generator IPC lacks a typed frontend service contract | Remove the unused command and its handler registration. Generator descriptors remain internal test fixtures; no new frontend capability is exposed. |
+| Deletion during external review can stage a new review afterward | Advance the provider generation on deletion. Paused review and approval tests verify that deletion revokes the delayed operation. |
+| Fixture stdin can allocate an unbounded line before validation | Bound framing to 2,050 bytes, allowing the 2 KiB request plus CRLF. Reject and close oversized frames. Tests cover oversized input followed by another request and the exact CRLF size boundary. |
+
+The initial five memory regressions, delayed deletion, malformed stale-review reuse, Beacon missing-record behavior and oversized framing were observed failing before their fixes. The shared deadline test also verifies cancellation of provider work and rejects further pages after expiry. The Qlty notice reports structural complexity metrics without an additional correctness finding; the scope remains the concrete review defects.
+
+Fresh review verification:
+
+| Check | Result |
+| --- | --- |
+| Typecheck and lint | Passed, zero lint warnings |
+| Full Vitest suite | 789 passed across 92 files using one worker. The initial parallel run had one existing provider-page test hit its five-second timeout; its eight-test file passed unchanged, then the full suite passed with unchanged assertions and timeouts. |
+| `bun run test:agent-core` | 19 Rust tests and eight real client/fixture tests passed |
+| Standalone and Tauri formatting and Clippy, all targets/features as applicable | Passed, warnings denied |
+| Full native suite, locked dependencies, one test thread | 387 library tests, 26 integration tests and four isolated proxy regression tests passed; 26 existing tests ignored |
+| Installed-Edge functional suite, one worker, no retries | 131 passed |
+| Production profiling bundle, installed-Edge performance tests | Four passed with unchanged budgets. This qualifies the browser workload only; it does not establish strict native 240 Hz or reference-hardware acceptance. |
+| `bun run tauri build` against final sources | Passed; optimized Windows application and NSIS installer produced. Existing `lottie-web` bundler warning remains. This is a local unsigned build, not signed distribution acceptance. |
+| Independent review of the fixes and final additions | No actionable defects found; read-only source review |
+
+Both Cargo workspaces reused existing target caches through `CARGO_TARGET_DIR` and compiled the current checkout's sources. One attempted final native relink encountered a Windows lock from the earlier test executable; the final source run passed after serializing the runs. Existing live-provider, signing, hardware and ignored runtime acceptance limits above still apply.

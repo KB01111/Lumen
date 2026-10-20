@@ -109,7 +109,3 @@ pub fn end_improvement_workflow(
 ) {
     runtime.end_workflow(&run_id, outcome);
 }
-#[tauri::command]
-pub fn improvement_generators() -> Vec<super::generators::GeneratorDescriptor> {
-    super::generators::descriptors()
-}

@@ -352,7 +352,6 @@ pub fn run() {
             agent_memory::delete_agent_memory,
             agent_memory::prune_agent_memory,
             improvement::commands::improvement_health,
-            improvement::commands::improvement_generators,
             improvement::commands::improvement_snapshot,
             improvement::commands::improvement_candidate_base,
             improvement::commands::set_improvement_settings,

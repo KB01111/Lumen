@@ -64,23 +64,33 @@ impl MemoryStore {
         provider: &str,
         scope: &MemoryScope,
         query: &MemoryQuery,
+        after: Option<&str>,
     ) -> Result<Vec<ApprovedMemory>, MemoryError> {
         self.prune(now_ms())?;
         let connection = self.0.lock().map_err(storage)?;
         let mut statement = connection
             .prepare(
-                "SELECT data FROM memory_records WHERE provider=?1 AND scope=?2
-            AND instr(lower(content),lower(?3))>0 ORDER BY source_id LIMIT ?4",
+                "SELECT data, content FROM memory_records WHERE provider=?1 AND scope=?2
+            AND (?3 IS NULL OR source_id>?3) ORDER BY source_id",
             )
             .map_err(storage)?;
         let rows = statement
-            .query_map(
-                params![provider, scope.key()?, query.text, query.limit as u32],
-                |r| r.get::<_, String>(0),
-            )
+            .query_map(params![provider, scope.key()?, after], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            })
             .map_err(storage)?;
-        rows.map(|r| serde_json::from_str(&r.map_err(storage)?).map_err(storage))
-            .collect()
+        let text = query.text.to_lowercase();
+        let mut matches = Vec::new();
+        for row in rows {
+            let (data, content) = row.map_err(storage)?;
+            if content.to_lowercase().contains(&text) {
+                matches.push(serde_json::from_str(&data).map_err(storage)?);
+                if matches.len() == MAX_PROVIDER_RECORDS {
+                    break;
+                }
+            }
+        }
+        Ok(matches)
     }
     pub fn get(
         &self,

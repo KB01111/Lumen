@@ -21,7 +21,7 @@ pub struct MemoryCore {
     providers: BTreeMap<String, Arc<dyn MemoryProvider>>,
     reviews: Mutex<HashMap<String, PendingReview>>,
     // Serializes revocation/approval and final admission, never held across provider I/O.
-    admission: Mutex<()>,
+    admission: Mutex<HashMap<String, u64>>,
 }
 struct NativeMemoryProvider(Arc<MemoryStore>);
 impl MemoryProvider for NativeMemoryProvider {
@@ -57,7 +57,7 @@ impl MemoryCore {
             store: store.clone(),
             providers: BTreeMap::new(),
             reviews: Mutex::new(HashMap::new()),
-            admission: Mutex::new(()),
+            admission: Mutex::new(HashMap::new()),
         };
         core.register_provider(Arc::new(NativeMemoryProvider(store)))?;
         Ok(core)
@@ -91,7 +91,7 @@ impl MemoryCore {
             .collect()
     }
     pub fn set_provider_enabled(&self, id: &str, enabled: bool) -> Result<(), MemoryError> {
-        let _guard = self
+        let mut generations = self
             .admission
             .lock()
             .map_err(|_| MemoryError::Unavailable)?;
@@ -102,15 +102,26 @@ impl MemoryCore {
             .lock()
             .map_err(|_| MemoryError::Unavailable)?
             .retain(|_, p| p.review.provider_id != id);
-        self.store.set_enabled(id, enabled)
+        self.store.set_enabled(id, enabled)?;
+        if !enabled {
+            *generations.entry(id.into()).or_default() += 1;
+        }
+        Ok(())
     }
-    fn stage(&self, provider: &str, record: MemoryRecord) -> Result<MemoryReview, MemoryError> {
+    fn stage(
+        &self,
+        provider: &str,
+        record: MemoryRecord,
+        generation: Option<u64>,
+    ) -> Result<MemoryReview, MemoryError> {
         record.validate()?;
-        let _guard = self
+        let generations = self
             .admission
             .lock()
             .map_err(|_| MemoryError::Unavailable)?;
-        if !self.store.enabled(provider)? {
+        if !self.store.enabled(provider)?
+            || generation.is_some_and(|g| g != *generations.get(provider).unwrap_or(&0))
+        {
             return Err(MemoryError::Unavailable);
         }
         let review = MemoryReview {
@@ -135,7 +146,7 @@ impl MemoryCore {
     }
     /// Trusted user-management boundary only. Not part of a harness reader.
     pub fn review_native(&self, record: MemoryRecord) -> Result<MemoryReview, MemoryError> {
-        self.stage(NATIVE_PROVIDER, record)
+        self.stage(NATIVE_PROVIDER, record, None)
     }
     pub async fn review_provider(
         &self,
@@ -152,30 +163,97 @@ impl MemoryCore {
             .providers
             .get(provider)
             .ok_or(MemoryError::Unavailable)?;
-        if !self.store.enabled(provider)? {
-            return Err(MemoryError::Unavailable);
-        }
+        let generation = {
+            let generations = self
+                .admission
+                .lock()
+                .map_err(|_| MemoryError::Unavailable)?;
+            if !self.store.enabled(provider)? {
+                return Err(MemoryError::Unavailable);
+            }
+            *generations.get(provider).unwrap_or(&0)
+        };
         let request = ProviderRequest {
             scope: scope.clone(),
             source_ids: vec![id.into()],
         };
-        let records = bounded_retrieve(adapter.as_ref(), request, cancel).await?;
+        let records = bounded_retrieve(
+            adapter.as_ref(),
+            request,
+            cancel,
+            tokio::time::Instant::now() + types::PROVIDER_TIMEOUT,
+        )
+        .await?;
         if records.len() != 1 || records[0].scope != scope || records[0].source_id != id {
             return Err(MemoryError::Invalid);
         }
         self.stage(
             provider,
             records.into_iter().next().ok_or(MemoryError::Invalid)?,
+            Some(generation),
         )
     }
-    pub fn approve(
+    pub async fn approve(
         &self,
         review_id: &str,
         retention: RetentionPolicy,
     ) -> Result<MemoryApproval, MemoryError> {
+        retention.expiry(now_ms())?;
+        let (review, generation) = {
+            let generations = self
+                .admission
+                .lock()
+                .map_err(|_| MemoryError::Unavailable)?;
+            let reviews = self.reviews.lock().map_err(|_| MemoryError::Unavailable)?;
+            let pending = reviews
+                .get(review_id)
+                .ok_or(MemoryError::ApprovalRequired)?;
+            if pending.created.elapsed().as_secs() >= 300
+                || !self.store.enabled(&pending.review.provider_id)?
+            {
+                return Err(MemoryError::ApprovalRequired);
+            }
+            (
+                pending.review.clone(),
+                *generations.get(&pending.review.provider_id).unwrap_or(&0),
+            )
+        };
+        if review.provider_id != NATIVE_PROVIDER {
+            let adapter = self
+                .providers
+                .get(&review.provider_id)
+                .ok_or(MemoryError::Unavailable)?;
+            let retrieved = bounded_retrieve(
+                adapter.as_ref(),
+                ProviderRequest {
+                    scope: review.record.scope.clone(),
+                    source_ids: vec![review.record.source_id.clone()],
+                },
+                CancellationToken::new(),
+                tokio::time::Instant::now() + types::PROVIDER_TIMEOUT,
+            )
+            .await;
+            let records = match retrieved {
+                Ok(records) => records,
+                Err(error) => {
+                    self.reviews
+                        .lock()
+                        .map_err(|_| MemoryError::Unavailable)?
+                        .remove(review_id);
+                    return Err(error);
+                }
+            };
+            if records != vec![review.record.clone()] {
+                self.reviews
+                    .lock()
+                    .map_err(|_| MemoryError::Unavailable)?
+                    .remove(review_id);
+                return Err(MemoryError::ApprovalRequired);
+            }
+        }
         let now = now_ms();
         let expires_at = retention.expiry(now)?;
-        let _guard = self
+        let generations = self
             .admission
             .lock()
             .map_err(|_| MemoryError::Unavailable)?;
@@ -185,6 +263,7 @@ impl MemoryCore {
             .ok_or(MemoryError::ApprovalRequired)?;
         if pending.created.elapsed().as_secs() >= 300
             || !self.store.enabled(&pending.review.provider_id)?
+            || generation != *generations.get(&pending.review.provider_id).unwrap_or(&0)
         {
             return Err(MemoryError::ApprovalRequired);
         }
@@ -208,7 +287,7 @@ impl MemoryCore {
         if !safe_id(provider) || !safe_id(id) {
             return Err(MemoryError::Invalid);
         }
-        let _guard = self
+        let mut generations = self
             .admission
             .lock()
             .map_err(|_| MemoryError::Unavailable)?;
@@ -220,7 +299,12 @@ impl MemoryCore {
                     && p.review.record.scope == *scope
                     && p.review.record.source_id == id)
             });
-        self.store.forget(provider, scope, id)
+        self.store.forget(provider, scope, id)?;
+        // Conservatively revoke all in-flight work for this provider.
+        if self.providers.contains_key(provider) {
+            *generations.entry(provider.into()).or_default() += 1;
+        }
+        Ok(())
     }
     pub fn prune_expired(&self) -> Result<(), MemoryError> {
         self.store.prune(now_ms())
@@ -281,6 +365,8 @@ impl MemoryReader {
         if cancel.is_cancelled() {
             return Err(MemoryError::Cancelled);
         }
+        self.core.prune_expired()?;
+        let mut read_generations = HashMap::new();
         let mut result = MemoryRetrieval {
             version: 1,
             memories: vec![],
@@ -297,46 +383,77 @@ impl MemoryReader {
                 });
                 continue;
             };
-            if !self.core.store.enabled(id)? {
+            let generation = {
+                let generations = self
+                    .core
+                    .admission
+                    .lock()
+                    .map_err(|_| MemoryError::Unavailable)?;
+                self.core
+                    .store
+                    .enabled(id)?
+                    .then(|| *generations.get(id).unwrap_or(&0))
+            };
+            let Some(generation) = generation else {
                 result.unavailable.push(ProviderStatus {
                     id: id.clone(),
                     state: ProviderState::Disabled,
                 });
                 continue;
-            }
-            let approved = self.core.store.search(id, &self.scope, &query)?;
-            if approved.is_empty() {
-                continue;
-            }
-            let request = ProviderRequest {
-                scope: self.scope.clone(),
-                source_ids: approved
-                    .iter()
-                    .map(|m| m.record.source_id.clone())
-                    .collect(),
             };
-            let records = match bounded_retrieve(provider.as_ref(), request, cancel.clone()).await {
-                Ok(records) => records,
-                Err(MemoryError::Cancelled) => return Err(MemoryError::Cancelled),
-                Err(_) => {
-                    result.unavailable.push(ProviderStatus {
-                        id: id.clone(),
-                        state: ProviderState::Unavailable,
-                    });
-                    continue;
+            read_generations.insert(id.clone(), generation);
+            let deadline = tokio::time::Instant::now() + types::PROVIDER_TIMEOUT;
+            let mut after = None;
+            let mut provider_count = 0;
+            loop {
+                if cancel.is_cancelled() {
+                    return Err(MemoryError::Cancelled);
                 }
-            };
-            let mut seen = HashSet::new();
-            for record in records {
-                if record.scope != self.scope || !seen.insert(record.source_id.clone()) {
-                    continue;
+                let approved = self
+                    .core
+                    .store
+                    .search(id, &self.scope, &query, after.as_deref())?;
+                if approved.is_empty() {
+                    break;
                 }
-                if let Some(memory) = approved.iter().find(|m| m.record == record) {
-                    result.memories.push(memory.clone());
+                after = approved.last().map(|m| m.record.source_id.clone());
+                let request = ProviderRequest {
+                    scope: self.scope.clone(),
+                    source_ids: approved
+                        .iter()
+                        .map(|m| m.record.source_id.clone())
+                        .collect(),
+                };
+                let records =
+                    match bounded_retrieve(provider.as_ref(), request, cancel.clone(), deadline)
+                        .await
+                    {
+                        Ok(records) => records,
+                        Err(MemoryError::Cancelled) => return Err(MemoryError::Cancelled),
+                        _ => {
+                            result.unavailable.push(ProviderStatus {
+                                id: id.clone(),
+                                state: ProviderState::Unavailable,
+                            });
+                            break;
+                        }
+                    };
+                let mut seen = HashSet::new();
+                for record in records {
+                    if record.scope != self.scope || !seen.insert(record.source_id.clone()) {
+                        continue;
+                    }
+                    if let Some(memory) = approved.iter().find(|m| m.record == record) {
+                        result.memories.push(memory.clone());
+                        provider_count += 1;
+                    }
+                }
+                if provider_count >= query.limit || approved.len() < types::MAX_PROVIDER_RECORDS {
+                    break;
                 }
             }
         }
-        let _guard = self
+        let generations = self
             .core
             .admission
             .lock()
@@ -347,6 +464,8 @@ impl MemoryReader {
         let mut admitted = Vec::new();
         for memory in result.memories {
             if self.core.store.enabled(&memory.provider_id)?
+                && read_generations.get(&memory.provider_id)
+                    == Some(generations.get(&memory.provider_id).unwrap_or(&0))
                 && self
                     .core
                     .store
@@ -367,12 +486,16 @@ async fn bounded_retrieve(
     provider: &dyn MemoryProvider,
     request: ProviderRequest,
     cancel: CancellationToken,
+    deadline: tokio::time::Instant,
 ) -> Result<Vec<MemoryRecord>, MemoryError> {
+    if tokio::time::Instant::now() >= deadline {
+        return Err(MemoryError::Unavailable);
+    }
     let child = cancel.child_token();
     let result = tokio::select! {
         biased;
         _ = cancel.cancelled() => Err(MemoryError::Cancelled),
-        result = tokio::time::timeout(types::PROVIDER_TIMEOUT, provider.retrieve(request, child.clone())) => result.unwrap_or(Err(MemoryError::Unavailable)),
+        result = tokio::time::timeout_at(deadline, provider.retrieve(request, child.clone())) => result.unwrap_or(Err(MemoryError::Unavailable)),
     };
     child.cancel();
     let records = result?;
@@ -388,6 +511,48 @@ async fn bounded_retrieve(
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct StalledProvider(Mutex<Option<CancellationToken>>);
+    impl MemoryProvider for StalledProvider {
+        fn id(&self) -> &str {
+            "stalled"
+        }
+        fn retrieve(
+            &self,
+            _request: ProviderRequest,
+            cancel: CancellationToken,
+        ) -> ProviderFuture<'_> {
+            *self.0.lock().unwrap() = Some(cancel);
+            Box::pin(std::future::pending())
+        }
+    }
+
+    #[tokio::test]
+    async fn shared_deadline_cancels_provider_work_and_rejects_later_pages() {
+        let provider = StalledProvider(Mutex::new(None));
+        let request = || ProviderRequest {
+            scope: MemoryScope {
+                project_id: "project".into(),
+                session_id: None,
+            },
+            source_ids: vec!["one".into()],
+        };
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(10);
+        assert_eq!(
+            bounded_retrieve(&provider, request(), CancellationToken::new(), deadline)
+                .await
+                .unwrap_err(),
+            MemoryError::Unavailable
+        );
+        assert!(provider.0.lock().unwrap().take().unwrap().is_cancelled());
+        assert_eq!(
+            bounded_retrieve(&provider, request(), CancellationToken::new(), deadline)
+                .await
+                .unwrap_err(),
+            MemoryError::Unavailable
+        );
+        assert!(provider.0.lock().unwrap().is_none());
+    }
+
     #[tokio::test]
     async fn retention_prunes_content_and_approval_and_expired_reviews_cannot_activate() {
         let core = Arc::new(MemoryCore::in_memory().unwrap());
@@ -407,6 +572,7 @@ mod tests {
         let review = core.review_native(record.clone()).unwrap();
         let approval = core
             .approve(&review.review_id, RetentionPolicy::Days { days: 1 })
+            .await
             .unwrap();
         core.store.prune(approval.expires_at.unwrap()).unwrap();
         assert!(
@@ -441,6 +607,7 @@ mod tests {
             .created = Instant::now() - std::time::Duration::from_secs(301);
         assert_eq!(
             core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+                .await
                 .unwrap_err(),
             MemoryError::ApprovalRequired
         );

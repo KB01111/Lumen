@@ -9,7 +9,7 @@ use tokio_util::sync::CancellationToken;
 
 async fn server(
     project: &str,
-    redirect: bool,
+    redirect: Option<u16>,
 ) -> (u16, Arc<Mutex<Vec<Value>>>, tokio::task::JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -41,8 +41,8 @@ async fn server(
             };
             let request: Value = serde_json::from_slice(&body).unwrap();
             captured.lock().unwrap().push(request.clone());
-            if redirect {
-                stream.write_all(b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:1/mcp\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await.unwrap();
+            if let Some(target) = redirect {
+                stream.write_all(format!("HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{target}/mcp\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes()).await.unwrap();
                 continue;
             }
             let response = match request["method"].as_str().unwrap() {
@@ -55,9 +55,13 @@ async fn server(
                 }
                 "tools/call" => {
                     assert_eq!(request["params"]["name"], "get_memory");
-                    assert_eq!(request["params"]["arguments"], json!({"id":"memory-1"}));
-                    let memory = json!({"schema_version":"beacon.learning.v1","id":"memory-1","candidate_id":"candidate-1","kind":"convention","title":"Tools","body":"Use approved file tools.","project":{"id":project},"evidence":[{"trace_id":"trace-1"}],"created_at":"2026-10-20","updated_at":"2026-10-20"});
-                    json!({"content":[{"type":"text","text":memory.to_string()}]})
+                    if request["params"]["arguments"]["id"] == "missing" {
+                        json!({"isError":true,"content":[{"type":"text","text":"memory not found"}]})
+                    } else {
+                        assert_eq!(request["params"]["arguments"], json!({"id":"memory-1"}));
+                        let memory = json!({"schema_version":"beacon.learning.v1","id":"memory-1","candidate_id":"candidate-1","kind":"convention","title":"Tools","body":"Use approved file tools.","project":{"id":project},"evidence":[{"trace_id":"trace-1"}],"created_at":"2026-10-20","updated_at":"2026-10-20"});
+                        json!({"content":[{"type":"text","text":memory.to_string()}]})
+                    }
                 }
                 method => panic!("Unexpected MCP method {method}"),
             };
@@ -80,8 +84,27 @@ fn scope() -> MemoryScope {
 }
 
 #[tokio::test]
+async fn beacon_missing_record_does_not_hide_later_selected_records() {
+    let (port, _, server) = server("lumen", None).await;
+    let adapter = BeaconMemoryProvider::loopback(port).unwrap();
+    let records = adapter
+        .retrieve(
+            ProviderRequest {
+                scope: scope(),
+                source_ids: vec!["missing".into(), "memory-1".into()],
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].source_id, "memory-1");
+    server.abort();
+}
+
+#[tokio::test]
 async fn beacon_is_optional_local_read_only_and_requires_lumen_approval() {
-    let (port, calls, server) = server("lumen", false).await;
+    let (port, calls, server) = server("lumen", None).await;
     let mut core = MemoryCore::in_memory().unwrap();
     core.register_provider(Arc::new(BeaconMemoryProvider::loopback(port).unwrap()))
         .unwrap();
@@ -118,6 +141,7 @@ async fn beacon_is_optional_local_read_only_and_requires_lumen_approval() {
             .is_empty()
     );
     core.approve(&review.review_id, RetentionPolicy::Days { days: 30 })
+        .await
         .unwrap();
     let result = reader
         .handle(request, CancellationToken::new())
@@ -145,7 +169,9 @@ async fn beacon_is_optional_local_read_only_and_requires_lumen_approval() {
 #[tokio::test]
 async fn beacon_rejects_cross_project_responses_and_redirects() {
     assert!(BeaconMemoryProvider::loopback(0).is_err());
-    for (project, redirect) in [("other-project", false), ("lumen", true)] {
+    let target = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let target_port = target.local_addr().unwrap().port();
+    for (project, redirect) in [("other-project", None), ("lumen", Some(target_port))] {
         let (port, _, server) = server(project, redirect).await;
         let adapter = BeaconMemoryProvider::loopback(port).unwrap();
         assert!(
@@ -162,4 +188,10 @@ async fn beacon_rejects_cross_project_responses_and_redirects() {
         );
         server.abort();
     }
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(100), target.accept())
+            .await
+            .is_err(),
+        "redirect target received a connection"
+    );
 }
