@@ -93,13 +93,12 @@ fn engine_runtime_cannot_admit_a_synthetic_package_against_compiled_anchor() {
 }
 
 #[test]
+#[cfg(windows)]
 #[ignore = "Requires the real pinned staged release WinSearch payload; run explicitly after staging"]
 fn engine_native_release_barrier_prevents_initialization_until_resume() {
     use std::os::windows::io::AsRawHandle;
-    use windows::Win32::{
-        Foundation::{BOOL, HANDLE},
-        System::JobObjects::IsProcessInJob,
-    };
+    use windows::Win32::{Foundation::HANDLE, System::JobObjects::IsProcessInJob};
+    use windows::core::BOOL;
 
     let fixture = SearchFixture::new("engine-release-barrier");
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/winsearch");
@@ -134,6 +133,7 @@ fn engine_native_release_barrier_prevents_initialization_until_resume() {
 }
 
 #[test]
+#[cfg(windows)]
 #[ignore = "Requires the real pinned staged release WinSearch payload; run explicitly after staging"]
 fn engine_native_release_barrier_stop_before_resume_creates_no_database() {
     let fixture = SearchFixture::new("engine-release-stop-before-resume");
