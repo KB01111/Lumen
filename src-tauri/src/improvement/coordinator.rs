@@ -1,5 +1,10 @@
 use super::{
-    broker::GatewayBroker, docker::DockerRuntime, evaluation, store::ImprovementStore, types::*,
+    broker::GatewayBroker,
+    docker::DockerRuntime,
+    evaluation,
+    generators::{GenerationInput, PrimeAgentGenerator, generate_candidate},
+    store::ImprovementStore,
+    types::*,
 };
 use crate::{
     activity::{ActivityRuntime, BackgroundPolicy},
@@ -604,61 +609,141 @@ impl ImprovementRuntime {
                 Some(candidate_id) => Some(self.store.candidate(candidate_id)?),
                 None => self.store.candidate_for_job(&lease.idempotency_key)?,
             };
-            if recovered.as_ref().is_some_and(|candidate| candidate.report.is_some() || !matches!(candidate.status, CandidateStatus::Proposed | CandidateStatus::Evaluating)) {
+            if recovered.as_ref().is_some_and(|candidate| {
+                candidate.report.is_some()
+                    || !matches!(
+                        candidate.status,
+                        CandidateStatus::Proposed | CandidateStatus::Evaluating
+                    )
+            }) {
                 return Ok(());
             }
             let base = self.store.active()?;
             if lease.config_digest != config || lease.base_version != base.id {
-                return Err("Recovered job requires a new base version or evaluation configuration.".into());
+                return Err(
+                    "Recovered job requires a new base version or evaluation configuration.".into(),
+                );
             }
             if recovered.is_none() {
                 let runtime_health = self.docker.health().await;
                 if runtime_health.state != "ready" {
-                    return Err(runtime_health.detail.unwrap_or_else(|| "Prepare the pinned Docker runtime first.".into()));
+                    return Err(runtime_health
+                        .detail
+                        .unwrap_or_else(|| "Prepare the pinned Docker runtime first.".into()));
                 }
             }
             if self.store.settings()?.route_mode == RouteMode::Local {
-                app.state::<crate::gateway::LocalRuntimeSupervisor>().start().map_err(|_| "The prepared local improvement model is unavailable.")?;
+                app.state::<crate::gateway::LocalRuntimeSupervisor>()
+                    .start()
+                    .map_err(|_| "The prepared local improvement model is unavailable.")?;
             }
-            let probe_phase = if recovered.is_some() { "evaluation" } else { "generation" };
-            let probe = self.broker(app, &config, cancel.clone(), &lease.idempotency_key, probe_phase)?;
+            let probe_phase = if recovered.is_some() {
+                "evaluation"
+            } else {
+                "generation"
+            };
+            let probe = self.broker(
+                app,
+                &config,
+                cancel.clone(),
+                &lease.idempotency_key,
+                probe_phase,
+            )?;
             probe.probe(cancel.child_token()).await?;
-            *self.compatible.lock().map_err(|_| "Improvement state is busy.")? = Some(config.clone());
+            *self
+                .compatible
+                .lock()
+                .map_err(|_| "Improvement state is busy.")? = Some(config.clone());
             let evaluation_broker = recovered.as_ref().map(|_| probe.clone());
-            let candidate = if let Some(candidate) = recovered { candidate } else {
-                if evidence.is_empty() { return Err("Synthetic reproduction requires eligible sanitized failure metadata.".into()); }
+            let candidate = if let Some(candidate) = recovered {
+                candidate
+            } else {
+                if evidence.is_empty() {
+                    return Err(
+                        "Synthetic reproduction requires eligible sanitized failure metadata."
+                            .into(),
+                    );
+                }
                 self.phase(id, "generation", channel);
                 lease.phase = "generation".into();
                 self.advance(app, &lease).await?;
-                let evidence_digest = digest(serde_json::to_string(&evidence).map_err(|_| "Invalid evidence.")?.as_bytes());
-                let input = json!({"activeVersion":base,"evidenceDigest":evidence_digest,"configDigest":config,"failures":evidence,"developmentCases":evaluation::development_cases()});
+                let input = GenerationInput::new(base.clone(), config.clone(), evidence.clone())?;
                 let quota_probe = probe.clone();
-                let result = self.docker.run(input, cancel.clone(), probe).await;
-                let result = generation_result(result, quota_probe.budget_deferred())?;
-                if !self.store.phase_budget_valid(&lease.idempotency_key, "generation")? { return Err("improvement_budget_exceeded".into()); }
-                let manifest: CandidateManifest = serde_json::from_value(result.manifest).map_err(|_| "Prime returned an invalid candidate manifest.")?;
-                let active = self.active.lock().map_err(|_| "Improvement state is busy.")?;
-                if cancel.is_cancelled() || active.as_ref().is_none_or(|job| job.id != id) { return Err("improvement_cancelled".into()); }
-                self.store.create_for_job(&lease.idempotency_key, manifest, &config)?
+                let generator = PrimeAgentGenerator {
+                    runtime: &self.docker,
+                    broker: probe,
+                };
+                let manifest = generate_candidate(&generator, &input, cancel.clone()).await;
+                let manifest = generation_result(manifest, quota_probe.budget_deferred())?;
+                if !self
+                    .store
+                    .phase_budget_valid(&lease.idempotency_key, "generation")?
+                {
+                    return Err("improvement_budget_exceeded".into());
+                }
+                let active = self
+                    .active
+                    .lock()
+                    .map_err(|_| "Improvement state is busy.")?;
+                if cancel.is_cancelled() || active.as_ref().is_none_or(|job| job.id != id) {
+                    return Err("improvement_cancelled".into());
+                }
+                self.store
+                    .create_for_job(&lease.idempotency_key, manifest, &config)?
             };
-            if candidate.base_version != base.id || candidate.config_digest != config { return Err("Recovered candidate binding changed.".into()); }
+            if candidate.base_version != base.id || candidate.config_digest != config {
+                return Err("Recovered candidate binding changed.".into());
+            }
             lease.candidate_id = Some(candidate.id.clone());
             lease.phase = "evaluation".into();
             self.advance(app, &lease).await?;
             self.phase(id, "evaluation", channel);
-            self.store.mark(&candidate.id, CandidateStatus::Evaluating)?;
-            let broker = match evaluation_broker { Some(broker) => broker, None => self.broker(app, &config, cancel.clone(), &lease.idempotency_key, "evaluation")? };
+            self.store
+                .mark(&candidate.id, CandidateStatus::Evaluating)?;
+            let broker = match evaluation_broker {
+                Some(broker) => broker,
+                None => self.broker(
+                    app,
+                    &config,
+                    cancel.clone(),
+                    &lease.idempotency_key,
+                    "evaluation",
+                )?,
+            };
             let quota_probe = broker.clone();
             let mut report = evaluation::evaluate(&candidate, &base, broker, cancel.clone()).await;
-            if quota_probe.budget_deferred() { return Err(crate::gateway::enrichment_budget::DEFERRED.into()); }
-            if !self.store.phase_budget_valid(&lease.idempotency_key, "evaluation")? { report.budget_exceeded = true; report.complete = false; }
+            if quota_probe.budget_deferred() {
+                return Err(crate::gateway::enrichment_budget::DEFERRED.into());
+            }
+            if !self
+                .store
+                .phase_budget_valid(&lease.idempotency_key, "evaluation")?
+            {
+                report.budget_exceeded = true;
+                report.complete = false;
+            }
             // Fresh fence before publishing; never hold an admission lock during model work.
             self.advance(app, &lease).await?;
-            let active = self.active.lock().map_err(|_| "Improvement state is busy.")?;
-            if cancel.is_cancelled() || active.as_ref().is_none_or(|job| job.id != id) || !policy_allows(app) || self.configuration(&app.state::<ProviderRegistry>()) != config || !self.store.settings()?.enabled { return Err("improvement_cancelled".into()); }
-            self.store.record_report(&candidate.id, report, candidate.kind == CandidateKind::Workflow)?;
+            let active = self
+                .active
+                .lock()
+                .map_err(|_| "Improvement state is busy.")?;
+            if cancel.is_cancelled()
+                || active.as_ref().is_none_or(|job| job.id != id)
+                || !policy_allows(app)
+                || self.configuration(&app.state::<ProviderRegistry>()) != config
+                || !self.store.settings()?.enabled
+            {
+                return Err("improvement_cancelled".into());
+            }
+            self.store.record_report(
+                &candidate.id,
+                report,
+                candidate.kind == CandidateKind::Workflow,
+            )?;
             Ok(())
-        }.await;
+        }
+        .await;
         let paused = self
             .active
             .lock()

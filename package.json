@@ -11,6 +11,7 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:agent-core": "cargo test --manifest-path lumen-agent-core/Cargo.toml --locked -j 1 && cargo build --manifest-path lumen-agent-core/Cargo.toml --locked --example memory_protocol -j 1 && bun test lumen-agent-core/tests/shared-clients.test.ts",
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:performance": "node node_modules/@playwright/test/cli.js test --config playwright.performance.config.ts",
     "build:performance": "vite build --config vite.performance.config.ts",

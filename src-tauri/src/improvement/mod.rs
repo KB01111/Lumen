@@ -3,6 +3,7 @@ pub(crate) mod commands;
 pub(crate) mod coordinator;
 pub(crate) mod docker;
 mod evaluation;
+pub(crate) mod generators;
 mod store;
 pub(crate) mod types;
 
