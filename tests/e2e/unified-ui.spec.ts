@@ -97,11 +97,12 @@ test('checked Windows controls use the Lumen accent and inverse foreground in ev
       const accent = getComputedStyle(reference).color;
       const inverse = getComputedStyle(reference).backgroundColor;
       reference.remove();
-      const css = getComputedStyle(indicator);
-      return {background: css.backgroundColor, color: css.color, accent, inverse};
+      return {accent, inverse};
     });
-    expect(colors.background, theme).toBe(colors.accent);
-    expect(colors.color, theme).toBe(colors.inverse);
+    const indicator = checkbox.locator('..').locator('.fui-Checkbox__indicator');
+    // Reduced motion still has a 1 ms transition; checking the input does not await its paint.
+    await expect(indicator, theme).toHaveCSS('background-color', colors.accent);
+    await expect(indicator, theme).toHaveCSS('color', colors.inverse);
   }
 });
 
