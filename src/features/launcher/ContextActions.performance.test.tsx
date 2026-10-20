@@ -1,15 +1,15 @@
 import {fireEvent, render, screen} from '@testing-library/react';
 import {describe, expect, it, vi} from 'vitest';
-import type {LumenButton as ButtonComponent} from '../../design-system/primitives/LumenButton';
+import type {Button as ButtonComponent} from '@fluentui/react-components';
 import type {SearchResult} from '../../services/search/search.types';
 import {ContextActions} from './ContextActions';
 
 const {buttonRender} = vi.hoisted(() => ({buttonRender: vi.fn()}));
-vi.mock('../../design-system/primitives/LumenButton', async (original) => {
-  const {LumenButton} = await original<{LumenButton: typeof ButtonComponent}>();
-  return {LumenButton: (props: React.ComponentProps<typeof LumenButton>) => {
+vi.mock('@fluentui/react-components', async (original) => {
+  const components = await original<typeof import('@fluentui/react-components')>();
+  return {...components, Button: (props: React.ComponentProps<typeof ButtonComponent>) => {
     buttonRender();
-    return <LumenButton {...props} />;
+    return <components.Button {...props} />;
   }};
 });
 

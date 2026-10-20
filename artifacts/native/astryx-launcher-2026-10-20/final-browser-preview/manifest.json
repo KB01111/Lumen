@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-10-20T03:41:46.809Z",
+  "boundary": "Browser fixture preview, not native compositor acceptance",
+  "browser": "155.0.4283.62",
+  "evidence": [
+    {
+      "scenario": "collapsed-idle",
+      "paint": {
+        "documentScheme": "normal",
+        "providerScheme": "dark",
+        "providerBackground": "rgba(0, 0, 0, 0)",
+        "surface": "color(srgb 0.109804 0.109804 0.105882 / 0.847059)"
+      }
+    },
+    {
+      "scenario": "expanded-results",
+      "paint": {
+        "documentScheme": "normal",
+        "providerScheme": "dark",
+        "providerBackground": "rgba(0, 0, 0, 0)",
+        "surface": "color(srgb 0.109804 0.109804 0.105882 / 0.847059)"
+      }
+    }
+  ]
+}

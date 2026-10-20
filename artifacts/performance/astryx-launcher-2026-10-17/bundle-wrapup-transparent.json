@@ -1,0 +1,178 @@
+{
+  "directory": "C:\\Users\\kevin\\.codex\\worktrees\\9b6b\\Lumen\\dist",
+  "generatedAt": "2026-10-20T03:41:48.271Z",
+  "method": "Exact emitted JS/CSS bytes; gzip per file; initial includes HTML assets and transitive static ESM imports, excludes dynamic imports.",
+  "totalJavaScript": {
+    "rawBytes": 1805270,
+    "gzipBytes": 534992
+  },
+  "totalCss": {
+    "rawBytes": 256147,
+    "gzipBytes": 45077
+  },
+  "initial": {
+    "rawBytes": 1309667,
+    "gzipBytes": 390246
+  },
+  "initialFiles": [
+    "assets/index-CNzH_k4h.js",
+    "assets/rolldown-runtime-B0Z9INg1.js",
+    "assets/react-aria-CNPPvd_H.js",
+    "assets/react-core-B9OsJci9.js",
+    "assets/LumenText-BlgBdruE.js",
+    "assets/search.types-CDzOwR-f.js",
+    "assets/tauri-CVWoFdDw.js",
+    "assets/data-state-DtgTkagA.js",
+    "assets/workflow-context-Cfc74DZ5.js",
+    "assets/settings.store-CuEJoWev.js",
+    "assets/motion-DhHT5I0R.js",
+    "assets/AnimatePresence-CjeU8x1k.js",
+    "assets/index-CXLzfP_y.css"
+  ],
+  "files": [
+    {
+      "file": "assets/AnimatePresence-CjeU8x1k.js",
+      "bytes": 4804,
+      "gzipBytes": 2167,
+      "sha256": "4d60a82674d795775fcc0c783ee362b3d6cae511ea8b13755728eedb83d7f5a6"
+    },
+    {
+      "file": "assets/data-state-DtgTkagA.js",
+      "bytes": 98051,
+      "gzipBytes": 26685,
+      "sha256": "76c17e4528f999cdb22708d95de0cbf06df0056a0338f12b2be1432f8cca3736"
+    },
+    {
+      "file": "assets/diagnostics.store-CQSv9NqS.js",
+      "bytes": 6285,
+      "gzipBytes": 2748,
+      "sha256": "1a66c54e07156579d1c66a0902706d5a73d8b7694de80a064e80989b06c74454"
+    },
+    {
+      "file": "assets/DiagnosticsOverlay-ULjfH5u0.js",
+      "bytes": 2511,
+      "gzipBytes": 1082,
+      "sha256": "aa68db160d6f2dd4bcd927a9e2a9f75c3d247eb670448b60f868e170172a3b16"
+    },
+    {
+      "file": "assets/index-CNzH_k4h.js",
+      "bytes": 395424,
+      "gzipBytes": 123953,
+      "sha256": "1fc208d96f5a19324b01e69b24c6ed2aaffb92711287e5823ccf30811e9696ea"
+    },
+    {
+      "file": "assets/index-CXLzfP_y.css",
+      "bytes": 67841,
+      "gzipBytes": 12197,
+      "sha256": "f75479b67d95635f4464d69640581a0414cdae24b57526561047086d2e50a515"
+    },
+    {
+      "file": "assets/lottie_svg-DvETgvxg.js",
+      "bytes": 243364,
+      "gzipBytes": 63286,
+      "sha256": "e0ae48f6389f1a692a2d2e744371bf42bfa4776531c0ee93915981f1aec804ea"
+    },
+    {
+      "file": "assets/LumenAgentActivity-CG8_178w.css",
+      "bytes": 188306,
+      "gzipBytes": 32880,
+      "sha256": "54676fefac5e0f9df7a3bb0ee28d01b2bcfc327769227cf064ccf66d0aff08a3"
+    },
+    {
+      "file": "assets/LumenAgentActivity-DZzlT7FR.js",
+      "bytes": 87313,
+      "gzipBytes": 25923,
+      "sha256": "85533755a3a817fc8ab3589912ab3e44f9178f675441f9ddce61a9fe37e58519"
+    },
+    {
+      "file": "assets/LumenText-BlgBdruE.js",
+      "bytes": 27750,
+      "gzipBytes": 8845,
+      "sha256": "a7a91b3e82e20350a809fdc98b6a0a79b49b2398d17107a1536c5eff6186ab6d"
+    },
+    {
+      "file": "assets/motion-DhHT5I0R.js",
+      "bytes": 123222,
+      "gzipBytes": 39544,
+      "sha256": "f0201a9f5e616d4bca62d6917ba2f1999538f35310de8fe6b05940263ddc2f69"
+    },
+    {
+      "file": "assets/OnboardingFlow-DInCdHrz.js",
+      "bytes": 7963,
+      "gzipBytes": 3064,
+      "sha256": "e96d9234a3d0d7a5918ea3653dbefc0d98ac4caece93f1382ad6a83a2f8cae64"
+    },
+    {
+      "file": "assets/PreviewPane-Dr3bTyJt.js",
+      "bytes": 17465,
+      "gzipBytes": 5424,
+      "sha256": "9d5ea57048db8f366968d36a6447ad6257a7cf0eb4e796b6ec9dc221013cfe21"
+    },
+    {
+      "file": "assets/react-aria-CNPPvd_H.js",
+      "bytes": 251527,
+      "gzipBytes": 76435,
+      "sha256": "ea8d0dacc8e9769e18298457966574632f529a8ba1327f433b76d742b04a4cec"
+    },
+    {
+      "file": "assets/react-core-B9OsJci9.js",
+      "bytes": 178628,
+      "gzipBytes": 55832,
+      "sha256": "116d9efc96693608d771c5b34facfaf7e6c4412bad893185b5851b256f43abe0"
+    },
+    {
+      "file": "assets/rolldown-runtime-B0Z9INg1.js",
+      "bytes": 901,
+      "gzipBytes": 510,
+      "sha256": "5e9b0d884d2ebb14e241ab38b43e41efb61bce2e74d71507b0b95b264fba4047"
+    },
+    {
+      "file": "assets/root-selection-service-eof-Uh4-.js",
+      "bytes": 350,
+      "gzipBytes": 269,
+      "sha256": "ed76c5473bf20371642f28a931bd4b7ee074dcdc637aaee180874dcae6a86198"
+    },
+    {
+      "file": "assets/search.types-CDzOwR-f.js",
+      "bytes": 50872,
+      "gzipBytes": 16934,
+      "sha256": "bafbc02f428c69357083e4e0ee297676905c0b02816897ec0be41b36823ac444"
+    },
+    {
+      "file": "assets/settings.store-CuEJoWev.js",
+      "bytes": 12224,
+      "gzipBytes": 4458,
+      "sha256": "01cba74ed81a8919cc6b50cf7f587d45ab38990a6f72ef92e4b15dec58583fdb"
+    },
+    {
+      "file": "assets/SettingsShell-Ce4WrO0_.js",
+      "bytes": 170389,
+      "gzipBytes": 45461,
+      "sha256": "bf3264c0fd22bd4530178b4780082a89c69dad2abc558e66e726d13ae3edca44"
+    },
+    {
+      "file": "assets/tauri-CVWoFdDw.js",
+      "bytes": 5385,
+      "gzipBytes": 1781,
+      "sha256": "9271ab916128ba52ed8ebe2c641651c45be69699b7f92e1090bcf4c2663b690a"
+    },
+    {
+      "file": "assets/themeProps-C_G9sWbZ.js",
+      "bytes": 3562,
+      "gzipBytes": 1521,
+      "sha256": "8561f46806587ac48bcc78135bd3465f289be81685d2f673567f8fc966213f8b"
+    },
+    {
+      "file": "assets/Tooltip-CQzo9Ht5.js",
+      "bytes": 24242,
+      "gzipBytes": 8165,
+      "sha256": "0d5617fd4c9721bce942a8a1dccc227fe764aba43acf492eb8abaaaa74446276"
+    },
+    {
+      "file": "assets/workflow-context-Cfc74DZ5.js",
+      "bytes": 93038,
+      "gzipBytes": 20905,
+      "sha256": "a9c29febbde4cfc8a3b0e12fba377806c778f94d8bacba61e72c530a5f964b1f"
+    }
+  ]
+}

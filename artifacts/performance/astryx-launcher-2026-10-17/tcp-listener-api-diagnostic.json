@@ -1,0 +1,18 @@
+{
+  "generatedAt": "2026-10-20T03:16:28.155Z",
+  "pid": 142832,
+  "port": 14608,
+  "table": {
+    "status": 0,
+    "first": 122,
+    "rows": [
+      {
+        "port": 14608,
+        "owner": 142832,
+        "address": "127.0.0.1",
+        "state": 0
+      }
+    ],
+    "count": 27
+  }
+}

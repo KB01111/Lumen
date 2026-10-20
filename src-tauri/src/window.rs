@@ -421,7 +421,7 @@ fn place_on_preferred_monitor(
 }
 
 fn native_effects_for_mode(mode: WindowMode) -> Option<tauri::utils::config::WindowEffectsConfig> {
-    (mode != WindowMode::Collapsed).then(|| {
+    (!matches!(mode, WindowMode::Collapsed | WindowMode::Expanded)).then(|| {
         EffectsBuilder::new()
             .effects(effect_fallback_order())
             .color(Color(10, 18, 27, 196))
@@ -756,12 +756,12 @@ mod tests {
     }
 
     #[test]
-    fn collapsed_launcher_has_no_full_window_material() {
+    fn launcher_modes_have_no_full_window_material() {
         let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
         assert!(context.config().app.windows[0].window_effects.is_none());
         assert!(native_effects_for_mode(WindowMode::Collapsed).is_none());
+        assert!(native_effects_for_mode(WindowMode::Expanded).is_none());
         for mode in [
-            WindowMode::Expanded,
             WindowMode::Onboarding,
             WindowMode::Settings,
             WindowMode::Gallery,

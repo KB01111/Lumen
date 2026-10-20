@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-10-19T20:33:36.967Z",
+  "byteStable": true,
+  "sha256": "1d8a0c28d1161ca92bc8be1058bc20217a3f2c000a5952cdb18bcc9350494ac7",
+  "receipt": {
+    "apiVersion": 1,
+    "type": "init.run",
+    "data": {
+      "mode": "features",
+      "features": [
+        "agents"
+      ],
+      "docsWritten": [
+        "AGENTS.md"
+      ],
+      "docsError": null,
+      "theme": false,
+      "themeTemplate": null,
+      "themeTemplatePath": null,
+      "template": null,
+      "templatePath": null,
+      "nextSteps": false
+    }
+  }
+}

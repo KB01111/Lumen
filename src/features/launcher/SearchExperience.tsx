@@ -31,7 +31,7 @@ import {useAnswerController} from '../answer/useAnswerController';
 import {LazyPreviewPane} from '../preview/LazyPreviewPane';
 import {useSettingsStore} from '../settings/settings.store';
 import {CollapsedLauncher} from './CollapsedLauncher';
-import {ExpandedWorkspace} from './ExpandedWorkspace';
+import {ExpandedWorkspace, SelectionBoundActions} from './ExpandedWorkspace';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
 import {useScopeStore} from './scope.store';
@@ -370,6 +370,16 @@ export function SearchExperience({
   return (
     <div className="contents" data-launcher-visible={visible}>
       <CollapsedLauncher
+        footerActions={intent === 'search' ? (
+          <SelectionBoundActions
+            isOpening={openingId !== null}
+            results={controller.results}
+            onDetails={handleShowDetails}
+            onOpen={handleOpen}
+            onOpenContainingFolder={handleOpenContainingFolder}
+            onPin={handlePin}
+          />
+        ) : undefined}
         expandedContent={intent === 'computer' ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-auto">
           <WindowsAgentPicker selected={externalAgentId} busy={externalAgentBusy || ['starting', 'running', 'approval', 'stopping'].includes(computerUse.phase)} message={actionMessage} onChange={setExternalAgentId} onRun={() => void handleRunExternalAgent(useQueryStore.getState().committed)} />
@@ -403,10 +413,7 @@ export function SearchExperience({
             results={controller.results}
             service={service}
             onClearFilters={clearFilters}
-            onDetails={handleShowDetails}
             onOpen={handleOpen}
-            onOpenContainingFolder={handleOpenContainingFolder}
-            onPin={handlePin}
             onRemoveFilter={handleRemoveFilter}
             onSelectionChange={handleSelect}
           />

@@ -1,13 +1,13 @@
 import {useEffect, useRef, useState, type ReactNode} from 'react';
 
 import {Dialog, DialogTrigger, Heading, Modal, ModalOverlay} from 'react-aria-components';
+import {Button, Field, Input} from '@fluentui/react-components';
 
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
 import {LumenText} from '../../../design-system/primitives/LumenText';
 import {providersApi} from '../../../services/api/providers';
 import {toProviderErrorMessage} from '../../../services/providers/providers-service';
 import type {ProviderApp} from '../../../services/providers/providers.types';
-import {LumenTextField} from './SettingsControls';
 
 export interface EditableProvider {
   app: ProviderApp;
@@ -84,7 +84,7 @@ export function EditProviderDialog({
       {children ?? <LumenButton size="small">{triggerLabel}</LumenButton>}
       <ModalOverlay className="lumen-preview-overlay fixed inset-0 z-30 grid min-h-0 place-items-center overflow-y-auto bg-scrim p-4" isDismissable={!pending} isKeyboardDismissDisabled={pending}>
         <Modal className="lumen-preview-modal max-h-full w-full max-w-[480px] overflow-y-auto outline-none">
-          <Dialog aria-label={`Edit ${provider.name ?? provider.id}`} className="grid gap-6 rounded-surface border border-border-strong bg-surface-raised p-6 text-text-primary shadow-surface outline-none">
+          <Dialog aria-label={`Edit ${provider.name ?? provider.id}`} className="grid min-w-0 gap-6 rounded-surface border border-border-strong bg-surface-raised p-6 text-text-primary shadow-surface outline-none [overflow-wrap:anywhere]">
             {({close}) => (
               <>
                 <Heading slot="title">
@@ -92,27 +92,24 @@ export function EditProviderDialog({
                     Edit {provider.name ?? provider.id}
                   </LumenText>
                 </Heading>
-                <div className="grid gap-4">
-                  <label className="grid gap-1 font-sans text-sm text-text-secondary">
-                    Base URL
-                    <LumenTextField aria-label="Base URL" value={baseUrl} onChange={setBaseUrl} />
-                  </label>
-                  <label className="grid gap-1 font-sans text-sm text-text-secondary">
-                    API key (leave empty to keep the stored key)
-                    <LumenTextField aria-label="API key" placeholder="••••••" type="password" value={apiKey} onChange={setApiKey} />
-                  </label>
-                  <label className="grid gap-1 font-sans text-sm text-text-secondary">
-                    Model
-                    <LumenTextField aria-label="Model" value={model} onChange={setModel} />
-                  </label>
+                <div className="grid min-w-0 gap-4">
+                  <Field className="min-w-0" label="Base URL">
+                    <Input aria-label="Base URL" className="min-w-0 w-full" disabled={pending} value={baseUrl} onChange={(_event, data) => setBaseUrl(data.value)} />
+                  </Field>
+                  <Field className="min-w-0" label="API key" hint="Leave empty to keep the stored key.">
+                    <Input aria-label="API key" className="min-w-0 w-full" disabled={pending} placeholder="••••••" type="password" value={apiKey} onChange={(_event, data) => setApiKey(data.value)} />
+                  </Field>
+                  <Field className="min-w-0" label="Model">
+                    <Input aria-label="Model" className="min-w-0 w-full" disabled={pending} value={model} onChange={(_event, data) => setModel(data.value)} />
+                  </Field>
                   {error ? <LumenText tone="secondary" variant="meta" role="alert">{error}</LumenText> : null}
-                  <div className="flex justify-end gap-3">
-                    <LumenButton size="small" variant="quiet" isDisabled={pending} onPress={close}>
+                  <div className="flex min-w-0 flex-wrap justify-end gap-3">
+                    <Button size="small" appearance="subtle" disabled={pending} onClick={close}>
                       Cancel
-                    </LumenButton>
-                    <LumenButton size="small" variant="primary" isDisabled={!canSubmit} onPress={() => void submit(close)}>
+                    </Button>
+                    <Button size="small" appearance="primary" disabled={!canSubmit} onClick={() => void submit(close)}>
                       {pending ? 'Saving…' : 'Save'}
-                    </LumenButton>
+                    </Button>
                   </div>
                 </div>
               </>

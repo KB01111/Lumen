@@ -1,7 +1,9 @@
 import type {CSSProperties, PropsWithChildren, ProfilerOnRenderCallback} from 'react';
 import {Profiler, useEffect, useMemo, useRef, useSyncExternalStore} from 'react';
 import {UNSAFE_PortalProvider} from 'react-aria';
+import {FluentProvider} from '@fluentui/react-components';
 import {LumenMotionProvider} from '../design-system/MotionProvider';
+import {lumenFluentThemes, reducedFluentMotion} from '../design-system/fluent-theme';
 import type {AppearancePreferences} from '../design-system/theme';
 import {
   captureReactCommit,
@@ -87,6 +89,10 @@ export function AppProviders({
     : resolvedAppearance.mode;
   const reducedMotion = resolvedAppearance.motion === 'reduced' ||
     (resolvedAppearance.motion === 'system' && systemReducedMotion);
+  const fluentTheme = useMemo(() => ({
+    ...lumenFluentThemes[resolvedMode],
+    ...(reducedMotion ? reducedFluentMotion : {}),
+  }), [reducedMotion, resolvedMode]);
   const portalContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -120,8 +126,9 @@ export function AppProviders({
 
   return (
     <LumenMotionProvider reducedMotion={reducedMotion}>
-      <div
+      <FluentProvider
         ref={portalContainerRef}
+        theme={fluentTheme}
         className="h-full w-full bg-transparent font-sans text-text-primary"
         role="application"
         aria-label="Lumen"
@@ -133,12 +140,14 @@ export function AppProviders({
         data-density={storedDensity}
         data-motion={resolvedAppearance.motion}
         data-reduced-motion={reducedMotion}
-        style={glassIntensity === undefined ? undefined : {'--lumen-glass-strength': glassIntensity / 72} as CSSProperties}
+        style={{backgroundColor: 'transparent', fontSize: 'inherit', lineHeight: 'inherit',
+          ...(glassIntensity === undefined ? {} : {'--lumen-glass-strength': glassIntensity / 72}),
+        } as CSSProperties}
       >
         <UNSAFE_PortalProvider getContainer={() => portalContainerRef.current ?? document.body}>
           <Profiler id="Lumen" onRender={recordCommit}>{children}</Profiler>
         </UNSAFE_PortalProvider>
-      </div>
+      </FluentProvider>
     </LumenMotionProvider>
   );
 }

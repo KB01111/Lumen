@@ -30,10 +30,7 @@ export interface ExpandedWorkspaceProps {
   selectedId?: string | null;
   service: SearchService;
   onClearFilters(): void;
-  onDetails(): void;
   onOpen(fileId?: string): void;
-  onOpenContainingFolder(): void;
-  onPin(): void;
   onRemoveFilter(filter: SearchFilter): void;
   onSelectionChange(fileId: string | null): void;
 }
@@ -119,7 +116,7 @@ const SelectionBoundPreview = memo(function SelectionBoundPreview({
   return <LazyPreviewPane fileId={fileId} reducedMotion={reducedMotion} service={service} />;
 });
 
-const SelectionBoundActions = memo(function SelectionBoundActions({
+export const SelectionBoundActions = memo(function SelectionBoundActions({
   isOpening,
   results,
   selectedId: selectedIdOverride,
@@ -243,10 +240,7 @@ export const ExpandedWorkspace = memo(function ExpandedWorkspace({
   selectedId,
   service,
   onClearFilters,
-  onDetails,
   onOpen,
-  onOpenContainingFolder,
-  onPin,
   onRemoveFilter,
   onSelectionChange,
 }: ExpandedWorkspaceProps) {
@@ -300,15 +294,6 @@ export const ExpandedWorkspace = memo(function ExpandedWorkspace({
           </div> : null}
         </div>
       </div>
-      <SelectionBoundActions
-        isOpening={openingId !== null}
-        results={results}
-        selectedId={selectedId}
-        onDetails={onDetails}
-        onOpen={onOpen}
-        onOpenContainingFolder={onOpenContainingFolder}
-        onPin={onPin}
-      />
       <SelectionAnnouncement announcement={announcement} results={results} selectedId={selectedId} />
     </section>
   );

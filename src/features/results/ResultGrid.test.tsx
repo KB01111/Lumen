@@ -78,22 +78,27 @@ describe('ResultGrid', () => {
   it('cancels a consumed collection entrance without replaying it on motion-policy changes', async () => {
     const cancel = vi.fn();
     const animate = vi.fn(() => ({cancel} as unknown as Animation));
-    const rowAnimations = () => animate.mock.contexts.filter((element) =>
-      element instanceof HTMLElement && element.hasAttribute('data-result-id'),
+    const collectionAnimations = () => animate.mock.contexts.filter((element) =>
+      element instanceof HTMLElement && element.getAttribute('role') === 'grid',
     );
     const previousAnimate = HTMLElement.prototype.animate;
     HTMLElement.prototype.animate = animate;
     try {
       const results = [file('a'), file('b')];
       const {rerender} = render(<ResultGrid animateRows results={results} selectedId="a" />);
-      await waitFor(() => expect(rowAnimations()).toHaveLength(2));
+      await waitFor(() => expect(collectionAnimations()).toHaveLength(1));
+      const call = animate.mock.contexts.findIndex((element) => element === screen.getByRole('grid', {name: 'Search results'}));
+      expect(animate.mock.calls[call]).toEqual([
+        [{opacity: 0}, {opacity: 1}],
+        {duration: 120, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards'},
+      ]);
       rerender(<ResultGrid animateRows reducedMotion results={results} selectedId="a" />);
-      expect(cancel).toHaveBeenCalledTimes(2);
+      expect(cancel).toHaveBeenCalledOnce();
       await new Promise((resolve) => requestAnimationFrame(resolve));
-      expect(rowAnimations()).toHaveLength(2);
+      expect(collectionAnimations()).toHaveLength(1);
       rerender(<ResultGrid animateRows results={results} selectedId="a" />);
       await new Promise((resolve) => requestAnimationFrame(resolve));
-      expect(rowAnimations()).toHaveLength(2);
+      expect(collectionAnimations()).toHaveLength(1);
     } finally { HTMLElement.prototype.animate = previousAnimate; }
   });
 
@@ -116,7 +121,7 @@ describe('ResultGrid', () => {
     expect(capsule?.parentElement).toBe(viewport);
   });
 
-  it('cascades each replacement once even when row IDs are retained', async () => {
+  it('reveals each replacement once even when row IDs are retained and cancels when hidden', async () => {
     const cancel = vi.fn();
     const animate = vi.fn(() => ({cancel} as unknown as Animation));
     const previousAnimate = HTMLElement.prototype.animate;
@@ -124,14 +129,23 @@ describe('ResultGrid', () => {
     try {
       const first = [file('a'), file('b')];
       const {rerender, unmount} = render(<ResultGrid animateRows reducedMotion results={first} selectedId="a" />);
-      await waitFor(() => expect(animate).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(animate).toHaveBeenCalledOnce());
+      expect(animate.mock.calls[0]).toEqual([
+        [{opacity: 0}, {opacity: 1}],
+        {duration: 80, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards'},
+      ]);
       rerender(<ResultGrid animateRows reducedMotion results={first} selectedId="b" />);
-      expect(animate).toHaveBeenCalledTimes(2);
+      expect(animate).toHaveBeenCalledOnce();
       rerender(<ResultGrid animateRows reducedMotion results={[file('a'), file('b')]} selectedId="b" />);
-      await waitFor(() => expect(animate).toHaveBeenCalledTimes(4));
+      await waitFor(() => expect(animate).toHaveBeenCalledTimes(2));
+      act(() => useLauncherStore.getState().hide());
+      expect(cancel).toHaveBeenCalledTimes(2);
       unmount();
-      expect(cancel).toHaveBeenCalledTimes(4);
-    } finally { HTMLElement.prototype.animate = previousAnimate; }
+      expect(cancel).toHaveBeenCalledTimes(2);
+    } finally {
+      HTMLElement.prototype.animate = previousAnimate;
+      useLauncherStore.getState().reset();
+    }
   });
   afterEach(() => appearanceStore.setState({density: 'comfortable'}));
 
@@ -186,7 +200,7 @@ describe('ResultGrid', () => {
     );
   });
 
-  it('suppresses the selection capsule inset shadow in app-controlled high contrast', () => {
+  it('keeps the selection capsule flat without a decorative inset shadow', () => {
     const results = [file('selected')];
     const {container} = render(
       <ResultGrid results={results} selectedId="selected" />,
@@ -195,10 +209,8 @@ describe('ResultGrid', () => {
     const capsule = container.querySelector('[data-selection-capsule]');
 
     expect(capsule).not.toBeNull();
-    expect(capsule).toHaveClass('high-contrast:shadow-none');
-    expect(capsule?.className).toContain(
-      'shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]',
-    );
+    expect(capsule).toHaveClass('shadow-none');
+    expect(capsule?.className).not.toContain('shadow-[inset');
   });
 
   it('clears a disabled selection so sibling surfaces cannot retain it', () => {

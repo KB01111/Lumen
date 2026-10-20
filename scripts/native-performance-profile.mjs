@@ -8,6 +8,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {chromium} from 'playwright';
 import {withLumenDevServer} from './lib/lumen-dev-server.mjs';
+import {readWindowsTcpListeners, requireOwnedTcpListener} from './lib/windows-tcp-listeners.mjs';
 import {sampleFrameCadence} from '../src/features/diagnostics/diagnostics.refresh.mjs';
 
 // Run via bun run node with LUMEN_NATIVE_PERFORMANCE_EXE set to an owned debug
@@ -137,33 +138,51 @@ export async function main() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'lumen-native-performance-'));
   const output = path.resolve(process.env.LUMEN_PROFILE_OUTPUT_DIR ?? 'artifacts/performance/native');
   await mkdir(output, {recursive: true});
-  const sourceFiles = ['scripts/native-performance-profile.mjs', 'scripts/native-performance.html', 'src-tauri/src/lib.rs', 'src-tauri/src/window.rs', 'src-tauri/src/native_performance.rs', 'src-tauri/src/native_performance_root.rs', 'src/test/NativePerformanceFixture.tsx', 'src/test/native-performance.tsx', 'src/features/launcher/ContextActions.tsx', 'src/features/launcher/ScopeRail.tsx', 'src/features/launcher/semantic-search-context.ts', 'src/services/search/semantic-search-service.ts'];
+  const sourceFiles = ['scripts/native-performance-profile.mjs', 'scripts/lib/lumen-dev-server.mjs', 'scripts/lib/lumen-owned-vite.mjs', 'scripts/lib/windows-tcp-listeners.mjs', 'scripts/lib/windows-tcp-listeners.ps1', 'scripts/native-performance.html', 'src-tauri/src/lib.rs', 'src-tauri/src/window.rs', 'src-tauri/src/native_performance.rs', 'src-tauri/src/native_performance_root.rs', 'src/test/NativePerformanceFixture.tsx', 'src/test/native-performance.tsx', 'src/features/launcher/ContextActions.tsx', 'src/features/launcher/ScopeRail.tsx', 'src/features/launcher/semantic-search-context.ts', 'src/services/search/semantic-search-service.ts'];
   const sourceHashes = Object.fromEntries(await Promise.all(sourceFiles.map(async (file) => [file, hash(await readFile(file))])));
   const provenance = {generatedAt: new Date().toISOString(), executable, executableSha256: hash(bytes), gitSha: execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(), sourceDirty: execFileSync('git', ['status', '--porcelain'], {encoding: 'utf8'}).trim(), trackedDiffSha256: hash(execFileSync('git', ['diff', 'HEAD'])), sourceHashes, root, physicalDisplays: JSON.parse(powershell('Get-CimInstance Win32_VideoController | Select-Object Name,CurrentHorizontalResolution,CurrentVerticalResolution,CurrentRefreshRate,DriverVersion | ConvertTo-Json'))};
   await writeFile(path.join(output, 'provenance.json'), JSON.stringify(provenance, null, 2));
-  await withLumenDevServer(async () => {
+  await withLumenDevServer(async (sourceUrl, sourceServer) => {
+    await writeFile(path.join(output, 'source-server.json'), JSON.stringify({url: sourceUrl, ...sourceServer}, null, 2));
     const port = await freePort();
     const child = spawn(executable, [], {env: {...process.env, LUMEN_NATIVE_PERFORMANCE_ROOT: root, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`}, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe']});
     let log = ''; child.stdout.on('data', (bytes) => { log += bytes; }); child.stderr.on('data', (bytes) => { log += bytes; });
     let browser;
+    let admittedPage;
     try {
       const version = await waitForEndpoint(port, child);
       const processes = JSON.parse(powershell('Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name | ConvertTo-Json'));
       const owned = ownedDescendants(processes, child.pid);
       const ownedProcesses = JSON.parse(powershell(`Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -in @(${[...owned].join(',')}) } | Select-Object ProcessId,ParentProcessId,Name,CommandLine | ConvertTo-Json`));
-      const listener = Number(powershell(`(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction Stop | Select-Object -First 1).OwningProcess`));
-      if (!owned.has(listener)) throw new Error('CDP listener is not owned by the fixture executable');
+      const listenerRow = requireOwnedTcpListener(readWindowsTcpListeners(), port, owned);
+      const listener = listenerRow.pid;
+      const listenerEvidence = {api: 'GetExtendedTcpTable', addressFamily: 'AF_INET', tableClass: 'TCP_TABLE_OWNER_PID_LISTENER', status: 0, row: listenerRow};
       browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
       const pages = browser.contexts().flatMap((context) => context.pages());
       if (pages.length !== 1) throw new Error('Expected one isolated WebView page');
       const page = pages[0]; await page.waitForURL(fixtureUrl); await admitFixturePage(page);
-      await writeFile(path.join(output, 'attachment.json'), JSON.stringify({version, rootPid: child.pid, listenerPid: listener, ownedProcesses}, null, 2));
+      admittedPage = page;
+      await writeFile(path.join(output, 'attachment.json'), JSON.stringify({version, rootPid: child.pid, listenerPid: listener, listenerEvidence, ownedProcesses}, null, 2));
       const result = await measure(page, output);
-      await writeFile(path.join(output, 'native-profile-summary.json'), JSON.stringify({...provenance, version, rootPid: child.pid, listenerPid: listener, ownedProcesses, ...result}, null, 2));
+      await writeFile(path.join(output, 'native-profile-summary.json'), JSON.stringify({...provenance, version, rootPid: child.pid, listenerPid: listener, listenerEvidence, ownedProcesses, ...result}, null, 2));
+      // Visual inspection is separate from every timed sample above.
+      await page.screenshot({path: path.join(output, 'native-launcher.png')});
       process.stdout.write(`${JSON.stringify(result.measured)}\n${JSON.stringify(result.checks)}\n${output}\n`);
       if (!result.captureValid || !result.strict240Hz.passed) process.exitCode = 1;
     } catch (error) {
       await writeFile(path.join(output, 'failure.json'), JSON.stringify({message: error.message, stack: error.stack}, null, 2));
+      const failedPage = admittedPage;
+      if (failedPage) {
+        try {
+          await writeFile(path.join(output, 'failure-state.json'), JSON.stringify(await failedPage.evaluate(async () => ({
+            visibility: document.visibilityState, body: document.body.innerText, html: document.body.innerHTML,
+            query: (await import('/src/features/launcher/query.store.ts')).useQueryStore.getState(),
+            launcher: (await import('/src/features/launcher/launcher.store.ts')).useLauncherStore.getState(),
+            diagnostics: window.__LUMEN_DIAGNOSTICS__?.read(),
+          })), null, 2));
+          await failedPage.screenshot({path: path.join(output, 'failure.png')});
+        } catch (diagnosticError) { await writeFile(path.join(output, 'failure-diagnostic-error.txt'), String(diagnosticError)); }
+      }
       throw error;
     } finally {
       try { await browser?.close(); } finally {

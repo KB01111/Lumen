@@ -3,7 +3,7 @@ import {AnimatePresence, motion} from 'motion/react';
 import {motionTokens} from '../../design-system/motion';
 import {useLumenMotion} from '../../design-system/MotionProvider';
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
-import {LumenButton} from '../../design-system/primitives/LumenButton';
+import {Button} from '@fluentui/react-components';
 import type {SearchFilter} from '../../services/search/search.types';
 
 export interface FilterChipsProps {
@@ -40,28 +40,28 @@ export function FilterChips({filters, onClear, onRemove}: FilterChipsProps) {
                 initial={reducedMotion ? {opacity: 0} : {opacity: 0, scale: 0.94}}
                 transition={{duration}}
               >
-                <LumenButton
+                <Button data-launcher-control
                   aria-label={`Remove ${filter.label} filter`}
                   className="rounded-full"
                   size="small"
-                  variant="subtle"
-                  onPress={() => onRemove(filter)}
+                  appearance="secondary"
+                  onClick={() => onRemove(filter)}
                 >
                   {filter.label}
                   <LumenUiIcon name="close" size="small" />
-                </LumenButton>
+                </Button>
               </motion.span>
             ))}
           </AnimatePresence>
           {filters.length > 1 ? (
-            <LumenButton
+            <Button data-launcher-control
               className="ml-auto shrink-0"
               size="small"
-              variant="quiet"
-              onPress={onClear}
+              appearance="subtle"
+              onClick={onClear}
             >
               Clear all
-            </LumenButton>
+            </Button>
           ) : null}
         </motion.div>
       ) : null}

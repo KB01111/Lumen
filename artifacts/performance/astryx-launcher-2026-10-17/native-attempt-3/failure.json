@@ -1,0 +1,4 @@
+{
+  "message": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('grid', { name: 'Search results' }) to be visible\u001b[22m\n",
+  "stack": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('grid', { name: 'Search results' }) to be visible\u001b[22m\n\n    at measure (C:\\Users\\kevin\\.codex\\worktrees\\9b6b\\Lumen\\scripts\\native-performance-profile.mjs:69:58)\n    at async withLumenDevServer.reuseExistingServer (C:\\Users\\kevin\\.codex\\worktrees\\9b6b\\Lumen\\scripts\\native-performance-profile.mjs:164:22)\n    at async withLumenDevServer (C:\\Users\\kevin\\.codex\\worktrees\\9b6b\\Lumen\\scripts\\lib\\lumen-dev-server.mjs:106:12)\n    at async main (C:\\Users\\kevin\\.codex\\worktrees\\9b6b\\Lumen\\scripts\\native-performance-profile.mjs:145:3)\n    at async file:///C:/Users/kevin/.codex/worktrees/9b6b/Lumen/scripts/native-performance-profile.mjs:185:95"
+}

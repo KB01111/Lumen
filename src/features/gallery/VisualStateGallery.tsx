@@ -11,7 +11,7 @@ import {ComputerUsePanel} from '../computer-use/ComputerUsePanel';
 import type {ComputerUseController, ComputerUseState} from '../computer-use/useComputerUseController';
 import {GatewayStatusPanel} from '../gateway/GatewayStatusPanel';
 import {CollapsedLauncher} from '../launcher/CollapsedLauncher';
-import {ExpandedWorkspace} from '../launcher/ExpandedWorkspace';
+import {ExpandedWorkspace, SelectionBoundActions} from '../launcher/ExpandedWorkspace';
 import {useLauncherStore} from '../launcher/launcher.store';
 import {useQueryStore} from '../launcher/query.store';
 import {OnboardingFlow} from '../onboarding/OnboardingFlow';
@@ -114,6 +114,15 @@ function GalleryLauncher({state}: {state: GalleryLauncherState}) {
   return (
     <div className={`min-h-0 min-w-0 ${state.constrained ? 'h-[340px] w-[min(100%,520px)]' : expanded ? 'h-[min(100%,540px)] w-[min(100%,800px)]' : 'h-[66px] w-[min(100%,800px)]'}`}>
       <CollapsedLauncher
+        footerActions={expanded ? <SelectionBoundActions
+          isOpening={false}
+          results={results}
+          selectedId={selectedId}
+          onDetails={() => undefined}
+          onOpen={() => undefined}
+          onOpenContainingFolder={() => undefined}
+          onPin={() => undefined}
+        /> : undefined}
         focusOnMount={state.focusOnMount ?? true}
         statusLabel={state.noRoot ? 'No root' : results.length > 0 ? `${results.length} results` : 'Ready'}
         windowService={galleryWindowService}
@@ -129,10 +138,7 @@ function GalleryLauncher({state}: {state: GalleryLauncherState}) {
             selectedId={selectedId}
             service={service}
             onClearFilters={() => undefined}
-            onDetails={() => undefined}
             onOpen={() => undefined}
-            onOpenContainingFolder={() => undefined}
-            onPin={() => undefined}
             onRemoveFilter={() => undefined}
             onSelectionChange={setSelectedId}
           />

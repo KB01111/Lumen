@@ -103,6 +103,7 @@ async function record(baseUrl) {
       await page.keyboard.press('Control+Enter');
       await pause(page);
       await page.keyboard.press('Tab');
+      await page.keyboard.press('Tab');
       await page.keyboard.press('ArrowRight');
       await pause(page);
       await page.keyboard.press('Control+K');

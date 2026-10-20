@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-10-20T03:13:17.386Z",
+  "pid": 150736,
+  "port": 10355,
+  "table": {
+    "status": 0,
+    "first": 122,
+    "rows": [
+      {
+        "port": 10355,
+        "owner": 150736,
+        "address": "127.0.0.1",
+        "state": 5
+      },
+      {
+        "port": 10355,
+        "owner": 150736,
+        "address": "127.0.0.1",
+        "state": 0
+      }
+    ],
+    "count": 225
+  }
+}

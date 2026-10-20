@@ -7,7 +7,8 @@ const url = 'http://127.0.0.1:1424';
 export default defineConfig({
   ...functionalConfig,
   testIgnore: [],
-  testMatch: '**/performance.spec.ts',
+  // Keep the timed workload intact; then verify integration CSS/loading in the same production build.
+  testMatch: ['**/performance.spec.ts', '**/unified-ui.spec.ts'],
   outputDir: 'test-results/performance',
   // Preserve attached raw samples for CI evidence uploads.
   reporter: [['list'], ['json', {outputFile: 'test-results/performance-results.json'}]],

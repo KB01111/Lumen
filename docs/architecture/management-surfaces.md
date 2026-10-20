@@ -1,6 +1,6 @@
 # Management surfaces
 
-Lumen's first-run and settings experiences are part of the same native React surface as the launcher. They use Tailwind CSS-first semantic tokens, material primitives, the motion provider, and React Aria controls; no web-only settings shell or second component library is involved.
+Lumen's first-run and settings experiences are part of the same native React surface as the launcher. Tailwind CSS-first semantic tokens, material primitives and the motion provider remain authoritative. Fluent React v9 supplies selected provider profile fields/interior actions and the native gateway model picker; existing React Aria settings navigation, controls and modal ownership remain in place.
 
 ## Ownership
 
@@ -12,7 +12,7 @@ Lumen's first-run and settings experiences are part of the same native React sur
 - `src/features/settings/settings.store.ts` owns management preferences and the last active settings page.
 - Feature stores own presentation state. Native activity, provider routes, MCP permissions, local runtime provisioning, privacy, index data, and diagnostic truth remain authoritative in Rust.
 
-React Aria Components provides the tabs, switches, selects, sliders, dialogs, focus semantics, collection roles, and focus restoration. Those controls are styled directly with Lumen primitives rather than wrapped by a second interaction abstraction. Overlay portals are mounted inside the themed application root so confirmation dialogs inherit the active appearance.
+React Aria Components provides existing tabs, switches, selects, sliders, dialogs, focus semantics, collection roles and focus restoration. Provider Add/Edit dialogs keep their React Aria modal and trigger contracts; Fluent Field/Input/Button supply interior controls. Gateway registry choices use Fluent's native Select with stable model IDs, capability filtering and existing consent. Custom URL/model drafts still require explicit Apply. Fixed preview routes retain their existing controls. No second focus trap, notification system or scroll lock is added. Overlay portals remain inside the themed application root, so both libraries inherit the active appearance.
 
 ## Native management boundaries
 

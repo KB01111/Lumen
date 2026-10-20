@@ -1,10 +1,9 @@
 import {memo, useCallback, useLayoutEffect, useRef, type ReactNode, type RefObject} from 'react';
 
 import {GlassCommandPalette} from '../../components/ui/GlassCommandPalette';
-import {LumenMark} from '../../design-system/icons/LumenMark';
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {useLumenMotion} from '../../design-system/MotionProvider';
-import {LumenButton} from '../../design-system/primitives/LumenButton';
+import {Button} from '@fluentui/react-components';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
@@ -37,67 +36,67 @@ const LauncherComposer = memo(function LauncherComposer({
 }: LauncherComposerProps) {
   const intent = useLauncherStore((state) => state.intent);
   return (
-    <div className="flex w-full min-w-0 items-center gap-[10px]" data-tauri-drag-region>
-      <span
-        aria-hidden="true"
-        className="grid size-[32px] shrink-0 place-items-center rounded-[var(--lumen-radius-control)] border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row)] text-accent"
-      >
-        <LumenMark size="medium" />
-      </span>
-      <LumenButton
-        aria-label={intent === 'computer' ? 'Switch to file search' : 'Switch to Computer Use'}
-        className="max-w-[180px] min-w-8 shrink-0"
-        isDisabled={intentLocked}
-        size="small"
-        variant="quiet"
-        onPress={onIntentChange}
-      >
-        <LumenUiIcon name={intent === 'computer' ? 'search' : 'computer'} size="small" />
-        <span className="min-w-0 truncate">
-          {intent === 'computer' ? 'File search' : 'Computer Use'}
-        </span>
-      </LumenButton>
+    <div className="flex w-full min-w-0 items-center gap-3" data-tauri-drag-region>
       <SearchInput
         ref={inputRef}
         intent={intent}
         onEscapeEmpty={onEscapeEmpty}
         onSubmit={intentLocked ? undefined : onComputerSubmit}
       />
+      <Button data-launcher-control
+        aria-label={intent === 'computer' ? 'Switch to file search' : 'Switch to Computer Use'}
+        data-launcher-intent-switch
+        className="max-w-[140px] min-w-8 shrink-0 gap-1.5 px-2"
+        disabled={intentLocked}
+        size="small"
+        appearance="subtle"
+        onClick={onIntentChange}
+      >
+        <LumenUiIcon name={intent === 'computer' ? 'search' : 'computer'} size="small" />
+        <span className="min-w-0 truncate">
+          {intent === 'computer' ? 'File search' : 'Computer Use'}
+        </span>
+      </Button>
       {onVoiceRequest ? (
-        <LumenButton
+        <Button data-launcher-control
           aria-label={voiceActive ? 'Stop voice input' : 'Start voice input'}
           className="shrink-0"
           size="small"
-          variant="quiet"
-          onPress={onVoiceRequest}
+          appearance="subtle"
+          onClick={onVoiceRequest}
         >
           <LumenUiIcon name="voice" size="small" />
-        </LumenButton>
+        </Button>
       ) : null}
-      <kbd className="einui-command-shortcut shrink-0" aria-label="Alt plus Space">
-        Alt&nbsp;&nbsp;Space
-      </kbd>
     </div>
   );
 });
 
 function LauncherFooter({
+  actions,
   searching,
   statusLabel,
 }: {
+  actions?: ReactNode;
   searching: boolean;
   statusLabel?: string;
 }) {
   return (
     <>
-      <LauncherStatus label={statusLabel} searching={searching} />
-      <span className="text-[color:var(--einui-command-muted-text)]">Local runtime</span>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <LauncherStatus label={statusLabel} searching={searching} />
+        <kbd className="hidden shrink-0 font-sans text-[0.6875rem] @min-[40rem]/footer:inline" aria-label="Alt plus Space">
+          Alt + Space
+        </kbd>
+      </div>
+      {actions}
     </>
   );
 }
 
 export interface CollapsedLauncherProps {
   expandedContent?: ReactNode;
+  footerActions?: ReactNode;
   inputRef?: RefObject<HTMLInputElement | null>;
   searching?: boolean;
   statusLabel?: string;
@@ -111,6 +110,7 @@ export interface CollapsedLauncherProps {
 
 export function CollapsedLauncher({
   expandedContent,
+  footerActions,
   inputRef: providedInputRef,
   searching = false,
   statusLabel,
@@ -192,6 +192,7 @@ export function CollapsedLauncher({
       body={hasCommittedQuery ? expandedContent : retainedWorkspace.current}
       footer={(
         <LauncherFooter
+          actions={footerActions}
           searching={searching}
           statusLabel={presentationError ?? statusLabel}
         />

@@ -131,7 +131,26 @@ export function useLumenKeyboard({
         return;
       }
       const current = regionForTarget(event.target);
+      const composer = inputRef.current?.closest('[data-einui-slot="composer"]');
+      const composerButtons = [...(composer?.querySelectorAll<HTMLElement>('button:not([disabled])') ?? [])].filter(isRendered);
+      if (!current && !event.shiftKey && event.target === composerButtons.slice(-1)[0]) {
+        event.preventDefault();
+        event.stopPropagation();
+        focusRegion('scope');
+        return;
+      }
       if (!current) {
+        return;
+      }
+      const composerControl = current === 'search' && !event.shiftKey
+        ? composer?.querySelector<HTMLElement>('[data-launcher-intent-switch]:not([disabled])')
+        : current === 'scope' && event.shiftKey
+          ? composerButtons.slice(-1)[0]
+          : null;
+      if (composerControl) {
+        event.preventDefault();
+        event.stopPropagation();
+        composerControl.focus();
         return;
       }
       if (current === 'preview' && !event.shiftKey) {

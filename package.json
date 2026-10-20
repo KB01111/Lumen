@@ -17,7 +17,7 @@
     "preview:performance": "vite preview --config vite.performance.config.ts --host 127.0.0.1 --port 1424 --strictPort",
     "test:answer-native": "node scripts/answer-native-integration.mjs",
     "test:answer-bridge": "node --test scripts/answer-native-bridge.test.mjs scripts/answer-native-shutdown.test.mjs",
-    "test:tooling": "node --test scripts/native-performance-profile.test.mjs scripts/lib/lumen-dev-server.test.mjs",
+    "test:tooling": "node --test scripts/native-performance-profile.test.mjs scripts/lib/lumen-dev-server.test.mjs scripts/lib/windows-tcp-listeners.test.mjs",
     "profile": "node scripts/performance-profile.mjs",
     "capture:gallery": "node scripts/capture-gallery.mjs",
     "record:interactions": "node scripts/record-interactions.mjs",
@@ -33,6 +33,8 @@
     "release:verify": "bun scripts/release.ts verify"
   },
   "dependencies": {
+    "@astryxdesign/core": "0.7.1",
+    "@fluentui/react-components": "9.74.9",
     "@openai/apps-sdk-ui": "^0.2.2",
     "@tanstack/react-virtual": "^3.14.9",
     "@tauri-apps/api": "^2",
@@ -58,6 +60,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@astryxdesign/cli": "0.7.1",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
     "@sqliteai/sqlite-vector-win32-x86_64": "1.0.0",
@@ -79,6 +82,7 @@
     "yaml": "^2.9.0"
   },
   "patchedDependencies": {
-    "rivetkit@2.3.10": "patches/rivetkit@2.3.10.patch"
+    "rivetkit@2.3.10": "patches/rivetkit@2.3.10.patch",
+    "keyborg@2.14.1": "patches/keyborg@2.14.1.patch"
   }
 }

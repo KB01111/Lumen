@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState, type ReactNode} from 'react';
 
 import {Dialog, DialogTrigger, Heading, Modal, ModalOverlay} from 'react-aria-components';
+import {Button, Field, Input} from '@fluentui/react-components';
 
 import {vendorPresets, type VendorPreset} from '../../../config/vendorPresets';
 import {LumenButton} from '../../../design-system/primitives/LumenButton';
@@ -8,7 +9,6 @@ import {LumenText} from '../../../design-system/primitives/LumenText';
 import {providersApi} from '../../../services/api/providers';
 import {toProviderErrorMessage} from '../../../services/providers/providers-service';
 import {providerAppSchema, type ProviderApp} from '../../../services/providers/providers.types';
-import {LumenTextField} from './SettingsControls';
 
 type AddStep = 'pick' | 'form';
 
@@ -102,7 +102,7 @@ export function AddProviderDialog({
       {children ?? <LumenButton size="small">{triggerLabel}</LumenButton>}
       <ModalOverlay className="lumen-preview-overlay fixed inset-0 z-30 grid min-h-0 place-items-center overflow-y-auto bg-scrim p-4" isDismissable={!pending} isKeyboardDismissDisabled={pending}>
         <Modal className="lumen-preview-modal max-h-full w-full max-w-[480px] overflow-y-auto outline-none">
-          <Dialog aria-label="Add provider" className="grid gap-6 rounded-surface border border-border-strong bg-surface-raised p-6 text-text-primary shadow-surface outline-none">
+          <Dialog aria-label="Add provider" className="grid min-w-0 gap-6 rounded-surface border border-border-strong bg-surface-raised p-6 text-text-primary shadow-surface outline-none [overflow-wrap:anywhere]">
             {({close}) => (
               <>
                 <Heading slot="title">
@@ -113,56 +113,53 @@ export function AddProviderDialog({
                 {step === 'pick' ? (
                   <div className="grid max-h-[320px] gap-2 overflow-y-auto" role="group" aria-label="Vendor presets">
                     {vendorPresets.filter((candidate) => !app || candidate.app === app).map((candidate) => (
-                      <LumenButton
+                      <Button
                         key={candidate.vendor}
                         aria-label={`Use ${candidate.name}`}
                         size="small"
-                        variant="subtle"
-                        isDisabled={!providerAppSchema.safeParse(candidate.app).success}
-                        onPress={() => pick(candidate)}
+                        appearance="secondary"
+                        disabled={!providerAppSchema.safeParse(candidate.app).success}
+                        onClick={() => pick(candidate)}
                       >
                         <span className="flex w-full items-center justify-between gap-4">
                           <span>{candidate.name}</span>
                           <LumenText tone="tertiary" variant="meta">{providerAppSchema.safeParse(candidate.app).success ? candidate.defaultModel : 'Unavailable'}</LumenText>
                         </span>
-                      </LumenButton>
+                      </Button>
                     ))}
                   </div>
                 ) : (
-                  <div className="grid gap-4">
+                  <div className="grid min-w-0 gap-4">
                     {preset?.requiresOAuth === true ? (
                       <LumenText tone="secondary" variant="meta">
                         API-key profiles require a key. Sidecar OAuth sign-in is managed separately.
                       </LumenText>
                     ) : null}
-                    <label className="grid gap-1 font-sans text-sm text-text-secondary">
-                      Base URL
-                      <LumenTextField aria-label="Base URL" placeholder={preset?.baseUrl ?? ''} value={baseUrl} onChange={setBaseUrl} />
-                    </label>
-                    <label className="grid gap-1 font-sans text-sm text-text-secondary">
-                      API key ({preset?.apiKeyField ?? 'key'})
-                      <LumenTextField aria-label="API key" placeholder="sk-..." type="password" value={apiKey} onChange={setApiKey} />
-                    </label>
-                    <label className="grid gap-1 font-sans text-sm text-text-secondary">
-                      Model
-                      <LumenTextField aria-label="Model" placeholder={preset?.defaultModel ?? ''} value={model} onChange={setModel} />
-                    </label>
+                    <Field className="min-w-0" label="Base URL">
+                      <Input aria-label="Base URL" className="min-w-0 w-full" disabled={pending} placeholder={preset?.baseUrl ?? ''} value={baseUrl} onChange={(_event, data) => setBaseUrl(data.value)} />
+                    </Field>
+                    <Field className="min-w-0" label={`API key (${preset?.apiKeyField ?? 'key'})`}>
+                      <Input aria-label="API key" className="min-w-0 w-full" disabled={pending} placeholder="sk-..." type="password" value={apiKey} onChange={(_event, data) => setApiKey(data.value)} />
+                    </Field>
+                    <Field className="min-w-0" label="Model">
+                      <Input aria-label="Model" className="min-w-0 w-full" disabled={pending} placeholder={preset?.defaultModel ?? ''} value={model} onChange={(_event, data) => setModel(data.value)} />
+                    </Field>
                     {error ? <LumenText tone="secondary" variant="meta" role="alert">{error}</LumenText> : null}
-                    <div className="flex justify-between gap-3">
-                      <LumenButton size="small" variant="quiet" isDisabled={pending} onPress={() => { setApiKey(''); setStep('pick'); }}>
+                    <div className="flex min-w-0 flex-wrap justify-between gap-3">
+                      <Button size="small" appearance="subtle" disabled={pending} onClick={() => { setApiKey(''); setStep('pick'); }}>
                         Back
-                      </LumenButton>
-                      <LumenButton size="small" variant="primary" isDisabled={!canSubmit} onPress={() => void submit(close)}>
+                      </Button>
+                      <Button size="small" appearance="primary" disabled={!canSubmit} onClick={() => void submit(close)}>
                         {pending ? 'Adding…' : 'Add'}
-                      </LumenButton>
+                      </Button>
                     </div>
                   </div>
                 )}
                 {step === 'pick' ? (
                   <div className="flex justify-end gap-3">
-                    <LumenButton size="small" variant="quiet" onPress={close}>
+                    <Button size="small" appearance="subtle" onClick={close}>
                       Cancel
-                    </LumenButton>
+                    </Button>
                   </div>
                 ) : null}
               </>

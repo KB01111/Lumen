@@ -5,9 +5,16 @@ vendor/rivet-engine/THIRD-PARTY-NOTICES.txt -text
 vendor/rivet-engine/notice-sources.json -text
 vendor/rivet-engine/build.sh text eol=lf
 patches/rivetkit@2.3.10.patch -text
+# Unified-diff context prefixes before upstream tabs are required patch bytes.
+patches/keyborg@2.14.1.patch -text -whitespace
 # Preserve the raw performance evidence hashes and original log encodings.
 artifacts/performance/production-readiness-2026-10-15/** -text
+artifacts/performance/astryx-launcher-2026-10-17/** -text whitespace=cr-at-eol
+# Archived diffs and generated failure context preserve original whitespace.
+artifacts/performance/astryx-launcher-2026-10-17/**/*.patch -whitespace
+artifacts/performance/astryx-launcher-2026-10-17/initial-e2e-failure/error-context.md -whitespace
 artifacts/native/launcher-appearance-2026-10-15/** -text
+artifacts/native/astryx-launcher-2026-10-20/** -text whitespace=cr-at-eol
 # Preserve exact portable verification bytes across Windows checkouts.
 artifacts/verification/final-windows-gates/** -text
 artifacts/performance/computer-use-stop.json -text

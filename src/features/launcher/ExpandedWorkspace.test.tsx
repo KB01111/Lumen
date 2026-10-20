@@ -7,7 +7,7 @@ import {MemorySearchService} from '../../services/search/memory-search-service';
 import type {SearchResult} from '../../services/search/search.types';
 import {appearanceStore} from '../../state/appearance.store';
 import type {AppearanceSettings} from '../../state/appearance.schema';
-import {ExpandedWorkspace} from './ExpandedWorkspace';
+import {ExpandedWorkspace, SelectionBoundActions} from './ExpandedWorkspace';
 import {useSelectionStore} from './selection.store';
 
 const appearance: AppearancePreferences = {
@@ -62,10 +62,7 @@ function renderWorkspace(preview: AppearanceSettings['preview'], width: number, 
         selectedId="release"
         service={new MemorySearchService()}
         onClearFilters={vi.fn()}
-        onDetails={vi.fn()}
         onOpen={vi.fn()}
-        onOpenContainingFolder={vi.fn()}
-        onPin={vi.fn()}
         onRemoveFilter={vi.fn()}
         onSelectionChange={vi.fn()}
       />
@@ -83,7 +80,7 @@ describe('ExpandedWorkspace preview policy', () => {
     const stop = vi.fn();
     const props = {activeFilters: [], announcement: '', error: null, lifecycle: 'ready' as const,
       openingId: null, results: [], service: new MemorySearchService(), onClearFilters: vi.fn(),
-      onDetails: vi.fn(), onOpen: vi.fn(), onOpenContainingFolder: vi.fn(), onPin: vi.fn(),
+      onOpen: vi.fn(),
       onRemoveFilter: vi.fn(), onSelectionChange: vi.fn()};
     const answer = (text: string) => <section><span>{text}</span><button onClick={stop}>Stop answer</button></section>;
     const {container, rerender} = render(<ExpandedWorkspace {...props} answerPanel={answer('First')} />);
@@ -102,7 +99,13 @@ describe('ExpandedWorkspace preview policy', () => {
     const pinned = {...result, pinned: true, provenance: {fileHash: 'fixture', indexRevision: 1, extractionKind: 'text'}};
     const app = {...result, id: 'app', name: 'Application content', kind: 'app-content' as const};
     useSelectionStore.getState().select(pinned.id);
-    const Owner = () => {renders += 1; return <ExpandedWorkspace activeFilters={[]} announcement="2 results" error={null} lifecycle="ready" openingId={null} results={[pinned, app]} service={new MemorySearchService()} onClearFilters={vi.fn()} onDetails={vi.fn()} onOpen={vi.fn()} onOpenContainingFolder={vi.fn()} onPin={vi.fn()} onRemoveFilter={vi.fn()} onSelectionChange={vi.fn()} />;};
+    const Owner = () => {
+      renders += 1;
+      return <>
+        <ExpandedWorkspace activeFilters={[]} announcement="2 results" error={null} lifecycle="ready" openingId={null} results={[pinned, app]} service={new MemorySearchService()} onClearFilters={vi.fn()} onOpen={vi.fn()} onRemoveFilter={vi.fn()} onSelectionChange={vi.fn()} />
+        <SelectionBoundActions isOpening={false} results={[pinned, app]} onDetails={vi.fn()} onOpen={vi.fn()} onOpenContainingFolder={vi.fn()} onPin={vi.fn()} />
+      </>;
+    };
     render(<AppProviders><Owner /></AppProviders>);
     expect(screen.getByRole('button', {name: 'Unpin selected result'})).toBeEnabled();
     const initialRenders = renders;

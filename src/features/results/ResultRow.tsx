@@ -64,14 +64,13 @@ export function ResultRow({
         <div className="grid min-w-0 gap-0.5">
           <div className="flex min-w-0 items-baseline gap-[8px]">
             <span className="truncate font-sans text-sm font-medium text-[color:var(--einui-command-text)]">{result.name}</span>
-            {result.metadata.extension ? <span className="shrink-0 font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">{result.metadata.extension.toUpperCase()}</span> : null}
           </div>
           <div className="flex min-w-0 items-center gap-[8px] font-sans text-xs leading-[1.45]">
             <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]" title={result.path}>{result.path}</span>
             {result.match.source !== 'filename' && result.match.fragment ? <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]">{result.match.fragment}</span> : null}
           </div>
         </div>
-        <span className="hidden shrink-0 rounded-pill bg-[var(--einui-command-row)] px-[8px] py-[2px] font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)] @min-[560px]/results:block">{sourceLabels[result.match.source]}</span>
+        <span className="hidden shrink-0 font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)] @min-[560px]/results:block">{result.match.source === 'filename' ? '' : sourceLabels[result.match.source]}</span>
         <span className="flex max-w-[110px] justify-end text-right font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">{stateLabel || formatSize(result.metadata.sizeBytes)}</span>
         <kbd aria-hidden="true" className="hidden min-w-[42px] justify-end font-sans text-xs text-[color:var(--einui-command-muted-text)] opacity-0 group-aria-selected:opacity-100 @min-[680px]/results:flex">Enter</kbd>
       </>

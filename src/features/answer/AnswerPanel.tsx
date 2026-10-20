@@ -1,6 +1,8 @@
 import {useEffect, useRef, useState} from 'react';
+import {Button} from '@fluentui/react-components';
 
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
+import {AiStatusBadge} from '../../design-system/integrations/openai/AiStatusBadge';
 import type {RuntimeMode} from '../../services/answer/answer.types';
 import type {AnswerState} from './useAnswerController';
 import {RuntimeModeSwitch} from './RuntimeModeSwitch';
@@ -88,17 +90,17 @@ export function AnswerPanel({
       <header className="flex min-w-0 flex-wrap items-center justify-between gap-[8px]">
         <div className="flex min-w-0 items-baseline gap-[8px]">
           <span className="whitespace-nowrap font-sans text-xs font-medium text-[color:var(--einui-command-text)]">AI answer</span>
-          <span className="truncate font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)] @max-[560px]/answer:sr-only">{statusLabel(answer)}</span>
+          <div className="truncate @max-[560px]/answer:sr-only"><AiStatusBadge tone={answer.phase === 'error' ? 'danger' : answer.phase === 'completed' ? 'success' : 'secondary'}>{statusLabel(answer)}</AiStatusBadge></div>
         </div>
-        <div className="flex min-w-0 items-center gap-[4px]">
+        <div className="flex min-w-0 flex-wrap items-center gap-[4px]">
           <RuntimeModeSwitch mode={mode} onChange={onModeChange} />
           {canStop ? (
-            <button aria-label="Stop answer" className={quietButtonClass} type="button" onClick={onStop}><LumenUiIcon name="stop" size="small" /><span className="hidden @min-[560px]/answer:inline">Stop</span></button>
+            <Button appearance="subtle" data-launcher-control size="small" aria-label="Stop answer" className={quietButtonClass} type="button" onClick={onStop}><LumenUiIcon name="stop" size="small" /><span className="hidden @min-[560px]/answer:inline">Stop</span></Button>
           ) : canRetry ? (
-            <button aria-label="Retry answer" className={quietButtonClass} type="button" onClick={onRetry}><LumenUiIcon name="retry" size="small" /><span className="hidden @min-[560px]/answer:inline">Retry</span></button>
+            <Button appearance="subtle" data-launcher-control size="small" aria-label="Retry answer" className={quietButtonClass} type="button" onClick={onRetry}><LumenUiIcon name="retry" size="small" /><span className="hidden @min-[560px]/answer:inline">Retry</span></Button>
           ) : null}
           {hasAnswer ? (
-            <button aria-label={copying ? 'Copying answer' : copied ? 'Answer copied' : 'Copy answer'} disabled={copying} className={quietButtonClass} type="button" onClick={() => void copyAnswer()}><LumenUiIcon name={copied ? 'approval' : 'copy'} size="small" /><span className="hidden @min-[560px]/answer:inline">{copying ? 'Copying…' : copied ? 'Copied' : 'Copy'}</span></button>
+            <Button appearance="subtle" data-launcher-control size="small" aria-label={copying ? 'Copying answer' : copied ? 'Answer copied' : 'Copy answer'} disabled={copying} className={quietButtonClass} type="button" onClick={() => void copyAnswer()}><LumenUiIcon name={copied ? 'approval' : 'copy'} size="small" /><span className="hidden @min-[560px]/answer:inline">{copying ? 'Copying…' : copied ? 'Copied' : 'Copy'}</span></Button>
           ) : null}
         </div>
       </header>
@@ -124,7 +126,7 @@ export function AnswerPanel({
           {answer.citations.map((citation) => {
             const label = citationLabel(citation.label, citation.page, citation.timestampSeconds);
             return (
-              <button
+              <Button appearance="subtle" data-launcher-control size="small"
                 key={`${citation.fileId}-${citation.page ?? citation.timestampSeconds ?? 'file'}`}
                 aria-label={`Open ${label}`}
                 className="min-h-[32px] max-w-full rounded-pill border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row)] px-[8px] font-sans text-[0.6875rem] text-accent outline-none transition-colors duration-[var(--lumen-duration-hover)] hover:bg-[var(--einui-command-row-hover)] focus-visible:ring-2 focus-visible:ring-focus"
@@ -132,7 +134,7 @@ export function AnswerPanel({
                 onClick={() => onOpenCitation(citation.fileId)}
               >
                 {label}
-              </button>
+              </Button>
             );
           })}
         </div>

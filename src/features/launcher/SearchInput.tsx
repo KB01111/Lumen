@@ -6,9 +6,9 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
+import {Button} from '@fluentui/react-components';
 
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
-import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {captureTiming} from '../diagnostics/diagnostics.metrics';
 import {useQueryStore} from './query.store';
 import type {LauncherIntent} from './launcher.store';
@@ -26,6 +26,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     const endComposition = useQueryStore((state) => state.endComposition);
     const submit = useQueryStore((state) => state.submit);
     const clear = useQueryStore((state) => state.clear);
+    const initialValue = useRef(useQueryStore.getState().draft);
     const inputRef = useRef<HTMLInputElement>(null);
     const clearWrapperRef = useRef<HTMLSpanElement>(null);
     const pendingFrame = useRef(0);
@@ -73,6 +74,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
         clearWrapperRef.current.hidden = true;
       }
       clear();
+      inputRef.current?.focus();
     };
 
     const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -134,7 +136,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     return (
       <div
         aria-label={intent === 'computer' ? 'Browser task' : 'File search'}
-        className="-mx-1 flex min-w-0 flex-1 items-center gap-1 rounded-[var(--lumen-radius-control)] bg-transparent px-1 py-1 shadow-[inset_0_-1px_0_transparent] transition-[background-color,box-shadow] duration-[90ms] ease-standard focus-within:bg-[var(--einui-command-row)] focus-within:shadow-[inset_0_-1px_0_var(--lumen-focus)]"
+        className="flex min-w-0 flex-1 items-center gap-1"
         role="search"
       >
         <input
@@ -142,27 +144,26 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           aria-label={intent === 'computer' ? 'Describe a computer task' : 'Search files'}
           autoCapitalize="off"
           autoComplete="off"
-          defaultValue={useQueryStore.getState().draft}
+          defaultValue={initialValue.current}
           enterKeyHint="search"
           placeholder={intent === 'computer' ? 'Describe browser task' : 'Search apps and files'}
           spellCheck={false}
           type="search"
-          className="min-w-0 flex-1 border-0 bg-transparent p-0 font-sans text-[1.0625rem] font-normal leading-tight tracking-tight text-[color:var(--einui-command-text)] caret-accent outline-none placeholder:text-[color:var(--einui-command-muted-text)]"
+          className="lumen-search-input min-w-0 flex-1 border-0 bg-transparent p-0 font-sans text-[1.0625rem] font-normal leading-tight tracking-tight text-[color:var(--einui-command-text)] caret-accent outline-none placeholder:text-[color:var(--einui-command-muted-text)]"
           onCompositionEnd={handleCompositionEnd}
           onCompositionStart={handleCompositionStart}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
         />
-        <span ref={clearWrapperRef} hidden={!useQueryStore.getState().draft}>
-          <LumenIconButton
+        <span ref={clearWrapperRef} hidden={!initialValue.current}>
+          <Button
             aria-label="Clear search"
-            className="shrink-0 text-[color:var(--einui-command-muted-text)]"
+            appearance="subtle"
+            data-launcher-control
+            icon={<LumenUiIcon name="close" size="small" />}
             size="small"
-            variant="quiet"
-            onPress={clearInput}
-          >
-            <LumenUiIcon name="close" size="small" />
-          </LumenIconButton>
+            onClick={clearInput}
+          />
         </span>
       </div>
     );

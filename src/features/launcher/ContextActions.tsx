@@ -1,7 +1,7 @@
 import {memo, useLayoutEffect, useMemo, useRef} from 'react';
 
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
-import {LumenButton} from '../../design-system/primitives/LumenButton';
+import {Button} from '@fluentui/react-components';
 import type {SearchResult} from '../../services/search/search.types';
 
 export interface ContextActionsProps {
@@ -34,10 +34,10 @@ export function ContextActions({
   return (
     <div
       aria-label="Result actions"
-      className="@container/actions flex min-h-[40px] min-w-0 shrink-0 items-center gap-[4px] border-t border-[color:var(--einui-command-divider)] px-[12px] py-[4px]"
+      className="flex min-w-0 shrink-0 items-center gap-1"
     >
       <span
-        className="min-w-0 flex-1 truncate text-xs text-[color:var(--einui-command-muted-text)]"
+        className="sr-only"
         title={result?.path}
       >
         {result ? result.name : 'Choose a result for actions'}
@@ -65,46 +65,50 @@ const ActionButtons = memo(function ActionButtons({
   pinned: boolean;
 }) {
   return <>
-      <LumenButton
+      <Button data-launcher-control
         aria-label={isOpening ? 'Opening selected result' : 'Open selected result'}
-        isDisabled={!hasResult || isOpening}
+        className="gap-1.5 px-2 text-[color:var(--einui-command-text)]"
+        disabled={!hasResult || isOpening}
         size="small"
-        variant="quiet"
-        onPress={onOpen}
+        appearance="subtle"
+        onClick={onOpen}
       >
         <LumenUiIcon name="forward" size="small" />
-        <span className="hidden @min-[640px]/actions:inline">{isOpening ? 'Opening' : 'Open'}</span>
+        <span>{isOpening ? 'Opening' : 'Open'}</span>
         <kbd aria-hidden="true" className="ml-1 font-sans text-xs text-[color:var(--einui-command-muted-text)]">↵</kbd>
-      </LumenButton>
-      <LumenButton
+      </Button>
+      <Button data-launcher-control
         aria-label="Open containing folder"
-        isDisabled={!hasResult || isAppContent}
+        data-action-secondary
+        disabled={!hasResult || isAppContent}
         size="small"
-        variant="quiet"
-        onPress={onOpenContainingFolder}
+        appearance="subtle"
+        onClick={onOpenContainingFolder}
       >
         <LumenUiIcon name="folderOpen" size="small" />
-        <span className="hidden @min-[640px]/actions:inline">Folder</span>
-      </LumenButton>
-      <LumenButton
+        <span className="hidden @min-[40rem]/footer:inline">Folder</span>
+      </Button>
+      <Button data-launcher-control
         aria-label={pinned ? 'Unpin selected result' : 'Pin selected result'}
-        isDisabled={!canPin}
+        data-action-secondary
+        disabled={!canPin}
         size="small"
-        variant="quiet"
-        onPress={onPin}
+        appearance="subtle"
+        onClick={onPin}
       >
         <LumenUiIcon name={pinned ? 'pinned' : 'pin'} size="small" />
-        <span className="hidden @min-[640px]/actions:inline">{pinned ? 'Unpin' : 'Pin'}</span>
-      </LumenButton>
-      <LumenButton
+        <span className="hidden @min-[40rem]/footer:inline">{pinned ? 'Unpin' : 'Pin'}</span>
+      </Button>
+      <Button data-launcher-control
         aria-label="Show file details"
-        isDisabled={!hasResult}
+        data-action-secondary
+        disabled={!hasResult}
         size="small"
-        variant="quiet"
-        onPress={onDetails}
+        appearance="subtle"
+        onClick={onDetails}
       >
         <LumenUiIcon name="info" size="small" />
-        <span className="hidden @min-[640px]/actions:inline">Details</span>
-      </LumenButton>
+        <span className="hidden @min-[40rem]/footer:inline">Details</span>
+      </Button>
     </>;
 });

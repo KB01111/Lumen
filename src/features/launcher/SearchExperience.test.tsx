@@ -44,6 +44,27 @@ afterEach(() => {
 });
 
 describe('SearchExperience answer submission', () => {
+  it('keeps current result actions beside status in the palette footer', async () => {
+    const service = new MemorySearchService();
+    useQueryStore.getState().setDraft('report');
+    const {container} = render(<SearchExperience service={service} windowService={new BrowserWindowService()} />);
+    await waitFor(() => expect(service.requests.some(({request}) => request.query === 'report')).toBe(true));
+    const pinned = {...file('report'), pinned: true, provenance: {fileHash: 'fixture', indexRevision: 1, extractionKind: 'text'}};
+    const app = {...file('app'), kind: 'app-content' as const,
+      target: {kind: 'app-content' as const, itemId: 'app', settingsPage: 'general' as const}};
+    await act(() => service.resolve('report', [pinned, app]));
+    const open = await screen.findByRole('button', {name: 'Open selected result'});
+    const footer = container.querySelector('[data-einui-slot="footer"]');
+    expect(footer).toContainElement(open);
+    expect(footer).toContainElement(screen.getByRole('status'));
+    expect(screen.getByRole('button', {name: 'Unpin selected result'})).toBeEnabled();
+    act(() => useSelectionStore.getState().select(app.id));
+    expect(screen.getByRole('button', {name: 'Pin selected result'})).toBeDisabled();
+    expect(screen.getByRole('button', {name: 'Open containing folder'})).toBeDisabled();
+    expect(open).toBeEnabled();
+    expect(screen.getByRole('searchbox', {name: 'Search files'})).toHaveFocus();
+  });
+
   it('keeps the warm launcher marker on a Tailwind contents wrapper', () => {
     const {container} = render(
       <SearchExperience
@@ -257,6 +278,8 @@ describe('SearchExperience answer submission', () => {
     }]));
     await screen.findByRole('row', {name: /release\.md/i});
 
+    await user.keyboard('{Tab}');
+    expect(screen.getByRole('button', {name: 'Switch to Computer Use'})).toHaveFocus();
     await user.keyboard('{Tab}{Tab}{Enter}');
 
     await waitFor(() => expect(service.openedFiles).toEqual(['release']));

@@ -1,10 +1,5 @@
 import {memo, useContext, useEffect, useMemo, useState} from 'react';
-import {Tab, TabList, TabPanel, Tabs} from 'react-aria-components';
-
-import {motion} from 'motion/react';
-
-import {useLumenMotion} from '../../design-system/MotionProvider';
-import {cn} from '../../lib/cn';
+import {Tab, TabList} from '@fluentui/react-components';
 import type {SearchScope} from '../../services/search/search.types';
 import {SemanticSearchContext} from './semantic-search-context';
 import {useSettingsStore} from '../settings/settings.store';
@@ -25,7 +20,6 @@ export const searchScopes: ReadonlyArray<{id: SearchScope; label: string}> = [
 
 export const ScopeRail = memo(function ScopeRail() {
   const semanticSearchService = useContext(SemanticSearchContext);
-  const {layoutTransition} = useLumenMotion();
   const activeScope = useScopeStore((state) => state.activeScope);
   const setScope = useScopeStore((state) => state.setScope);
   const enabledScopeIds = useSettingsStore((state) => state.search.enabledScopes);
@@ -54,43 +48,19 @@ export const ScopeRail = memo(function ScopeRail() {
   }, [activeScope, enabledScopes, setScope]);
 
   return (
-    <Tabs
-      className="min-w-0 border-t border-[color:var(--einui-command-divider)]"
-      selectedKey={activeScope}
-      onSelectionChange={(key) => setScope(key as SearchScope)}
+    <TabList
+      aria-label="Search scopes"
+      className="lumen-fluent-scopes min-w-0 border-t border-[color:var(--einui-command-divider)]"
+      selectedValue={activeScope}
+      selectTabOnFocus
+      size="small"
+      onTabSelect={(_event, data) => setScope(data.value as SearchScope)}
     >
-      <TabList aria-label="Search scopes" className="flex items-center gap-[4px] overflow-x-auto px-[12px] py-[6px] [scrollbar-width:none]" items={enabledScopes}>
-        {(scope) => (
-          <Tab
-            id={scope.id}
-            className={({isFocusVisible, isHovered, isSelected}) =>
-              cn(
-                'relative min-h-[32px] shrink-0 cursor-default rounded-[var(--lumen-radius-control)] bg-transparent px-[12px] py-[6px] font-sans text-sm font-medium text-[color:var(--einui-command-muted-text)] outline-2 outline-offset-1 outline-transparent transition-[background-color,color,outline-color] duration-[var(--lumen-duration-selection)] ease-standard',
-                isHovered && 'bg-[var(--einui-command-row-hover)] text-[color:var(--einui-command-text)]',
-                isSelected && 'text-[color:var(--einui-command-text)]',
-                isFocusVisible && 'outline-[color:var(--lumen-focus)]',
-              )
-            }
-          >
-            {({isSelected}) => (
-              <>
-                {isSelected ? (
-                  <motion.span
-                    aria-hidden="true"
-                    layoutId="lumen-scope-indicator"
-                    transition={layoutTransition}
-                    className="absolute inset-0 z-0 rounded-[var(--lumen-radius-control)] border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row-selected)] shadow-[var(--lumen-shadow-control)]"
-                  />
-                ) : null}
-                <span className="relative z-10">{scope.label}</span>
-              </>
-            )}
-          </Tab>
-        )}
-      </TabList>
       {enabledScopes.map((scope) => (
-        <TabPanel key={scope.id} className="hidden" id={scope.id} />
+        <Tab key={scope.id} data-selected={activeScope === scope.id || undefined} value={scope.id}>
+          {scope.label}
+        </Tab>
       ))}
-    </Tabs>
+    </TabList>
   );
 });

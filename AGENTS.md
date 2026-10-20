@@ -65,7 +65,7 @@ The plain browser has no Tauri IPC, so deterministic states are reached via quer
 
 - Security: Rust search commands canonicalize all paths, reject paths outside selected roots, never follow symlinks, skip `.git`/`node_modules`/`dist`/`target`/etc., and cap previews (64 KiB text, 4 MiB images). `src-tauri/capabilities/main.json` is least-privilege — the shell plugin is deliberately absent; do not add execute/spawn permissions.
 - Computer Use controls only a fresh Edge context or an explicitly selected, revalidated non-elevated Windows window. Existing browser cloud consent does not grant desktop control or desktop cloud observation consent; both desktop grants default off. Rust owns fixed Gemini/OpenAI provider requests and a credential-free staged/source executor. Background mode never escalates to foreground; Fast requires a snapshot-scoped one-time approval. Ctrl+Alt+Esc closes native admission and kills the Job Object independently of stdin/action locks; Alt+Space shows Lumen. Retain HTTP(S) checks, 4,000 task characters, 60 provider turns and 60 input actions. Do not add webview provider calls, arbitrary scripts/process arguments, existing-profile attachment or shell permissions.
-- The borderless window clears native material in collapsed mode so the desktop shows around its padded rounded pill; expanded modes request Acrylic→Mica→Blur fallback. Close hides rather than destroys. Window sizes/constraints per mode are owned by Rust (`window.rs`), not the frontend. The [dated native fixture report](docs/reports/2026-10-15-launcher-native-appearance.md) records the tested native appearance and its acceptance limits.
+- The borderless window clears full-window native material in collapsed and expanded launcher modes so the desktop shows around the rounded web surface, as requested in the October 20 transparency refinement. Onboarding, settings and gallery retain Acrylic→Mica→Blur fallback. Close hides rather than destroys. Window sizes/constraints per mode are owned by Rust (`window.rs`), not the frontend. The [dated native fixture report](docs/reports/2026-10-15-launcher-native-appearance.md) records earlier tested appearance and its acceptance limits.
 - Vite port 1420 is `strictPort` — it must be free for dev/e2e.
 - tsconfig has `noUnusedLocals`/`noUnusedParameters` — dead variables fail typecheck.
 - Commit style is Conventional Commits (`feat:`, `test:`, `perf:`, `docs:`, ...), lowercase, no scope.
@@ -83,3 +83,41 @@ Gallery and recording capture auto-start a dev server if none is running. Browse
 ## Docs
 
 Authoritative deep-dives live in `docs/architecture/` (search-service, native-shell, design-system, motion-system, management-surfaces) and phase-one evidence in `docs/reports/`. Read `docs/architecture/search-service.md` before touching search, preview, or result-selection code.
+
+## Astryx reference context
+
+Astryx is installed as development-only reference tooling. The generated block below documents Astryx usage when explicitly adopting its components; it does not require migrating Lumen. Lumen's architecture, security boundaries, accessibility, semantic tokens, existing React Aria/EinUI components and Motion/WAAPI ownership remain authoritative. Do not add Astryx runtime packages, resets, themes or StyleX configuration as part of launcher refinement. Use the repository's Bun and RTK conventions for CLI commands.
+
+The launcher uses Fluent UI React v9 controls and theming through `AppProviders`, as explicitly selected by the owner. Keep the owned EinUI shell, React Aria result grid, semantic colors, typed services and native boundaries; settings controls retain their existing implementation. The core search input remains Lumen-owned because Fluent Input regressed the unchanged rapid-input workload; provider form inputs use Fluent. Fluent theme timing must follow Lumen's reduced-motion preference.
+
+The separately authorized unified UI integration extends this scope to Fluent provider form/model controls, Apps SDK UI answer status, and a lazy Astryx agent-activity adapter. That adapter uses published precompiled CSS and a public generated theme scoped to its region; it adds no global reset, Theme provider, persisted appearance or StyleX compiler. Keep existing modal triggers/focus, native approval and Stop outside presentation loading. See `docs/architecture/design-system.md` for current ownership; the generated guidance remains a reference when adopting Astryx components.
+
+<!-- ASTRYX:START -->
+Astryx v0.7.1 · 168 components
+CLI: run every command as `bunx @astryxdesign/cli <cmd>` (shown below as `astryx ...`).
+
+SETUP (once, in app entry e.g. main.tsx) — without these, components render unstyled:
+  import "@astryxdesign/core/reset.css";
+  import "@astryxdesign/core/astryx.css";
+
+WORKFLOW — start every page from a template, never from scratch:
+1. `astryx build "<idea>"` — names the template to scaffold from and the parts it lacks.
+2. `astryx template <name> <path>` — scaffold it; keep its frame, gap and padding; replace the content.
+3. `astryx template <Block>` for parts it lacks; `astryx component <Name>` to read props before using one.
+Changing an existing page? Keep it: skip step 2 and add blocks/components inside its sections.
+
+RULES:
+- No <div> — components handle all layout and spacing.
+- Read `astryx docs layout` before changing a template's frame.
+- Dense data = rows (Table, List/Item), not Card-wrapped lists. Badge = counts only.
+- Style with component props first, then Tailwind utilities backed by tokens. No raw hex/px.
+- Palettes and custom colors go through the theme, never :root overrides. Run `astryx theme add <slug>` to import; `theme eject <slug>` only forks source. See `astryx docs theme`.
+- SELF-CHECK: re-read the file; replace any style={{…}}, raw <div>/<span>, imported .css/@apply, or hardcoded/arbitrary value (bg-[#fff], p-[13px]) with the component or a token-backed utility.
+
+`astryx help` lists every command. Key ones beyond the workflow:
+  search "<query>"   find any component / hook / doc / template
+  discover <words>   integrations you could add
+  docs <topic>       getting-started, principles, tokens, theme … (`astryx docs` lists all)
+  docs cli           commands, API reference, integration authoring
+  upgrade --from <old version> --apply   run after a dependency bump
+<!-- ASTRYX:END -->
