@@ -6,10 +6,11 @@ AI answers consume that admitted index context through a separate typed service.
 
 ```ts
 interface SearchService {
-  search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResponse>;
+  search(request: SearchRequest, signal?: AbortSignal, onUpdate?: (snapshot: SearchResponse) => void): Promise<SearchResponse>;
   getPreview(fileId: string, signal?: AbortSignal): Promise<FilePreview>;
   openFile(fileId: string): Promise<void>;
   openContainingFolder(fileId: string): Promise<void>;
+  setPinned(fileId: string, pinned: boolean): Promise<boolean>;
   subscribeToStatus(listener: (status: SearchStatus) => void): () => void;
 }
 ```
@@ -30,12 +31,22 @@ The browser-only preview uses the file adapter without Tauri IPC; deterministic 
 
 1. The uncontrolled search input paints its value immediately and commits query work after that paint.
 2. `useSearchController` increments a request sequence, creates an `AbortController`, and calls `SearchService.search`.
-3. Only a response with the latest request ID may update groups, results, selection, or lifecycle.
+3. Only a validated snapshot or final response with the latest request ID may update groups, results, selection, or lifecycle. Aborted, invalid and settled streams close delivery.
 4. Selection is reconciled by stable file ID. Keyboard intent paints imperatively; React and preview work settle afterward.
 5. Preview requests are abortable and stale responses cannot replace the current selection.
 6. Open and containing-folder actions resolve only IDs returned by the current service instance.
 
 Every Tauri response is parsed with Zod before entering UI state. Invalid payloads become structured recoverable errors.
+
+The optional search callback carries accumulated replacement snapshots. The
+launcher preserves selection by stable ID across updates and remains searching
+until the returned promise completes. The catalogue wrapper bounds help results
+independently for each snapshot, checks its current enablement, validates before
+merging and closes callbacks after settlement. Empty Recent queries are admitted
+only while the launcher has search intent. See the
+[streaming-consumer checkpoint](../reports/2026-10-20-winsearch-stream-consumer.md).
+The normal native adapter still uses its existing promise response; WinSearch
+query/configuration forwarding and the single-index cutover remain pending.
 
 Normal queries use one native metadata/content inventory. Files without extractable text and folders remain searchable with their stored kind, extension, size, and modification time. Scope and extension/kind filters apply before the result limit. React preserves the native order and bounded rank instead of appending a separately ranked traversal. A revoked root is checked again when pending results arrive.
 

@@ -2,7 +2,7 @@ import {publicCatalogue, searchPublicCatalogue, resolvePublicMatches} from '../w
 import type {WindowsAiService} from '../windows-ai/windows-ai-service';
 import type {AppContentMatch, WindowsAiPreferences} from '../windows-ai/windows-ai.types';
 import type {SearchService} from './search-service';
-import type {FilePreview, SearchRequest, SearchResponse, SearchResult} from './search.types';
+import {searchResponseSchema, type FilePreview, type SearchRequest, type SearchResponse, type SearchResult} from './search.types';
 
 const prefix = 'app-content:';
 function result(item: AppContentMatch): SearchResult {
@@ -10,7 +10,7 @@ function result(item: AppContentMatch): SearchResult {
 }
 export class CatalogueSearchService implements SearchService {
   constructor(private readonly files: SearchService, private readonly windows: WindowsAiService, private readonly preferences: () => WindowsAiPreferences, private readonly navigate: (page: AppContentMatch['settingsPage']) => void | Promise<void>) {}
-  async search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResponse> {
+  async search(request: SearchRequest, signal?: AbortSignal, onUpdate?: (snapshot: SearchResponse) => void): Promise<SearchResponse> {
     signal?.throwIfAborted();
     const enabled = this.preferences().appContentEnabled;
     let help: AppContentMatch[] = enabled && (request.scope === 'all' || request.scope === 'app-content') ? searchPublicCatalogue(request.query) : [];
@@ -19,10 +19,25 @@ export class CatalogueSearchService implements SearchService {
       catch { signal?.throwIfAborted(); /* Public keyword search remains available. */ }
     }
     if (request.scope === 'app-content') return {requestId: request.requestId, groups: help.length ? [{id: 'app-content', label: 'Lumen help', items: help.slice(0, request.limit).map(result)}] : [], total: Math.min(help.length, request.limit), elapsedMs: 0};
-    const response = await this.files.search(request, signal);
-    const count = Math.max(0, request.limit - response.total);
-    const items = help.slice(0, count).map(result);
-    return items.length ? {...response, groups: [...response.groups, {id: 'app-content', label: 'Lumen help', items}], total: response.total + items.length} : response;
+    const withHelp = (response: SearchResponse): SearchResponse => {
+      // Let the controller close malformed streams before accessing their groups.
+      const parsed = searchResponseSchema.safeParse(response);
+      if (!parsed.success) return response;
+      const valid = parsed.data;
+      const count = Math.max(0, request.limit - valid.total);
+      const items = this.preferences().appContentEnabled ? help.slice(0, count).map(result) : [];
+      return items.length ? {...valid, groups: [...valid.groups, {id: 'app-content', label: 'Lumen help', items}], total: valid.total + items.length} : valid;
+    };
+    let receiving = true;
+    try {
+      const response = await this.files.search(request, signal, snapshot => {
+        if (receiving && !signal?.aborted) onUpdate?.(withHelp(snapshot));
+      });
+      signal?.throwIfAborted();
+      return withHelp(response);
+    } finally {
+      receiving = false;
+    }
   }
   private entry(id: string) {
     const item = publicCatalogue.find((item) => `${prefix}${item.id}` === id);
