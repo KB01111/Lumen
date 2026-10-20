@@ -11,15 +11,6 @@
     "bun": "1.3.14",
     "edge": "155.0.4283.62"
   },
-  "changed_source_sha256": {
-    "src/features/launcher/SearchExperience.tsx": "3542c0505fafb3ee4fb8f74fff49837fcf9bbc73dd01e49dd318428596a9b27a",
-    "src/features/launcher/useSearchController.test.tsx": "741474cd31874834a4490fdb2aad762170ea2c449b5396459ec76594158499e9",
-    "src/features/launcher/useSearchController.ts": "4f66eae4e2204ae1d02b24a6aab8c0b428f57077ede84328f6d9f02bf9b38709",
-    "src/services/search/catalogue-search-service.test.ts": "2ffbe8a02311164c97bd46e1ff16be49545af19a2e8a753b429d374cbedc7738",
-    "src/services/search/catalogue-search-service.ts": "2a290e777d81057bbfbbe218441afb9dd4bdc8b91ae36eeabe8e9503623ea27d",
-    "src/services/search/search-service.ts": "ce9c5a7d07fdb7a8127ef76bbeb8672f2a6db0c581a616052cef8dfd25bd4c91",
-    "src/test/streaming-search-service.ts": "a0a3593d1ea4bed859852a077ff86b36bb18a3651258106d6dcfada44b39741b"
-  },
   "frozen_input_count": 327,
   "frozen_inputs_sha256": "0c2a8be637d82dcae79f7a2810808e8e5b6dc5e209d48a0c607bfa7618ec872d",
   "checks": [
@@ -118,5 +109,44 @@
     "No new native/model/provider/installed or full Tauri release acceptance",
     "No native 120/240 Hz qualification",
     "Raw logs and full frozen-input inventory remain local under .superpowers"
-  ]
+  ],
+  "tested_worktree_source_sha256": {
+    "src/features/launcher/SearchExperience.tsx": "3542c0505fafb3ee4fb8f74fff49837fcf9bbc73dd01e49dd318428596a9b27a",
+    "src/features/launcher/useSearchController.test.tsx": "741474cd31874834a4490fdb2aad762170ea2c449b5396459ec76594158499e9",
+    "src/features/launcher/useSearchController.ts": "4f66eae4e2204ae1d02b24a6aab8c0b428f57077ede84328f6d9f02bf9b38709",
+    "src/services/search/catalogue-search-service.test.ts": "2ffbe8a02311164c97bd46e1ff16be49545af19a2e8a753b429d374cbedc7738",
+    "src/services/search/catalogue-search-service.ts": "2a290e777d81057bbfbbe218441afb9dd4bdc8b91ae36eeabe8e9503623ea27d",
+    "src/services/search/search-service.ts": "ce9c5a7d07fdb7a8127ef76bbeb8672f2a6db0c581a616052cef8dfd25bd4c91",
+    "src/test/streaming-search-service.ts": "a0a3593d1ea4bed859852a077ff86b36bb18a3651258106d6dcfada44b39741b"
+  },
+  "committed_lf_source_sha256": {
+    "src/features/launcher/SearchExperience.tsx": "c9cdcdd827aaa2681d2e8a513399c623a4d9324b2075059dae0e085bf3250e78",
+    "src/features/launcher/useSearchController.test.tsx": "5e7bdbce7862ba0ab4b408b288ea0c4e675b60d295e60267f9e49209ba0420a1",
+    "src/features/launcher/useSearchController.ts": "f12c5c33a828bfadbfdbd50fc65ed80af59a53ec3b89efbd2867a9fc58dff491",
+    "src/services/search/catalogue-search-service.test.ts": "ce08c696fc2a52bddbadb2038adb7b38207d2a2b352fd0199a2bad55c6e0d609",
+    "src/services/search/catalogue-search-service.ts": "6a196b59f81143616d8e6ac3eada198ef10a09ef60a716b7ea09bac1c10ad229",
+    "src/services/search/search-service.ts": "5a2d0bc38e646fd709ab6cfb1b7164317957c04bb3876ff8f0fb72c7759bba79",
+    "src/test/streaming-search-service.ts": "a0a3593d1ea4bed859852a077ff86b36bb18a3651258106d6dcfada44b39741b"
+  },
+  "line_endings": {
+    "initial_post_commit_raw_hash_check": "failed: raw CRLF checkout compared with LF Git blobs",
+    "verified_equivalence": "Every committed changed source byte equals tested source after CRLF-to-LF normalization only",
+    "tested_crlf_counts": {
+      "src/features/launcher/SearchExperience.tsx": 448,
+      "src/features/launcher/useSearchController.test.tsx": 202,
+      "src/features/launcher/useSearchController.ts": 221,
+      "src/services/search/catalogue-search-service.test.ts": 81,
+      "src/services/search/catalogue-search-service.ts": 57,
+      "src/services/search/search-service.ts": 17,
+      "src/test/streaming-search-service.ts": 0
+    },
+    "original_tested_bytes": "retained locally under .superpowers/search-stream-tested-crlf",
+    "lf_recheck": {
+      "typecheck_exit": 0,
+      "lint_exit": 0,
+      "focused_files": 3,
+      "focused_tests_passed": 27,
+      "broad_run_repeated": false
+    }
+  }
 }

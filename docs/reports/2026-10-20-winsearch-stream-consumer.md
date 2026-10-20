@@ -51,6 +51,13 @@ profiling is separate from native WebView2 and strict 120/240 Hz qualification.
 The build retains the existing lottie-web direct-eval warning. Native source,
 dependency pins, test thresholds and configurations are unchanged from the base.
 
+The broad run used six CRLF checkout files and one LF fixture. An initial
+post-commit raw-byte comparison failed because Git stored LF. Every changed Git
+blob was then verified byte-for-byte against the tested source after CRLF-to-LF
+normalization only. The evidence retains both hash sets and the original tested
+bytes locally. The checkout now uses LF; typecheck, full lint and the 27 focused
+tests pass again. The broad run was not repeated for line-ending normalization.
+
 Independent GPT-6.1 Sol review
 identified the composed malformed-shape issue; re-review found no remaining
 scoped finding. This is not broad native or v1.0 approval.
