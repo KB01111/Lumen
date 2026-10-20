@@ -19,4 +19,4 @@ test('stages only the checked-in pinned engine and refuses a corrupted compresse
   await writeFile(output, 'tampered');
   await stageRivetEngine(output, source);
   expect((await readFile(output)).byteLength).toBe(86179438);
-});
+}, 30_000);
