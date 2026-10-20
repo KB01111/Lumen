@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::HashSet,
     fs::{self, File, OpenOptions},
-    io::{Read, Write},
+    io::Read,
     num::NonZeroU32,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
@@ -295,12 +295,79 @@ impl Process {
             let _ = child.kill();
         }
     }
+    #[cfg(windows)]
     fn release_gate(&self) -> Result<(), SearchFailure> {
-        let input = self.child.lock().map_err(|_| unavailable())?.stdin.take();
-        input
-            .ok_or_else(unavailable)?
-            .write_all(&[1])
-            .map_err(|_| unavailable())
+        use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+        use windows::Win32::{
+            Foundation::{ERROR_NO_MORE_FILES, HANDLE},
+            System::{
+                Diagnostics::ToolHelp::{
+                    CreateToolhelp32Snapshot, TH32CS_SNAPTHREAD, THREADENTRY32, Thread32First,
+                    Thread32Next,
+                },
+                Threading::{
+                    GetProcessIdOfThread, OpenThread, ResumeThread,
+                    THREAD_QUERY_LIMITED_INFORMATION, THREAD_SUSPEND_RESUME,
+                },
+            },
+        };
+        let mut child = self.child.lock().map_err(|_| unavailable())?;
+        if child.try_wait().map_err(|_| unavailable())?.is_some() {
+            return Err(unavailable());
+        }
+        let snapshot = unsafe {
+            OwnedHandle::from_raw_handle(
+                CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0)
+                    .map_err(|_| unavailable())?
+                    .0,
+            )
+        };
+        let handle = HANDLE(snapshot.as_raw_handle());
+        let mut entry = THREADENTRY32 {
+            dwSize: std::mem::size_of::<THREADENTRY32>() as u32,
+            ..Default::default()
+        };
+        unsafe { Thread32First(handle, &mut entry) }.map_err(|_| unavailable())?;
+        let mut primary = None;
+        loop {
+            if entry.th32OwnerProcessID == child.id()
+                && primary.replace(entry.th32ThreadID).is_some()
+            {
+                return Err(unavailable());
+            }
+            match unsafe { Thread32Next(handle, &mut entry) } {
+                Ok(()) => {}
+                Err(error)
+                    if error.code()
+                        == windows::core::HRESULT::from_win32(ERROR_NO_MORE_FILES.0) =>
+                {
+                    break;
+                }
+                Err(_) => return Err(unavailable()),
+            }
+        }
+        let thread = unsafe {
+            OwnedHandle::from_raw_handle(
+                OpenThread(
+                    THREAD_SUSPEND_RESUME | THREAD_QUERY_LIMITED_INFORMATION,
+                    false,
+                    primary.ok_or_else(unavailable)?,
+                )
+                .map_err(|_| unavailable())?
+                .0,
+            )
+        };
+        let thread = HANDLE(thread.as_raw_handle());
+        if unsafe { GetProcessIdOfThread(thread) } != child.id()
+            || unsafe { ResumeThread(thread) } != 1
+        {
+            return Err(unavailable());
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    fn release_gate(&self) -> Result<(), SearchFailure> {
+        Err(unavailable())
     }
 }
 impl Drop for Process {
@@ -403,9 +470,9 @@ fn spawn_gated(
     let sid = current_sid()?;
     let pipe = format!(r"\\.\pipe\winsearch-{sid}-{instance}");
     let mut command = Command::new(payload.root.join("winsearchd.exe"));
-    // The existing stdin barrier holds initialization until job assignment.
+    // OS suspension applies to the pinned release binary as well as debug builds.
     command
-        .args(["--test-stdin-gate", "--defer-root-admission"])
+        .arg("--defer-root-admission")
         .current_dir(&payload.root)
         .env_clear()
         .env("SystemRoot", system.parent().ok_or_else(unavailable)?)
@@ -415,10 +482,10 @@ fn spawn_gated(
         .env("TMP", &temporary)
         .env("WINSEARCH_DATA_DIR", &data)
         .env("WINSEARCH_INSTANCE_ID", instance)
-        .stdin(Stdio::piped())
+        .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .creation_flags(0x08000000);
+        .creation_flags(0x08000004); // CREATE_NO_WINDOW | CREATE_SUSPENDED
     for key in [
         "USERPROFILE",
         "LOCALAPPDATA",

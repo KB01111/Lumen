@@ -2,9 +2,97 @@ import {describe, expect, it} from 'vitest';
 import {mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {assertCompiledBinding, assertIdentityMetadata, assertInventory, assertSignature, assertSigningMutation, checkVersions, inventory, isPortableExecutable, preparePayload, validateArchivePaths} from './release';
+import {createHash} from 'node:crypto';
+import {ENGINE_COMMIT, TARGET, REQUIRED_FILES, verifyPayload} from './lib/winsearch-payload.mjs';
+import {assertCompiledBinding, assertIdentityMetadata, assertInventory, assertSignature, assertSigningMutation, checkVersions, inventory, isPortableExecutable, preparePayload, validateArchivePaths, verifyWinsearchRelease, vendors} from './release';
 
 describe('release trust boundaries', () => {
+  it('admits only the inspected retained Microsoft identities for the pinned WinSearch CRT files', async () => {
+    const publisher = 'CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US';
+    const corporation = 'CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US';
+    const groups = [
+      {files:['msvcp140.dll','vcruntime140.dll','vcruntime140_threads.dll'],primary:'81915C173D7FFCBF49EAA8CF7594696B29A035E1',nested:'3C9202BAFACBF9B5E3F1F1AC732C6BF4F98B4F27'},
+      {files:['concrt140.dll','msvcp140_1.dll','msvcp140_2.dll','msvcp140_atomic_wait.dll','msvcp140_codecvt_ids.dll','vccorlib140.dll','vcruntime140_1.dll'],primary:'EC5F0D7EE2327688384B4FDF5D7633553A0D055F',nested:'EA2F8CBC69A1A01142A1EDD8B1256FECBC1D9F2D'},
+    ];
+    for (const group of groups) {
+      const report = {status:'Valid',sha256:true,timestamped:true,subject:publisher,thumbprint:group.primary,signers:[{subject:corporation,thumbprint:group.nested}]};
+      for (const file of group.files) {
+        const identities = await vendors(`binaries/winsearch/${file}`);
+        expect(() => assertSignature(report,identities)).not.toThrow();
+        expect(() => assertSignature({...report,thumbprint:'0'.repeat(40)},identities)).toThrow(/signature/i);
+      }
+      expect(() => assertSignature(report,[])).toThrow(/signature/i);
+      expect(await vendors('binaries/winsearch/winsearchd.exe')).toEqual([]);
+    }
+  });
+
+  async function winsearchFixture(root:string) {
+    const directory = join(root, 'staged/winsearch');
+    const mapping:Record<string,string> = {};
+    const files = [];
+    for (const path of [...REQUIRED_FILES, 'notices/pdfium/licenses/test.txt']) {
+      const bytes = Buffer.alloc(513);
+      bytes.write('MZ'); bytes.writeUInt32LE(128,60); bytes.write('PE\0\0',128); bytes.writeUInt16LE(523,152);
+      const target = join(directory,path);
+      await mkdir(join(target,'..'), {recursive:true}); await writeFile(target,bytes);
+      mapping[`binaries/winsearch/${path}`] = target;
+      files.push({path,sha256:createHash('sha256').update(bytes).digest('hex'),sizeBytes:bytes.length});
+    }
+    const manifest = Buffer.from(JSON.stringify({schemaVersion:1,engineCommit:ENGINE_COMMIT,target:TARGET,files}));
+    mapping['binaries/winsearch/payload.json'] = join(directory,'payload.json');
+    await writeFile(join(directory,'payload.json'),manifest);
+    return {directory,mapping,expected:createHash('sha256').update(manifest).digest('hex')};
+  }
+
+  function signedPe(original:Buffer) {
+    const signed = Buffer.concat([original,Buffer.alloc(7),Buffer.from('signature bytes!')]);
+    signed.writeUInt32LE(123,216); signed.writeUInt32LE(520,296); signed.writeUInt32LE(16,300);
+    return signed;
+  }
+
+  it('binds the WinSearch runtime manifest to verified final signing bytes and preserves pinned originals', async () => {
+    const root = await mkdtemp(join(await realpath(tmpdir()), 'lumen-release-winsearch-'));
+    try {
+      const fixture = await winsearchFixture(root);
+      const result = await preparePayload(fixture.mapping,join(root,'originals'),async path => {
+        const bytes = await readFile(path);
+        if (isPortableExecutable(bytes)) await writeFile(path,signedPe(bytes));
+      },fixture.expected);
+      const final = await verifyPayload(fixture.directory,result.final['binaries/winsearch/payload.json'].sha256);
+      expect(final.manifest.files[0].sizeBytes).toBe(536);
+      expect(final.manifestSha256).not.toBe(fixture.expected);
+      await verifyPayload(join(root,'originals/binaries/winsearch'),fixture.expected);
+      expect(await verifyWinsearchRelease(fixture.mapping,join(root,'originals'),fixture.expected)).toBe(final.manifestSha256);
+      await writeFile(join(fixture.directory,'payload.json'),JSON.stringify({...final.manifest,extra:'unapproved change'}));
+      await expect(verifyWinsearchRelease(fixture.mapping,join(root,'originals'),fixture.expected)).rejects.toThrow(/manifest/i);
+    } finally { await rm(root,{recursive:true,force:true}); }
+  });
+
+  it('rejects unpinned WinSearch input before any release signing', async () => {
+    const root = await mkdtemp(join(await realpath(tmpdir()), 'lumen-release-winsearch-'));
+    try {
+      const fixture = await winsearchFixture(root);
+      await expect(preparePayload(fixture.mapping,join(root,'originals'),async path => {
+        await writeFile(path,'must not sign unpinned input');
+      },'0'.repeat(64))).rejects.toThrow(/manifest.*hash/i);
+      await verifyPayload(fixture.directory,fixture.expected);
+    } finally { await rm(root,{recursive:true,force:true}); }
+  });
+
+  it('refuses WinSearch signing that changes executable content', async () => {
+    const root = await mkdtemp(join(await realpath(tmpdir()), 'lumen-release-winsearch-'));
+    try {
+      const fixture = await winsearchFixture(root);
+      await expect(preparePayload(fixture.mapping,join(root,'originals'),async path => {
+        const original = await readFile(path);
+        if (isPortableExecutable(original)) {
+          const signed = signedPe(original); signed[500] ^= 1;
+          await writeFile(path,signed);
+        }
+      },fixture.expected)).rejects.toThrow(/executable content/i);
+    } finally { await rm(root,{recursive:true,force:true}); }
+  });
+
   it('requires package, Tauri, Cargo and optional tag to agree', () => {
     expect(checkVersions('0.1.0', '0.1.0', '[package]\nversion = "0.1.0"\n[dependencies]\nfoo = "2"', 'v0.1.0')).toBe('0.1.0');
     expect(() => checkVersions('0.1.0', '0.1.0', '[package]\nversion = "0.2.0"')).toThrow(/version/i);

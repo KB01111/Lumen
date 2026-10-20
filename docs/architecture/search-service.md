@@ -160,9 +160,11 @@ attributes before reading. The manifest, executable, DLL and directory handles
 remain owned for the process lifetime. A volume's offline attribute does not
 classify every descendant as offline.
 
-The executable and arguments are fixed by Rust. The existing stdin assignment
-barrier holds daemon initialization until attachment to a kill-on-close Windows
-Job Object. The child receives a System32-only PATH, a small environment
+The executable and arguments are fixed by Rust. Windows creates the daemon with
+`CREATE_SUSPENDED`; Rust attaches it to a kill-on-close Job Object before
+resuming its single verified primary thread. This barrier applies to release
+packages as well as debug builds. Stop can kill the suspended process before
+initialization. The child receives a System32-only PATH, a small environment
 allowlist, an independent per-user instance identity and the application-private
 `winsearch-engine` data directory. Inherited inference, model and executable-path
 overrides are excluded. Each typed pipe connection checks the actual server PID

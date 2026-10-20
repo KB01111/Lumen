@@ -1,16 +1,25 @@
 import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
 import {createHash} from 'node:crypto';
-import {mkdtemp, mkdir, writeFile, readFile, symlink} from 'node:fs/promises';
+import fs, {mkdtemp, mkdir, writeFile, readFile, symlink, readdir, stat, rm} from 'node:fs/promises';
+import {syncBuiltinESMExports} from 'node:module';
+import {spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {test} from 'node:test';
+import {test, mock, after} from 'node:test';
 import {ENGINE_COMMIT, TARGET, REQUIRED_FILES, verifyPayload} from './lib/winsearch-payload.mjs';
-import {stagePayload, verifyBuildPayload} from './stage-winsearch.mjs';
+import {stagePayload, stageVendoredPayload, verifyBuildPayload} from './stage-winsearch.mjs';
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+const temporaryRoots = [];
+async function temporary(prefix) {
+  const root = await mkdtemp(join(tmpdir(), prefix));
+  temporaryRoots.push(root);
+  return root;
+}
+after(async () => { for (const root of temporaryRoots) await rm(root, {recursive: true, force: true}); });
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), 'lumen-winsearch-fixture-'));
+  const root = await temporary('lumen-winsearch-fixture-');
   const files = [];
   for (const path of [...REQUIRED_FILES, 'notices/pdfium/licenses/test.txt']) {
     await mkdir(join(root, path, '..'), {recursive: true});
@@ -68,13 +77,13 @@ test('rejects unmanifested files including model weights', async () => {
   await assert.rejects(verifyPayload(f.root), /unmanifested|unexpected/i);
 });
 test('rejects a reparse directory inside a payload', async () => {
-  const f = await fixture(); const other = await mkdtemp(join(tmpdir(), 'lumen-winsearch-outside-'));
+  const f = await fixture(); const other = await temporary('lumen-winsearch-outside-');
   await symlink(other, join(f.root, 'linked'), process.platform === 'win32' ? 'junction' : 'dir');
   await assert.rejects(verifyPayload(f.root), /link|reparse/i);
 });
 
 async function workspaceFixture(manifestSha256) {
-  const root = await mkdtemp(join(tmpdir(), 'lumen-winsearch-stage-'));
+  const root = await temporary('lumen-winsearch-stage-');
   await mkdir(join(root, 'src-tauri'), {recursive: true});
   await writeFile(join(root, 'src-tauri', 'winsearch-payload.lock.json'), JSON.stringify({schemaVersion: 1, engineCommit: ENGINE_COMMIT, target: TARGET, manifestSha256}));
   return root;
@@ -115,7 +124,7 @@ test('an empty fixed resource directory is unavailable in dev and rejected in re
 
 test('rejects a reparse staging parent even when the engine directory is absent', async () => {
   const workspace = await workspaceFixture('0'.repeat(64));
-  const outside = await mkdtemp(join(tmpdir(), 'lumen-winsearch-parent-'));
+  const outside = await temporary('lumen-winsearch-parent-');
   await symlink(outside, join(workspace, 'src-tauri/binaries'), process.platform === 'win32' ? 'junction' : 'dir');
   await assert.rejects(verifyBuildPayload(workspace, false), /link|reparse/i);
 });
@@ -127,4 +136,77 @@ test('a corrupt staged worker fails both dev and release verification', async ()
   await writeFile(join(workspace, 'src-tauri/binaries/winsearch/winsearch-extract.exe'), 'corrupt');
   await assert.rejects(verifyBuildPayload(workspace, false), /hash|size/i);
   await assert.rejects(verifyBuildPayload(workspace, true), /hash|size/i);
+});
+
+test('restores the previous package when verification after publication fails', async () => {
+  const source = await fixture();
+  const sha = digest(await readFile(join(source.root, 'payload.json')));
+  const workspace = await workspaceFixture(sha);
+  await stagePayload(workspace, source.root);
+  const worker = join(workspace, 'src-tauri/binaries/winsearch/winsearchd.exe');
+  const original = (await stat(worker)).ino;
+  const originalRead = fs.readFile;
+  let lockReads = 0;
+  const fault = mock.method(fs, 'readFile', async (path, ...args) => {
+    if (String(path).endsWith('winsearch-payload.lock.json') && ++lockReads === 2) throw new Error('publication verification failed');
+    return originalRead(path, ...args);
+  });
+  syncBuiltinESMExports();
+  try {
+    await assert.rejects(stagePayload(workspace, source.root), /publication verification failed/);
+    assert.equal((await stat(worker)).ino, original);
+  } finally { fault.mock.restore(); syncBuiltinESMExports(); }
+  assert.equal(await verifyBuildPayload(workspace, true), sha);
+  assert.deepEqual(await readdir(join(workspace, 'src-tauri/binaries')), ['winsearch']);
+});
+
+test('handles an empty destination recreated by a concurrent development build', async () => {
+  const source = await fixture();
+  const sha = digest(await readFile(join(source.root, 'payload.json')));
+  const workspace = await workspaceFixture(sha);
+  await stagePayload(workspace, source.root);
+  const destination = join(workspace, 'src-tauri/binaries/winsearch');
+  const originalRename = fs.rename;
+  const builder = mock.method(fs, 'rename', async (from, to) => {
+    await originalRename(from, to);
+    if (from === destination) await mkdir(destination);
+  });
+  syncBuiltinESMExports();
+  try { await stagePayload(workspace, source.root); }
+  finally { builder.mock.restore(); syncBuiltinESMExports(); }
+  assert.equal(await verifyBuildPayload(workspace, true), sha);
+});
+
+test('recovers an abandoned previous package and removes only dead staging candidates', async () => {
+  const source = await fixture();
+  const sha = digest(await readFile(join(source.root, 'payload.json')));
+  const workspace = await workspaceFixture(sha);
+  await stagePayload(workspace, source.root);
+  const parent = join(workspace, 'src-tauri/binaries');
+  const deadPid = Number(spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))']).stdout);
+  const abandoned = join(parent, `.winsearch-${deadPid}-crashed`);
+  await fs.rename(join(parent, 'winsearch'), `${abandoned}-previous`);
+  await mkdir(abandoned);
+  await writeFile(join(abandoned, 'partial.dll'), 'interrupted copy');
+  const live = `.winsearch-${process.pid}-active`;
+  await mkdir(join(parent, live));
+  await stagePayload(workspace, source.root);
+  assert.equal(await verifyBuildPayload(workspace, true), sha);
+  assert.deepEqual((await readdir(parent)).sort(), [live, 'winsearch'].sort());
+});
+
+test('rejects a changed vendored archive before extraction', async () => {
+  const workspace = await workspaceFixture('0'.repeat(64));
+  const archive = join(workspace,'changed.tar.gz');
+  await writeFile(archive,'untrusted archive');
+  await assert.rejects(stageVendoredPayload(workspace,archive), /checksum|size/i);
+  assert.deepEqual((await readdir(workspace)).sort(), ['changed.tar.gz','src-tauri']);
+});
+
+test('a fresh checkout stages the actual model-free vendored package against the independent lock', async () => {
+  const lock = JSON.parse(await readFile(new URL('../src-tauri/winsearch-payload.lock.json',import.meta.url),'utf8'));
+  const workspace = await workspaceFixture(lock.manifestSha256);
+  assert.equal(await stageVendoredPayload(workspace),lock.manifestSha256);
+  assert.equal(await verifyBuildPayload(workspace,true),lock.manifestSha256);
+  assert.deepEqual(await readdir(join(workspace,'src-tauri/binaries')), ['winsearch']);
 });

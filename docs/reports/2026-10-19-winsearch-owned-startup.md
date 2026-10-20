@@ -19,8 +19,9 @@ full v1.0 acceptance.
   Payload handles exclude write/delete sharing and remain owned until process
   teardown. An invalid packaged payload cannot select a development fallback.
 - Rust supplies the fixed executable and arguments, a narrow environment and
-  System32-only PATH. The existing stdin barrier holds initialization until the
-  process is attached to a kill-on-close Job Object.
+  System32-only PATH. The initial stdin barrier was found to be absent in the
+  pinned release binary during the 2026-10-20 CI review. It is superseded by
+  Windows `CREATE_SUSPENDED`, Job assignment, then verified primary-thread resume.
 - Each runtime has its own pipe namespace and data directory. Every connection
   authenticates the actual server PID before Hello against the retained owned
   child handle. No process paths or low-level IPC are exposed to React.

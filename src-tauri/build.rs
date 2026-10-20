@@ -28,11 +28,14 @@ fn main() {
         println!("cargo:rerun-if-env-changed={key}");
     }
     let mut verifier = std::process::Command::new("bun");
-    verifier
-        .args(["scripts/stage-winsearch.mjs", "verify-build"])
-        .current_dir("..");
-    if std::env::var("PROFILE").as_deref() == Ok("release") {
-        verifier.arg("--release");
+    verifier.current_dir("..");
+    if std::env::var("LUMEN_RELEASE_BUILD").as_deref() == Ok("1") {
+        verifier.args(["scripts/release.ts", "winsearch-binding"]);
+    } else {
+        verifier.args(["scripts/stage-winsearch.mjs", "verify-build"]);
+        if std::env::var("PROFILE").as_deref() == Ok("release") {
+            verifier.arg("--release");
+        }
     }
     let verified = verifier
         .output()

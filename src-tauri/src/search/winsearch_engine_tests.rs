@@ -78,7 +78,13 @@ fn engine_payload_rejects_missing_dependency_and_reparse_parent() {
 #[test]
 fn engine_runtime_cannot_admit_a_synthetic_package_against_compiled_anchor() {
     let fixture = SearchFixture::new("engine-native-anchor");
-    let (root, _) = payload_fixture(&fixture);
+    let (root, synthetic_hash) = payload_fixture(&fixture);
+    let lock: serde_json::Value =
+        serde_json::from_str(include_str!("../../winsearch-payload.lock.json")).unwrap();
+    let anchor = lock["manifestSha256"].as_str().unwrap();
+    assert!(is_hash(anchor));
+    assert_ne!(synthetic_hash, anchor);
+    assert!(verify_payload(&root, anchor).is_err());
     let resources = fixture.root().join("resources");
     std::fs::create_dir_all(resources.join("binaries")).unwrap();
     std::fs::rename(root, resources.join("binaries/winsearch")).unwrap();
@@ -87,10 +93,70 @@ fn engine_runtime_cannot_admit_a_synthetic_package_against_compiled_anchor() {
 }
 
 #[test]
+#[ignore = "Requires the real pinned staged release WinSearch payload; run explicitly after staging"]
+fn engine_native_release_barrier_prevents_initialization_until_resume() {
+    use std::os::windows::io::AsRawHandle;
+    use windows::Win32::{
+        Foundation::{BOOL, HANDLE},
+        System::JobObjects::IsProcessInJob,
+    };
+
+    let fixture = SearchFixture::new("engine-release-barrier");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/winsearch");
+    let payload = verify_payload(&root, env!("LUMEN_WINSEARCH_MANIFEST_SHA256")).unwrap();
+    let data = fixture.root().join("owned-data");
+    let process = spawn_gated(
+        payload,
+        data.clone(),
+        format!("barrier-{}", uuid::Uuid::new_v4().simple()),
+    )
+    .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    assert!(
+        !data.join("db").exists(),
+        "release daemon initialized before ownership barrier was released"
+    );
+    let child = process.child.lock().unwrap();
+    let mut owned = BOOL::default();
+    unsafe {
+        IsProcessInJob(
+            HANDLE(child.as_raw_handle()),
+            Some(HANDLE(process.job.0 as *mut _)),
+            &mut owned,
+        )
+    }
+    .unwrap();
+    assert!(owned.as_bool());
+    drop(child);
+    process.release_gate().unwrap();
+    tauri::async_runtime::block_on(process.client.info()).unwrap();
+    assert!(data.join("db").is_dir());
+}
+
+#[test]
+#[ignore = "Requires the real pinned staged release WinSearch payload; run explicitly after staging"]
+fn engine_native_release_barrier_stop_before_resume_creates_no_database() {
+    let fixture = SearchFixture::new("engine-release-stop-before-resume");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/winsearch");
+    let payload = verify_payload(&root, env!("LUMEN_WINSEARCH_MANIFEST_SHA256")).unwrap();
+    let data = fixture.root().join("owned-data");
+    let process = spawn_gated(
+        payload,
+        data.clone(),
+        format!("stopped-{}", uuid::Uuid::new_v4().simple()),
+    )
+    .unwrap();
+    process.kill();
+    process.child.lock().unwrap().wait().unwrap();
+    assert!(process.release_gate().is_err());
+    assert!(!data.join("db").exists());
+}
+
+#[test]
 #[ignore = "Requires the real pinned staged WinSearch payload; run explicitly after staging"]
 fn engine_native_owned_profiles_authenticate_and_stop_independently() {
     let fixture = SearchFixture::new("engine-owned-native");
-    let resources = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/debug");
+    let resources = Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf();
     let a = EngineRuntime::new(resources.clone(), fixture.root().join("profile-a"));
     let b = EngineRuntime::new(resources, fixture.root().join("profile-b"));
     tauri::async_runtime::block_on(async {
