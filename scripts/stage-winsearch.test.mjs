@@ -33,6 +33,14 @@ test('rejects missing required worker even when removed from manifest', async ()
   await save(f);
   await assert.rejects(verifyPayload(f.root), /required/i);
 });
+test('requires the real NPU shim and its runtime notices', async () => {
+  for (const path of ['iron_xrt_shim.dll', 'notices/taconite-LICENSE', 'notices/embeddinggemma2-LICENSE-PYTORCH', 'notices/XRT-LICENSE']) {
+    const f = await fixture();
+    f.manifest.files = f.manifest.files.filter(file => file.path !== path);
+    await save(f);
+    await assert.rejects(verifyPayload(f.root), /required/i);
+  }
+});
 test('rejects corrupt file bytes', async () => {
   const f = await fixture(); await writeFile(join(f.root, 'winsearchd.exe'), 'corrupt');
   await assert.rejects(verifyPayload(f.root), /hash|size/i);

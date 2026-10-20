@@ -4,11 +4,12 @@ import {lstat, readdir, readFile} from 'node:fs/promises';
 import {dirname, join, resolve} from 'node:path';
 import {TextDecoder} from 'node:util';
 
-export const ENGINE_COMMIT = 'd4f1448068d93d51120f7ec1e2a17395f88089f7';
+export const ENGINE_COMMIT = '85a915d460b1fa751bbe86f289ff77c18c032c25';
 export const TARGET = 'x86_64-pc-windows-msvc';
 export const REQUIRED_FILES = [
   'winsearchd.exe', 'winsearch-embed.exe', 'winsearch-extract.exe',
   'ggml-base.dll', 'ggml.dll', 'llama.dll', 'mtmd.dll', 'pdfium.dll',
+  'iron_xrt_shim.dll',
   ...['alderlake', 'cannonlake', 'cascadelake', 'haswell', 'icelake', 'sandybridge', 'skylakex', 'sse42', 'x64'].map(cpu => `ggml-cpu-${cpu}.dll`),
   'ffmpeg.exe', 'ffprobe.exe', 'avcodec-63.dll', 'avdevice-63.dll', 'avfilter-12.dll',
   'avformat-63.dll', 'avutil-61.dll', 'swresample-7.dll', 'swscale-10.dll',
@@ -18,6 +19,9 @@ export const REQUIRED_FILES = [
   'THIRD-PARTY-NOTICES.txt', 'notices/pdfium/LICENSE', 'notices/ffmpeg/LICENSE.txt',
   'notices/ffmpeg/COPYING.GPLv3', 'notices/ffmpeg/SOURCE-INSTRUCTIONS.md', 'notices/llama.cpp-LICENSE',
   'notices/code-grammars-LICENSES.txt', 'notices/DigUp-LICENSE.txt', 'notices/msvc/REDISTRIBUTION.md',
+  'notices/taconite-LICENSE', 'notices/taconite-bundle-LICENSE', 'notices/XRT-LICENSE',
+  'notices/embeddinggemma2-LICENSE', 'notices/embeddinggemma2-LICENSE-PILLOW',
+  'notices/embeddinggemma2-LICENSE-PYTORCH',
 ];
 export const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 export async function assertNoLinks(path) {

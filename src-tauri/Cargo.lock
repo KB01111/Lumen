@@ -6210,7 +6210,7 @@ dependencies = [
 [[package]]
 name = "ws-client"
 version = "0.1.0"
-source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=d4f1448068d93d51120f7ec1e2a17395f88089f7#d4f1448068d93d51120f7ec1e2a17395f88089f7"
+source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=85a915d460b1fa751bbe86f289ff77c18c032c25#85a915d460b1fa751bbe86f289ff77c18c032c25"
 dependencies = [
  "serde_json",
  "thiserror 2.0.19",
@@ -6221,7 +6221,7 @@ dependencies = [
 [[package]]
 name = "ws-modelmgr"
 version = "0.1.0"
-source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=d4f1448068d93d51120f7ec1e2a17395f88089f7#d4f1448068d93d51120f7ec1e2a17395f88089f7"
+source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=85a915d460b1fa751bbe86f289ff77c18c032c25#85a915d460b1fa751bbe86f289ff77c18c032c25"
 dependencies = [
  "hex",
  "serde",
@@ -6235,7 +6235,7 @@ dependencies = [
 [[package]]
 name = "ws-protocol"
 version = "0.1.0"
-source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=d4f1448068d93d51120f7ec1e2a17395f88089f7#d4f1448068d93d51120f7ec1e2a17395f88089f7"
+source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=85a915d460b1fa751bbe86f289ff77c18c032c25#85a915d460b1fa751bbe86f289ff77c18c032c25"
 dependencies = [
  "serde",
  "serde_json",
