@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "engineCommit": "85a915d460b1fa751bbe86f289ff77c18c032c25",
+  "target": "x86_64-pc-windows-msvc",
+  "manifestSha256": "171aedbb142c712520b768f524ca848a79aab519081cfc0209e8781e96d7390d"
+}

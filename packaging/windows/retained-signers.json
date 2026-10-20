@@ -88,5 +88,25 @@
         "prefix":  "windows-ai/",
         "subject":  "CN=Microsoft Windows Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
         "thumbprint":  "BF1B0E852F06F6D0B6C6475E53AE7908AA7E2950"
-    }
+    },
+    {"prefix":"binaries/winsearch/msvcp140.dll","subject":"CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"81915C173D7FFCBF49EAA8CF7594696B29A035E1"},
+    {"prefix":"binaries/winsearch/msvcp140.dll","subject":"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"3C9202BAFACBF9B5E3F1F1AC732C6BF4F98B4F27"},
+    {"prefix":"binaries/winsearch/vcruntime140.dll","subject":"CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"81915C173D7FFCBF49EAA8CF7594696B29A035E1"},
+    {"prefix":"binaries/winsearch/vcruntime140.dll","subject":"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"3C9202BAFACBF9B5E3F1F1AC732C6BF4F98B4F27"},
+    {"prefix":"binaries/winsearch/vcruntime140_threads.dll","subject":"CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"81915C173D7FFCBF49EAA8CF7594696B29A035E1"},
+    {"prefix":"binaries/winsearch/vcruntime140_threads.dll","subject":"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"3C9202BAFACBF9B5E3F1F1AC732C6BF4F98B4F27"},
+    {"prefix":"binaries/winsearch/concrt140.dll","subject":"CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EC5F0D7EE2327688384B4FDF5D7633553A0D055F"},
+    {"prefix":"binaries/winsearch/concrt140.dll","subject":"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EA2F8CBC69A1A01142A1EDD8B1256FECBC1D9F2D"},
+    {"prefix":"binaries/winsearch/msvcp140_1.dll","subject":"CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EC5F0D7EE2327688384B4FDF5D7633553A0D055F"},
+    {"prefix":"binaries/winsearch/msvcp140_1.dll","subject":"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EA2F8CBC69A1A01142A1EDD8B1256FECBC1D9F2D"},
+    {"prefix":"binaries/winsearch/msvcp140_2.dll","subject":"CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EC5F0D7EE2327688384B4FDF5D7633553A0D055F"},
+    {"prefix":"binaries/winsearch/msvcp140_2.dll","subject":"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EA2F8CBC69A1A01142A1EDD8B1256FECBC1D9F2D"},
+    {"prefix":"binaries/winsearch/msvcp140_atomic_wait.dll","subject":"CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EC5F0D7EE2327688384B4FDF5D7633553A0D055F"},
+    {"prefix":"binaries/winsearch/msvcp140_atomic_wait.dll","subject":"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EA2F8CBC69A1A01142A1EDD8B1256FECBC1D9F2D"},
+    {"prefix":"binaries/winsearch/msvcp140_codecvt_ids.dll","subject":"CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EC5F0D7EE2327688384B4FDF5D7633553A0D055F"},
+    {"prefix":"binaries/winsearch/msvcp140_codecvt_ids.dll","subject":"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EA2F8CBC69A1A01142A1EDD8B1256FECBC1D9F2D"},
+    {"prefix":"binaries/winsearch/vccorlib140.dll","subject":"CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EC5F0D7EE2327688384B4FDF5D7633553A0D055F"},
+    {"prefix":"binaries/winsearch/vccorlib140.dll","subject":"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EA2F8CBC69A1A01142A1EDD8B1256FECBC1D9F2D"},
+    {"prefix":"binaries/winsearch/vcruntime140_1.dll","subject":"CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EC5F0D7EE2327688384B4FDF5D7633553A0D055F"},
+    {"prefix":"binaries/winsearch/vcruntime140_1.dll","subject":"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US","thumbprint":"EA2F8CBC69A1A01142A1EDD8B1256FECBC1D9F2D"}
 ]

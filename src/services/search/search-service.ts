@@ -6,7 +6,8 @@ import type {
 } from './search.types';
 
 export interface SearchService {
-  search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResponse>;
+  /** Updates replace the accumulated snapshot; the returned promise completes the operation. */
+  search(request: SearchRequest, signal?: AbortSignal, onUpdate?: (snapshot: SearchResponse) => void): Promise<SearchResponse>;
   getPreview(fileId: string, signal?: AbortSignal): Promise<FilePreview>;
   openFile(fileId: string): Promise<void>;
   openContainingFolder(fileId: string): Promise<void>;

@@ -80,7 +80,7 @@ jobs:
       - name: Run native answer bridge tests
         run: bun run test:answer-bridge
 
-      - name: Run native performance and dev server tooling tests
+      - name: Run native performance, dev server and WinSearch tooling tests
         run: bun run test:tooling
 
       - name: Qualify production profiling in Edge
@@ -100,7 +100,7 @@ jobs:
         run: bun run test:e2e
         timeout-minutes: 45
 
-      - name: Stage sidecars
+      - name: Stage sidecars and independently pinned WinSearch runtime
         run: bun run stage:sidecars
 
       - name: Verify real vendor signatures and reject modified PE bytes
@@ -132,6 +132,10 @@ jobs:
       - name: Run Rust tests
         working-directory: src-tauri
         run: cargo test --all-features
+
+      - name: Verify owned WinSearch release startup, Stop and profile isolation
+        working-directory: src-tauri
+        run: cargo test --all-features -j 1 engine_native_ -- --ignored --test-threads=1
 
       - name: Verify compiled native enrichment consumer
         working-directory: src-tauri
