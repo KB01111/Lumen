@@ -243,3 +243,20 @@ test('a fresh checkout stages the actual model-free vendored package against the
   assert.equal(await verifyBuildPayload(workspace,true),lock.manifestSha256);
   assert.deepEqual(await readdir(join(workspace,'src-tauri/binaries')), ['winsearch']);
 });
+
+test('extracts the exact verified archive bytes even if its source path changes afterward', async () => {
+  const lock = JSON.parse(await readFile(new URL('../src-tauri/winsearch-payload.lock.json',import.meta.url),'utf8'));
+  const workspace = await workspaceFixture(lock.manifestSha256);
+  const archive = join(workspace,'input.tar.gz');
+  await fs.copyFile(new URL('../vendor/winsearch/winsearch-85a915d.tar.gz',import.meta.url),archive);
+  const originalRead = fs.readFile;
+  const replacement = mock.method(fs,'readFile',async (path,...args) => {
+    const bytes = await originalRead(path,...args);
+    if (path === archive) await writeFile(archive,'replaced after the verified read');
+    return bytes;
+  });
+  syncBuiltinESMExports();
+  try { assert.equal(await stageVendoredPayload(workspace,archive),lock.manifestSha256); }
+  finally { replacement.mock.restore(); syncBuiltinESMExports(); }
+  assert.equal(await verifyBuildPayload(workspace,true),lock.manifestSha256);
+});

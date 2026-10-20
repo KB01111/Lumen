@@ -85,7 +85,9 @@ async function recoverAbandoned(parent, destination, manifestSha256) {
 
 export async function stageVendoredPayload(workspace, archive = vendorArchive) {
   await assertNoLinks(archive);
-  if ((await lstat(archive)).size !== archiveSize || digest(await readFile(archive)) !== archiveSha256) throw new Error('Vendored WinSearch archive checksum/size mismatch');
+  if ((await lstat(archive)).size !== archiveSize) throw new Error('Vendored WinSearch archive size mismatch');
+  const bytes = await readFile(archive);
+  if (bytes.length !== archiveSize || digest(bytes) !== archiveSha256) throw new Error('Vendored WinSearch archive checksum/size mismatch');
   const parent = join(resolve(workspace), 'src-tauri/binaries');
   await assertNoLinks(join(resolve(workspace), 'src-tauri'));
   await mkdir(parent, {recursive: true});
@@ -93,7 +95,7 @@ export async function stageVendoredPayload(workspace, archive = vendorArchive) {
   const source = await mkdtemp(join(parent, `.winsearch-${process.pid}-`));
   try {
     // Only the independently pinned archive reaches the platform extractor.
-    execFileSync('tar', ['-xzf', resolve(archive), '-C', source], {stdio: 'pipe', windowsHide: true});
+    execFileSync('tar', ['-xzf', '-', '-C', source], {input: bytes, stdio: 'pipe', windowsHide: true});
     return await stagePayload(workspace, source);
   } finally { await removeCandidate(parent, source); }
 }
