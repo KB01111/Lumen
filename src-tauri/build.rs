@@ -4,6 +4,9 @@ fn main() {
         "../scripts/sign-release.ps1",
         "../scripts/archive-release.ps1",
         "../scripts/stage-sidecars.ts",
+        "../scripts/stage-winsearch.mjs",
+        "../scripts/lib/winsearch-payload.mjs",
+        "winsearch-payload.lock.json",
         "../packaging/windows/retained-signers.json",
         "../package.json",
         "Cargo.toml",
@@ -24,6 +27,42 @@ fn main() {
     ] {
         println!("cargo:rerun-if-env-changed={key}");
     }
+    let mut verifier = std::process::Command::new("bun");
+    verifier.current_dir("..");
+    if std::env::var("LUMEN_RELEASE_BUILD").as_deref() == Ok("1") {
+        verifier.args(["scripts/release.ts", "winsearch-binding"]);
+    } else {
+        verifier.args(["scripts/stage-winsearch.mjs", "verify-build"]);
+        if std::env::var("PROFILE").as_deref() == Ok("release") {
+            verifier.arg("--release");
+        }
+    }
+    let verified = verifier
+        .output()
+        .expect("WinSearch verification requires Bun");
+    assert!(
+        verified.status.success(),
+        "WinSearch payload verification failed: {}",
+        String::from_utf8_lossy(&verified.stderr)
+    );
+    let manifest_sha256 = String::from_utf8(verified.stdout)
+        .expect("Invalid WinSearch verifier output")
+        .trim()
+        .to_owned();
+    assert!(
+        manifest_sha256.is_empty()
+            || (manifest_sha256.len() == 64
+                && manifest_sha256
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())),
+        "Invalid verified WinSearch manifest hash"
+    );
+    // Tauri walks this fixed resource directory even when dev has no engine.
+    if manifest_sha256.is_empty() {
+        std::fs::create_dir_all("binaries/winsearch")
+            .expect("Cannot prepare empty WinSearch resource directory");
+    }
+    println!("cargo:rustc-env=LUMEN_WINSEARCH_MANIFEST_SHA256={manifest_sha256}");
     let binding = match std::env::var("LUMEN_RELEASE_BUILD") {
         Err(std::env::VarError::NotPresent) => "lumen-unsigned-v1".to_owned(),
         Ok(value) if value == "1" => {

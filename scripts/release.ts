@@ -3,6 +3,8 @@ import {createHash} from 'node:crypto';
 import {copyFile, lstat, mkdir, mkdtemp, readFile, readdir, realpath, writeFile} from 'node:fs/promises';
 import {basename, dirname, extname, isAbsolute, join, relative, resolve} from 'node:path';
 import {AGENTGATEWAY_UPSTREAM_SHA256} from './stage-sidecars';
+import {verifyPayload} from './lib/winsearch-payload.mjs';
+import {readLock} from './stage-winsearch.mjs';
 
 type Identity = {subject:string; thumbprint:string};
 type Signature = Identity & {status:string; sha256:boolean; timestamped:boolean; signers?:Identity[]; packageName?:string; packageVersion?:string; packagePublisher?:string};
@@ -95,7 +97,31 @@ export async function assertInventory(mapping:Mapping, expected:Inventory) {
   if (JSON.stringify(await inventory(mapping)) !== JSON.stringify(expected)) throw new Error('Release seal mismatch: missing, extra or changed resource');
 }
 
-export async function preparePayload(mapping:Mapping, originals:string, sign:(path:string, name:string) => Promise<void>) {
+const winsearchManifest = 'binaries/winsearch/payload.json';
+
+async function signedWinsearchManifest(mapping:Mapping, originals:string, expected:string) {
+  const originalRoot = join(originals,'binaries/winsearch');
+  const {manifest} = await verifyPayload(originalRoot,expected);
+  const files = [];
+  for (const file of manifest.files) {
+    const bytes = await regularFile(mapping[`binaries/winsearch/${file.path}`]);
+    assertSigningMutation(await regularFile(join(originalRoot,file.path)),bytes);
+    files.push({...file,sha256:hash(bytes),sizeBytes:bytes.length});
+  }
+  return Buffer.from(JSON.stringify({...manifest,files}));
+}
+
+export async function verifyWinsearchRelease(mapping:Mapping, originals:string, expected:string) {
+  const bytes = await signedWinsearchManifest(mapping,originals,expected);
+  if (!(await regularFile(mapping[winsearchManifest])).equals(bytes)) throw new Error('Signed WinSearch manifest does not match verified signing mutations');
+  return (await verifyPayload(dirname(mapping[winsearchManifest]),hash(bytes))).manifestSha256;
+}
+
+export async function preparePayload(mapping:Mapping, originals:string, sign:(path:string, name:string) => Promise<void>, expectedWinsearch?:string) {
+  if (mapping[winsearchManifest]) {
+    if (!expectedWinsearch) throw new Error('Release requires the independent WinSearch manifest pin');
+    await verifyPayload(dirname(mapping[winsearchManifest]),expectedWinsearch);
+  }
   const original = await inventory(mapping);
   // Preserve verified staging output before any signature mutation.
   for (const [name,path] of Object.entries(mapping)) {
@@ -104,6 +130,7 @@ export async function preparePayload(mapping:Mapping, originals:string, sign:(pa
   }
   await assertInventory(Object.fromEntries(Object.keys(mapping).map(name => [name,join(originals,name)])), original);
   for (const [name,path] of Object.entries(mapping)) await sign(path,name);
+  if (mapping[winsearchManifest]) await writeFile(mapping[winsearchManifest],await signedWinsearchManifest(mapping,originals,expectedWinsearch!));
   return {original, final:await inventory(mapping)};
 }
 
@@ -158,7 +185,7 @@ function signature(action:string,path?:string): Signature {
   return {subject,thumbprint,status,sha256,timestamped,signers:signers?.map(({subject,thumbprint}:Identity) => ({subject,thumbprint})),packageName,packageVersion,packagePublisher};
 }
 
-async function vendors(name:string): Promise<Identity[]> {
+export async function vendors(name:string): Promise<Identity[]> {
   const policy = JSON.parse(await readFile(join(root,'packaging/windows/retained-signers.json'),'utf8')) as {prefix:string; subject:string; thumbprint:string}[];
   return policy.filter(row => name.startsWith(row.prefix)).map(({subject,thumbprint}) => ({subject,thumbprint}));
 }
@@ -180,6 +207,7 @@ async function prepare() {
   const mapping = await payload();
   const signatures:Record<string,Signature> = {};
   const originals = await mkdtemp(join(work,'originals-'));
+  const winsearchLock = await readLock(root);
   const result = await preparePayload(mapping,originals, async (path,name) => {
     const data = await regularFile(path);
     if (!isPortableExecutable(data)) {
@@ -189,7 +217,7 @@ async function prepare() {
     const existing = signature('Inspect',path);
     if (existing.status === 'NotSigned') signature('Sign',path);
     signatures[name] = (await verifyFile(path,name))!;
-  });
+  },winsearchLock.manifestSha256);
   const source = {revision:run(['git','rev-parse','HEAD'],true),dirty:run(['git','status','--porcelain','--untracked-files=no'],true)};
   await writeFile(join(work,'provenance.json'),JSON.stringify({version:1,productVersion,source,originals:relative(root,originals),files:result.original},null,2));
   await writeFile(sealPath,JSON.stringify({version:1,productVersion,...result,signatures} satisfies Seal,null,2));
@@ -207,8 +235,11 @@ async function verifyStaged() {
   if (!originalRoot.startsWith(`${work}${process.platform === 'win32'?'\\':'/'}`) || provenance.version !== 1 || provenance.productVersion !== seal.productVersion || JSON.stringify(provenance.files) !== JSON.stringify(seal.original)) throw new Error('Release upstream provenance mismatch');
   await assertInventory(Object.fromEntries(Object.keys(seal.original).map(name => [name,join(originalRoot,name)])),seal.original);
   if (seal.original['agentgateway.exe']?.sha256 !== AGENTGATEWAY_UPSTREAM_SHA256) throw new Error('Original Gateway provenance does not match its immutable upstream pin');
+  const winsearchLock = await readLock(root);
+  const winsearchManifestSha256 = await verifyWinsearchRelease(mapping,originalRoot,winsearchLock.manifestSha256);
   for (const [name,path] of Object.entries(mapping)) {
     if (seal.original[name]?.sha256 === seal.final[name]?.sha256) continue;
+    if (name === winsearchManifest) continue; // Validated against pinned originals and signing-only changes above.
     assertSigningMutation(await regularFile(join(originalRoot,name)),await regularFile(path));
   }
   if (JSON.stringify(Object.keys(seal.original)) !== JSON.stringify(Object.keys(seal.final))) throw new Error('Release provenance inventory mismatch');
@@ -218,7 +249,7 @@ async function verifyStaged() {
   }
   const digest = seal.final['agentgateway.exe']?.sha256;
   if (!/^[a-f0-9]{64}$/.test(digest)) throw new Error('Sealed Gateway digest missing');
-  return {seal, binding:`lumen-release-v1:${hash(bytes)}:${digest}`};
+  return {seal, binding:`lumen-release-v1:${hash(bytes)}:${digest}`, winsearchManifestSha256};
 }
 
 export function assertCompiledBinding(main:Uint8Array, binding:string) {
@@ -319,6 +350,9 @@ async function main() {
     case 'compile-binding':
       if (process.env.LUMEN_RELEASE_BUILD !== '1') throw new Error('Signed compilation requires the explicit release build wrapper');
       console.log((await verifyStaged()).binding); break;
+    case 'winsearch-binding':
+      if (process.env.LUMEN_RELEASE_BUILD !== '1') throw new Error('Signed WinSearch compilation requires the explicit release build wrapper');
+      console.log((await verifyStaged()).winsearchManifestSha256); break;
     case 'verify-staged': await verifyStaged(); break;
     case 'verify': await verifyRelease(); break;
     case 'build': {

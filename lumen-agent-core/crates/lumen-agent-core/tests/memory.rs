@@ -578,6 +578,81 @@ impl MemoryProvider for FailingProvider {
         })
     }
 }
+
+struct LaterPageFailure {
+    records: RecordsProvider,
+    fail: std::sync::atomic::AtomicBool,
+}
+impl MemoryProvider for LaterPageFailure {
+    fn id(&self) -> &str {
+        "records"
+    }
+    fn retrieve(&self, request: ProviderRequest, cancel: CancellationToken) -> ProviderFuture<'_> {
+        if self.fail.load(std::sync::atomic::Ordering::SeqCst)
+            && request.source_ids.iter().any(|id| id == "note-20")
+        {
+            return Box::pin(async { Err(MemoryError::Unavailable) });
+        }
+        self.records.retrieve(request, cancel)
+    }
+}
+
+#[tokio::test]
+async fn later_page_failure_discards_only_that_providers_partial_results() {
+    let records = Arc::new(Mutex::new(
+        (0..21)
+            .map(|i| MemoryRecord {
+                source_id: format!("note-{i:02}"),
+                ..content("project-a")
+            })
+            .collect(),
+    ));
+    let provider = Arc::new(LaterPageFailure {
+        records: RecordsProvider(records.clone()),
+        fail: false.into(),
+    });
+    let mut core = MemoryCore::in_memory().unwrap();
+    core.register_provider(provider.clone()).unwrap();
+    core.set_provider_enabled("records", true).unwrap();
+    for i in 0..21 {
+        let review = core
+            .review_provider(
+                "records",
+                scope("project-a"),
+                &format!("note-{i:02}"),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+            .await
+            .unwrap();
+    }
+    let review = core.review_native(content("project-a")).unwrap();
+    core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+        .await
+        .unwrap();
+    records.lock().unwrap().drain(1..20);
+    provider
+        .fail
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    let core = Arc::new(core);
+    for providers in [
+        vec!["records".into(), NATIVE_PROVIDER.into()],
+        vec![NATIVE_PROVIDER.into(), "records".into()],
+    ] {
+        let result = retrieve(&reader(&core, "project-a", providers)).await;
+        assert_eq!(
+            result.unavailable,
+            vec![ProviderStatus {
+                id: "records".into(),
+                state: ProviderState::Unavailable
+            }]
+        );
+        assert_eq!(result.memories.len(), 1);
+        assert_eq!(result.memories[0].provider_id, NATIVE_PROVIDER);
+    }
+}
 #[tokio::test]
 async fn provider_failure_does_not_hide_approved_native_memory() {
     let mut core = MemoryCore::in_memory().unwrap();

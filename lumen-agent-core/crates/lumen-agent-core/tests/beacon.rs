@@ -11,6 +11,13 @@ async fn server(
     project: &str,
     redirect: Option<u16>,
 ) -> (u16, Arc<Mutex<Vec<Value>>>, tokio::task::JoinHandle<()>) {
+    server_with_tool_error(project, redirect, Arc::new(Mutex::new(None))).await
+}
+async fn server_with_tool_error(
+    project: &str,
+    redirect: Option<u16>,
+    tool_error: Arc<Mutex<Option<Value>>>,
+) -> (u16, Arc<Mutex<Vec<Value>>>, tokio::task::JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let calls = Arc::new(Mutex::new(Vec::new()));
@@ -55,8 +62,10 @@ async fn server(
                 }
                 "tools/call" => {
                     assert_eq!(request["params"]["name"], "get_memory");
-                    if request["params"]["arguments"]["id"] == "missing" {
-                        json!({"isError":true,"content":[{"type":"text","text":"memory not found"}]})
+                    if let Some(error) = tool_error.lock().unwrap().clone() {
+                        error
+                    } else if request["params"]["arguments"]["id"] == "missing" {
+                        json!({"isError":true,"content":[{"type":"text","text":"memory not found: missing"}]})
                     } else {
                         assert_eq!(request["params"]["arguments"], json!({"id":"memory-1"}));
                         let memory = json!({"schema_version":"beacon.learning.v1","id":"memory-1","candidate_id":"candidate-1","kind":"convention","title":"Tools","body":"Use approved file tools.","project":{"id":project},"evidence":[{"trace_id":"trace-1"}],"created_at":"2026-10-20","updated_at":"2026-10-20"});
@@ -81,6 +90,74 @@ fn scope() -> MemoryScope {
         project_id: "lumen".into(),
         session_id: None,
     }
+}
+
+#[tokio::test]
+async fn beacon_tool_failures_are_reported_unavailable() {
+    let tool_error = Arc::new(Mutex::new(None));
+    let (port, _, server) = server_with_tool_error("lumen", None, tool_error.clone()).await;
+    let mut core = MemoryCore::in_memory().unwrap();
+    core.register_provider(Arc::new(BeaconMemoryProvider::loopback(port).unwrap()))
+        .unwrap();
+    core.set_provider_enabled(BEACON_PROVIDER, true).unwrap();
+    let review = core
+        .review_provider(
+            BEACON_PROVIDER,
+            scope(),
+            "memory-1",
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    core.approve(&review.review_id, RetentionPolicy::UntilDeleted)
+        .await
+        .unwrap();
+    let core = Arc::new(core);
+    let reader = core
+        .bind_reader(scope(), vec![BEACON_PROVIDER.into()], MemoryRoute::Local)
+        .unwrap();
+    for content in [
+        json!([{"type":"text","text":"database unavailable"}]),
+        json!([{"type":"text","text":"memory not found: another-id"}]),
+        json!([{"type":"image","text":"memory not found: memory-1"}]),
+        json!([]),
+    ] {
+        *tool_error.lock().unwrap() = Some(json!({"isError":true,"content":content}));
+        let result = reader
+            .retrieve(
+                MemoryQuery {
+                    text: String::new(),
+                    limit: 20,
+                },
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            result.unavailable,
+            vec![ProviderStatus {
+                id: BEACON_PROVIDER.into(),
+                state: ProviderState::Unavailable
+            }]
+        );
+        assert!(result.memories.is_empty());
+    }
+    *tool_error.lock().unwrap() = Some(
+        json!({"isError":true,"content":[{"type":"text","text":"memory not found: memory-1"}]}),
+    );
+    let result = reader
+        .retrieve(
+            MemoryQuery {
+                text: String::new(),
+                limit: 20,
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert!(result.memories.is_empty());
+    assert!(result.unavailable.is_empty());
+    server.abort();
 }
 
 #[tokio::test]

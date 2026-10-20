@@ -12,6 +12,7 @@ mod ranking;
 mod root_policy;
 mod traversal;
 mod types;
+pub(crate) mod winsearch_engine;
 
 use std::path::Path;
 

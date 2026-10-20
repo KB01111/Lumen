@@ -21,6 +21,8 @@ SQLite schema v1 uses secure deletion and DELETE journaling, so normal writes do
 
 Requests are limited to 512 UTF-8 query bytes, 20 results, eight providers and a three-second deadline per provider. Text substring matching uses Rust Unicode lowercase conversion for both content and query. Retrieval pages matching approved snapshots in source-ID order, at most 20 IDs per provider call, until enough current records match or the shared provider deadline expires. Stale or missing snapshots do not consume the final result limit. Individual content is capped at 16 KiB. Reviews are capped at 20 concurrent records. Provider errors become sanitized `unavailable` entries; other providers continue. Cancellation propagates and prevents publication. Memory storage failures are typed errors, and lazy initialization keeps them outside application startup and other Lumen services.
 
+Each provider's results are staged until paging finishes successfully. A failed or timed-out page discards that provider's earlier results and reports it unavailable; results from healthy providers remain eligible for admission.
+
 Memory is untrusted context, never permission, policy or executable configuration. Consumers must render it as data and retain native tool admission, approvals and Stop. A record's provenance or approval does not make its instructions authoritative over native policy.
 
 ## Beacon local MCP adapter
@@ -30,6 +32,8 @@ Beacon is independently disabled by default. The prepared native host adapter us
 The adapter initializes MCP, sends `notifications/initialized`, and invokes only the fixed `get_memory` tool for selected IDs. It never invokes activity queries, configures capture, installs hooks/skills, connects a cloud destination, accesses Beacon files or sends write/delete calls. A user may run an already installed local server independently. Lumen does not install or launch it. Existing Beacon capture/forwarding configuration remains the user's responsibility; Lumen neither enables it nor relies on it.
 
 Reviewed upstream source: [Agent Beacon `99c709081ad49da1c5ade205929b61b19360ed9b`](https://github.com/asymptote-labs/agent-beacon/tree/99c709081ad49da1c5ade205929b61b19360ed9b), specifically `docs/cli/mcp-serve.mdx`, `cli/beacon/internal/mcpserver/server.go` and `pkg/asymptoteobserve/learning.go`. Context7 had no matching library; the official repository supplied the protocol. No Beacon code, package or runtime is bundled. Upstream protocol/schema changes fail closed pending adapter review.
+
+Only a single text error exactly matching `memory not found: <requested ID>` is treated as a missing record under the pinned Beacon contract. Other tool errors and malformed error content make the provider unavailable.
 
 ## Shared harness protocol
 

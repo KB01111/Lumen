@@ -93,8 +93,8 @@ export function SearchExperience({
     [providedWindowService],
   );
   const activeFilters = useScopeStore((state) => state.activeFilters);
-  const controller = useSearchController(service, activeFilters);
   const intent = useLauncherStore((state) => state.intent);
+  const controller = useSearchController(service, activeFilters, intent === 'search');
   const runtimeMode = useSettingsStore((state) => state.ai.runtimeMode);
   const cloudAnswerConsent = useSettingsStore((state) => state.ai.cloudAnswerConsent);
   const updateAi = useSettingsStore((state) => state.updateAi);

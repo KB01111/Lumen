@@ -81,3 +81,16 @@ Fresh review verification:
 | Independent review of the fixes and final additions | No actionable defects found; read-only source review |
 
 Both Cargo workspaces reused existing target caches through `CARGO_TARGET_DIR` and compiled the current checkout's sources. One attempted final native relink encountered a Windows lock from the earlier test executable; the final source run passed after serializing the runs. Existing live-provider, signing, hardware and ignored runtime acceptance limits above still apply.
+
+## Merge-readiness follow-up (2026-10-21)
+
+Merged `main` at `a40c958f8b7db4be7211bb1dcc50f557c9de2957`, retaining both Agent Core verification and the new owned WinSearch startup/Stop/profile CI checks.
+
+Two subsequent review findings were reproduced before correction:
+
+- A later provider page failure retained earlier results from that provider. Retrieval now stages provider results and discards them on failure. The regression checks both provider orders and preserves healthy native results.
+- Beacon tool errors were silently skipped. Only the pinned upstream single-text `memory not found: <requested ID>` response is skipped now; other errors report the provider unavailable. Coverage includes backend failure, the wrong missing ID, malformed error content, and the exact missing-record response. The older missing-ID fixture was corrected to match upstream's ID-bearing message.
+
+At the publication checkpoint, typecheck, lint, all 803 Vitest tests, 21 standalone Rust tests, eight cross-language fixture tests, standalone Clippy with warnings denied, both formatting checks, and sidecar staging passed. The two new regressions failed on the old implementation and passed after the fixes. Native application tests, Clippy, installer packaging and the full Edge suite run separately; their final status is recorded on the PR.
+
+The initial concurrent browser performance run missed the unchanged React commit p95 budget (3.6 ms against 3 ms); it requires a quiet rerun. Local tooling passed 35 of 36 tests; the owned dev-server test failed again in isolation because this host reports PID 0 for its listening socket. Its ownership admission and assertions are unchanged. Hosted CI remains required, and these local limitations must remain explicit.

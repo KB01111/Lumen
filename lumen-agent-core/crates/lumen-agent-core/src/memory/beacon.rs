@@ -151,10 +151,14 @@ impl MemoryProvider for BeaconMemoryProvider {
                         .await?;
                     let result: ToolResult =
                         serde_json::from_value(value).map_err(|_| MemoryError::Invalid)?;
-                    if result.is_error {
-                        continue;
-                    }
                     if result.content.len() != 1 || result.content[0].r#type != "text" {
+                        return Err(MemoryError::Unavailable);
+                    }
+                    if result.is_error {
+                        // Only the pinned get_memory missing-ID response is a skipped record.
+                        if result.content[0].text == format!("memory not found: {id}") {
+                            continue;
+                        }
                         return Err(MemoryError::Unavailable);
                     }
                     let memory: BeaconRecord = serde_json::from_str(&result.content[0].text)

@@ -404,7 +404,7 @@ impl MemoryReader {
             read_generations.insert(id.clone(), generation);
             let deadline = tokio::time::Instant::now() + types::PROVIDER_TIMEOUT;
             let mut after = None;
-            let mut provider_count = 0;
+            let mut provider_memories = Vec::new();
             loop {
                 if cancel.is_cancelled() {
                     return Err(MemoryError::Cancelled);
@@ -431,6 +431,7 @@ impl MemoryReader {
                         Ok(records) => records,
                         Err(MemoryError::Cancelled) => return Err(MemoryError::Cancelled),
                         _ => {
+                            provider_memories.clear();
                             result.unavailable.push(ProviderStatus {
                                 id: id.clone(),
                                 state: ProviderState::Unavailable,
@@ -444,14 +445,16 @@ impl MemoryReader {
                         continue;
                     }
                     if let Some(memory) = approved.iter().find(|m| m.record == record) {
-                        result.memories.push(memory.clone());
-                        provider_count += 1;
+                        provider_memories.push(memory.clone());
                     }
                 }
-                if provider_count >= query.limit || approved.len() < types::MAX_PROVIDER_RECORDS {
+                if provider_memories.len() >= query.limit
+                    || approved.len() < types::MAX_PROVIDER_RECORDS
+                {
                     break;
                 }
             }
+            result.memories.extend(provider_memories);
         }
         let generations = self
             .core

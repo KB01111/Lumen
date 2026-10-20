@@ -10,6 +10,7 @@ import {
   type SearchFilter,
   type SearchGroup,
   type SearchResult,
+  type SearchResponse,
   type SearchScope,
   type SearchStatus,
 } from '../../services/search/search.types';
@@ -83,6 +84,7 @@ function nextSelection(
 export function useSearchController(
   service: SearchService,
   filters: readonly SearchFilter[] = noFilters,
+  enabled = true,
 ): SearchController {
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<SearchScope>('all');
@@ -102,7 +104,7 @@ export function useSearchController(
 
   useEffect(() => {
     const normalizedQuery = query.trim();
-    if (!normalizedQuery) {
+    if (!enabled || (!normalizedQuery && scope !== 'recent')) {
       latestRequest.current = ++requestSequence.current;
       setGroups([]);
       setResults([]);
@@ -120,6 +122,32 @@ export function useSearchController(
     setLifecycle('searching');
     setError(null);
 
+    let closed = false;
+    const receive = (response: SearchResponse, final: boolean) => {
+      if (closed || requestId !== latestRequest.current || abortController.signal.aborted) return;
+      const parsed = searchResponseSchema.safeParse(response);
+      if (!parsed.success || parsed.data.requestId !== requestId) {
+        closed = true;
+        abortController.abort();
+        setLifecycle('error');
+        setError(invalidResponseError());
+        return;
+      }
+
+      const nextGroups = parsed.data.groups;
+      const nextResults = flattenSearchGroups(nextGroups);
+      const selection = nextSelection(selectedIdRef.current, resultsRef.current, nextResults);
+      setGroups(nextGroups);
+      setResults(nextResults);
+      resultsRef.current = nextResults;
+      setSelectedId(selection);
+      selectedIdRef.current = selection;
+      if (final) {
+        closed = true;
+        setLifecycle(nextResults.length > 0 ? 'ready' : 'empty');
+      }
+    };
+
     void service
       .search(
         {
@@ -131,43 +159,20 @@ export function useSearchController(
           relatedTo: scope === 'related' ? selectedIdRef.current ?? undefined : undefined,
         },
         abortController.signal,
+        snapshot => receive(snapshot, false),
       )
-      .then((response) => {
-        if (requestId !== latestRequest.current) {
-          return;
-        }
-
-        const parsed = searchResponseSchema.safeParse(response);
-        if (!parsed.success || parsed.data.requestId !== requestId) {
-          setLifecycle('error');
-          setError(invalidResponseError());
-          return;
-        }
-
-        const nextGroups = parsed.data.groups;
-        const nextResults = flattenSearchGroups(nextGroups);
-        const selection = nextSelection(
-          selectedIdRef.current,
-          resultsRef.current,
-          nextResults,
-        );
-        setGroups(nextGroups);
-        setResults(nextResults);
-        resultsRef.current = nextResults;
-        setSelectedId(selection);
-        selectedIdRef.current = selection;
-        setLifecycle(nextResults.length > 0 ? 'ready' : 'empty');
-      })
+      .then(response => receive(response, true))
       .catch((caughtError: unknown) => {
-        if (requestId !== latestRequest.current || abortController.signal.aborted) {
+        if (closed || requestId !== latestRequest.current || abortController.signal.aborted) {
           return;
         }
+        closed = true;
         setLifecycle('error');
         setError(searchFailure(caughtError));
       });
 
     return () => abortController.abort();
-  }, [filters, query, refreshRevision, scope, service]);
+  }, [enabled, filters, query, refreshRevision, scope, service]);
 
   const select = useCallback((fileId: string | null) => {
     if (fileId === null) {

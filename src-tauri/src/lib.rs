@@ -235,6 +235,9 @@ pub fn run() {
             } else {
                 development_vector
             };
+            app.manage(search::winsearch_engine::EngineRuntime::new(
+                app.path().resource_dir()?, data_directory.join("winsearch-engine"),
+            ));
             app.manage(search::IndexRuntime::open(
                 &data_directory.join("lumen-index.sqlite3"),
                 &vector_extension,
@@ -367,6 +370,7 @@ pub fn run() {
             improvement::commands::authorize_improvement_workflow,
             improvement::commands::end_improvement_workflow,
             search::list_files,
+            search::winsearch_engine::get_winsearch_engine_status,
             search::search_filenames,
             search::get_file_metadata,
             search::get_basic_preview,
@@ -479,6 +483,7 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
+                app.state::<search::winsearch_engine::EngineRuntime>().shutdown();
                 app.state::<gateway::answer::AnswerRuntime>().cancel_all();
                 app.state::<search::IndexRuntime>().stop_index_worker();
             }
