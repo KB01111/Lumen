@@ -53,7 +53,7 @@ Reviewed all 12 inline comments, the submitted reviews and the conversation comm
 
 | Finding | Change and verification |
 | --- | --- |
-| Stale/missing snapshots consume the SQL result limit | Page approved candidates in batches of at most 20 source IDs, with one shared three-second provider deadline. Apply the final limit after live validation. A regression skips 21 missing/changed records and retrieves the valid record on the next page. Beacon per-record tool errors omit that record and continue with later selected IDs; transport and malformed-response errors still fail closed. |
+| Stale/missing snapshots consume the SQL result limit | Page approved candidates in batches of at most 20 source IDs, with one shared three-second provider deadline. Apply the final limit after live validation. A regression skips 21 missing/changed records and retrieves the valid record on the next page. A single-text Beacon `memory not found: <requested ID>` response omits only that record and continues with later selected IDs; other tool, transport and malformed-response errors make the provider unavailable. |
 | SQLite ASCII-only lowercase hides international text | Compare Unicode lowercase substrings in Rust while retaining exact SQL provider/scope filtering. Tests cover Ångström, CAFÉ and Résumé case variants. |
 | External approval can use a stale review | Re-read the exact external record before approval, reject changed/missing content or provenance, and consume the stale handle. Native approval remains local. The native command now awaits this check. |
 | Disable/re-enable can admit earlier in-flight work | Capture a per-provider revocation generation and compare it at admission. Tests cover retrieval, review and approval across disable/re-enable, alongside existing deletion and disable coverage. |
@@ -94,3 +94,7 @@ Two subsequent review findings were reproduced before correction:
 At the publication checkpoint, typecheck, lint, all 803 Vitest tests, 21 standalone Rust tests, eight cross-language fixture tests, standalone Clippy with warnings denied, both formatting checks, and sidecar staging passed. The two new regressions failed on the old implementation and passed after the fixes. Native application tests, Clippy, installer packaging and the full Edge suite run separately; their final status is recorded on the PR.
 
 The initial concurrent browser performance run missed the unchanged React commit p95 budget (3.6 ms against 3 ms); it requires a quiet rerun. Local tooling passed 35 of 36 tests; the owned dev-server test failed again in isolation because this host reports PID 0 for its listening socket. Its ownership admission and assertions are unchanged. Hosted CI remains required, and these local limitations must remain explicit.
+
+Subsequent same-source native verification passed: 391 library tests, 26 integration tests and four isolated proxy regression tests; 29 existing native tests remain ignored. Native Clippy also passed across all targets/features with warnings denied.
+
+Follow-up review corrected the earlier Beacon table entry to match the narrowed missing-ID behavior. Agent Core formatting and Clippy now run in separate CI steps, so PowerShell cannot hide a formatting failure behind a later successful command.

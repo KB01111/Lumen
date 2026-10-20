@@ -135,10 +135,11 @@ jobs:
         working-directory: src-tauri
         run: cargo test --all-features
 
-      - name: Check Agent Core formatting and lint
-        run: |
-          cargo fmt --manifest-path lumen-agent-core/Cargo.toml --all -- --check
-          cargo clippy --manifest-path lumen-agent-core/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Check Agent Core formatting
+        run: cargo fmt --manifest-path lumen-agent-core/Cargo.toml --all -- --check
+
+      - name: Run Agent Core Clippy
+        run: cargo clippy --manifest-path lumen-agent-core/Cargo.toml --locked --all-targets -- -D warnings
 
       - name: Verify native Memory Core and both shared harness clients
         run: bun run test:agent-core
