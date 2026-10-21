@@ -22,6 +22,26 @@ afterEach(() => {
 });
 
 describe('CollapsedLauncher', () => {
+  it('updates the Escape hint before deferred input reaches the query store', async () => {
+    useQueryStore.getState().setDraft('report');
+    render(<CollapsedLauncher windowService={new BrowserWindowService()} />);
+    expect(await screen.findByText('Esc to clear')).toBeInTheDocument();
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1);
+    const input = screen.getByRole('searchbox');
+    try {
+      fireEvent.input(input, {target: {value: ''}});
+      expect(useQueryStore.getState().draft).toBe('report');
+      expect(screen.getByText('Esc to close')).toBeInTheDocument();
+      fireEvent.input(input, {target: {value: 'pending'}});
+      expect(screen.getByText('Esc to clear')).toBeInTheDocument();
+      fireEvent.keyDown(input, {key: 'Escape'});
+      expect(input).toHaveValue('');
+      expect(screen.getByText('Esc to close')).toBeInTheDocument();
+    } finally {
+      requestFrame.mockRestore();
+    }
+  });
+
   it('uses the live draft for the Escape hint while the committed workspace remains open', async () => {
     useQueryStore.getState().setDraft('report');
     render(<CollapsedLauncher windowService={new BrowserWindowService()} />);

@@ -1,4 +1,4 @@
-import {memo, useCallback, useLayoutEffect, useRef, type ReactNode, type RefObject} from 'react';
+import {memo, useCallback, useLayoutEffect, useRef, useSyncExternalStore, type ReactNode, type RefObject} from 'react';
 
 import {GlassCommandPalette} from '../../components/ui/GlassCommandPalette';
 import {LumenMark} from '../../design-system/icons/LumenMark';
@@ -82,19 +82,33 @@ const LauncherComposer = memo(function LauncherComposer({
 });
 
 function LauncherFooter({
-  hasDraftQuery,
+  inputRef,
   searching,
   statusLabel,
 }: {
-  hasDraftQuery: boolean;
+  inputRef: RefObject<HTMLInputElement | null>;
   searching: boolean;
   statusLabel?: string;
 }) {
+  const subscribe = useCallback((onChange: () => void) => {
+    const input = inputRef.current;
+    input?.addEventListener('input', onChange);
+    const unsubscribe = useQueryStore.subscribe(onChange);
+    return () => {
+      input?.removeEventListener('input', onChange);
+      unsubscribe();
+    };
+  }, [inputRef]);
+  const getSnapshot = useCallback(
+    () => (inputRef.current?.value ?? useQueryStore.getState().draft).length > 0,
+    [inputRef],
+  );
+  const hasInput = useSyncExternalStore(subscribe, getSnapshot);
   return (
     <>
       <LauncherStatus label={statusLabel} searching={searching} />
       <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]">
-        {hasDraftQuery ? 'Esc to clear' : 'Esc to close'}
+        {hasInput ? 'Esc to clear' : 'Esc to close'}
       </span>
     </>
   );
@@ -131,7 +145,6 @@ export function CollapsedLauncher({
   }
   const windowService = providedWindowService ?? windowServiceRef.current;
   const hasCommittedQuery = useQueryStore((state) => state.committed.length > 0);
-  const hasDraftQuery = useQueryStore((state) => state.draft.length > 0);
   const clearQuery = useQueryStore((state) => state.clear);
   const visible = useLauncherStore((state) => state.visible);
   const intent = useLauncherStore((state) => state.intent);
@@ -197,7 +210,7 @@ export function CollapsedLauncher({
       body={hasCommittedQuery ? expandedContent : retainedWorkspace.current}
       footer={(
         <LauncherFooter
-          hasDraftQuery={hasDraftQuery}
+          inputRef={inputRef}
           searching={searching}
           statusLabel={presentationError ?? statusLabel}
         />

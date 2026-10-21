@@ -67,7 +67,7 @@ export function ResultRow({
           <div className="flex min-w-0 items-baseline gap-[8px]">
             <span className="inline-flex min-w-0 font-sans text-sm font-medium text-[color:var(--einui-command-text)]" title={result.name}>
               <span className="truncate">{hasSuffix ? result.name.slice(0, suffixIndex) : result.name}</span>
-              {hasSuffix ? <span className="shrink-0">{result.name.slice(suffixIndex)}</span> : null}
+              {hasSuffix ? <span className="max-w-full shrink-0 truncate">{result.name.slice(suffixIndex)}</span> : null}
             </span>
           </div>
           <div className="flex min-w-0 items-center gap-[8px] font-sans text-xs leading-[1.45]">

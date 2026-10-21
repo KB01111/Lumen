@@ -44,7 +44,7 @@ describe('ResultGrid', () => {
     const row = screen.getByRole('row', {name: /report\.tsx, C:\\Projects\\Lumen\\src\\report\.tsx, Content/});
     expect(row).toBeVisible();
     expect(screen.getByTitle('report.tsx')).toBeVisible();
-    expect(screen.getByTitle('report.tsx')).toHaveTextContent('report.tsx');
+    expect(screen.getByTitle('report.tsx')).toHaveTextContent(/^report\.tsx$/);
     expect(screen.queryByText('TSX', {exact: true})).not.toBeInTheDocument();
   });
 
