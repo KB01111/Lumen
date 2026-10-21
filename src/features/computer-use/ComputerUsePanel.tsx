@@ -58,7 +58,7 @@ export function ComputerUsePanel({
           </LumenText>
           {!active ? <>
             <LumenSelect aria-label="Computer Use target" options={targetOptions} value={selectedTargetId} onChange={controller.selectTarget} />
-            <LumenButton size="small" variant="quiet" onPress={() => void controller.refreshHealth()}>Refresh targets</LumenButton>
+            <LumenButton className="justify-self-start" size="small" variant="quiet" onPress={() => void controller.refreshHealth()}>Refresh targets</LumenButton>
             {controller.target?.kind === 'browser' ? <LumenCheckbox isDisabled={controller.executionMode === 'background' && !controller.target.visible} isSelected={controller.target.visible ?? false} onChange={controller.setVisibleBrowser}>Request visible browser (Fast only)</LumenCheckbox> : null}
           </> : null}
         </div>

@@ -30,6 +30,8 @@ The launcher consumes the same graphite/off-white surface, text, and border role
 
 Control targets use stable 32/36/44px minimum heights and pixel gutters so enlarged text expands content without inflating all chrome. Form-control font and color resets live in Tailwind's base layer, allowing semantic text and typography utilities to override them. CSS timing variables in `global.css` mirror the TypeScript motion tokens. Content typography continues to use rem units.
 
+The composer uses a quiet, unboxed brand mark and a bounded, visibly labelled mode switch so the query retains priority. Filenames carry their own extensions without duplicate extension badges. The normal result count appears once in the footer; active search, answer and activity messages take its place when needed. The list retains its heading and accessible row count. The footer's Escape hint describes clearing the query rather than asserting a local provider is ready. Open receives a subtle action surface; secondary result actions stay quiet. Settings/provider rows share the 16px padding and 24px section rhythm, and standalone actions keep their natural width. Onboarding uses a smaller 64px ornament with title, description and supporting-text hierarchy.
+
 Each animated property has one owner: Motion for structural regions, native mini/WAAPI for the result capsule and bounded row entrances, CSS for controls and React Aria overlays, GSAP for the activity wrapper's brief entrance, and Lottie for its inner active-work SVG. Structural radius changes snap; blur, shadows and textures never animate. There is no shader, WebGPU, Canvas/WebGL background, new animation framework or added dependency in this refinement.
 
 ## Responsive content

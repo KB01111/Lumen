@@ -1,4 +1,4 @@
-import {memo, useCallback, useLayoutEffect, useRef, type ReactNode, type RefObject} from 'react';
+import {memo, useCallback, useLayoutEffect, useRef, useSyncExternalStore, type ReactNode, type RefObject} from 'react';
 
 import {GlassCommandPalette} from '../../components/ui/GlassCommandPalette';
 import {LumenMark} from '../../design-system/icons/LumenMark';
@@ -37,16 +37,16 @@ const LauncherComposer = memo(function LauncherComposer({
 }: LauncherComposerProps) {
   const intent = useLauncherStore((state) => state.intent);
   return (
-    <div className="flex w-full min-w-0 items-center gap-[10px]" data-tauri-drag-region>
+    <div className="flex w-full min-w-0 items-center gap-[8px]" data-tauri-drag-region>
       <span
         aria-hidden="true"
-        className="grid size-[32px] shrink-0 place-items-center rounded-[var(--lumen-radius-control)] border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row)] text-accent"
+        className="grid size-[32px] shrink-0 place-items-center text-text-secondary"
       >
         <LumenMark size="medium" />
       </span>
       <LumenButton
         aria-label={intent === 'computer' ? 'Switch to file search' : 'Switch to Computer Use'}
-        className="max-w-[180px] min-w-8 shrink-0"
+        className="max-w-[144px] min-w-8 shrink-0 gap-[6px] px-[8px]"
         isDisabled={intentLocked}
         size="small"
         variant="quiet"
@@ -82,16 +82,34 @@ const LauncherComposer = memo(function LauncherComposer({
 });
 
 function LauncherFooter({
+  inputRef,
   searching,
   statusLabel,
 }: {
+  inputRef: RefObject<HTMLInputElement | null>;
   searching: boolean;
   statusLabel?: string;
 }) {
+  const subscribe = useCallback((onChange: () => void) => {
+    const input = inputRef.current;
+    input?.addEventListener('input', onChange);
+    const unsubscribe = useQueryStore.subscribe(onChange);
+    return () => {
+      input?.removeEventListener('input', onChange);
+      unsubscribe();
+    };
+  }, [inputRef]);
+  const getSnapshot = useCallback(
+    () => (inputRef.current?.value ?? useQueryStore.getState().draft).length > 0,
+    [inputRef],
+  );
+  const hasInput = useSyncExternalStore(subscribe, getSnapshot);
   return (
     <>
       <LauncherStatus label={statusLabel} searching={searching} />
-      <span className="text-[color:var(--einui-command-muted-text)]">Local runtime</span>
+      <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]">
+        {hasInput ? 'Esc to clear' : 'Esc to close'}
+      </span>
     </>
   );
 }
@@ -192,6 +210,7 @@ export function CollapsedLauncher({
       body={hasCommittedQuery ? expandedContent : retainedWorkspace.current}
       footer={(
         <LauncherFooter
+          inputRef={inputRef}
           searching={searching}
           statusLabel={presentationError ?? statusLabel}
         />

@@ -45,6 +45,8 @@ export function ResultRow({
 }: ResultRowProps) {
   const isDisabled = (result.availability ?? 'available') !== 'available';
   const stateLabel = availabilityLabels[result.availability ?? 'available'];
+  const suffixIndex = result.name.lastIndexOf('.');
+  const hasSuffix = suffixIndex > 0 && suffixIndex < result.name.length - 1;
 
   return (
     <GridListItem
@@ -63,8 +65,10 @@ export function ResultRow({
         <FileGlyph kind={result.kind} selected={selected} size="large" />
         <div className="grid min-w-0 gap-0.5">
           <div className="flex min-w-0 items-baseline gap-[8px]">
-            <span className="truncate font-sans text-sm font-medium text-[color:var(--einui-command-text)]">{result.name}</span>
-            {result.metadata.extension ? <span className="shrink-0 font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">{result.metadata.extension.toUpperCase()}</span> : null}
+            <span className="inline-flex min-w-0 font-sans text-sm font-medium text-[color:var(--einui-command-text)]" title={result.name}>
+              <span className="truncate">{hasSuffix ? result.name.slice(0, suffixIndex) : result.name}</span>
+              {hasSuffix ? <span className="max-w-full shrink-0 truncate">{result.name.slice(suffixIndex)}</span> : null}
+            </span>
           </div>
           <div className="flex min-w-0 items-center gap-[8px] font-sans text-xs leading-[1.45]">
             <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]" title={result.path}>{result.path}</span>

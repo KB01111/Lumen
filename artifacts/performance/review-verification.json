@@ -1,0 +1,77 @@
+{
+  "reviewFixCommit": "190f5fa787dc5f02cadd05acf01b0020db82ca99",
+  "profileSourceCommit": "1d123bcf0ef54064c8d7625578e5aa36c211b9c1",
+  "typecheck": "passed",
+  "lint": "passed, zero warnings",
+  "productionBuild": "passed, existing Lottie direct-eval warning",
+  "unitTests": {
+    "passed": 810,
+    "files": 93
+  },
+  "functionalTests": {
+    "fullRunPassed": 132,
+    "fullRunFailed": 1,
+    "failure": "Combined 55-page/scale case exhausted its 30000ms test deadline during scale 200, without a containment assertion failure",
+    "repair": "Split identical page/scale coverage into five independent tests, preserving default deadlines and assertions",
+    "replacementFocusedRunPassed": 5,
+    "replacementFocusedRunDurationSeconds": 36.8,
+    "finalSuiteCaseCount": 138,
+    "finalSuiteRerunAsOneCommand": false,
+    "finalAffectedRunPassed": 34,
+    "finalAffectedRunMinutes": 7.1
+  },
+  "performanceTests": {
+    "readyIndicator": "passed",
+    "ordinaryInteractions": "failed",
+    "inputNextFrameP95Ms": 11.4,
+    "inputNextFrameBudgetMs": 6.7,
+    "laterCasesInitiallyDidNotRun": 2,
+    "laterCasesFocusedRunPassed": 2,
+    "hoverP95Ms": 8.7,
+    "hoverObservedCadenceBudgetMs": 13.534
+  },
+  "profile": {
+    "passed": false,
+    "passedChecks": 22,
+    "totalChecks": 23,
+    "failedCheck": "reactCommit",
+    "reactCommitP95Ms": 4.2,
+    "reactCommitBudgetMs": 3,
+    "strict120HzPassed": false,
+    "strict240HzPassed": false,
+    "sourceWorktreeDirty": false
+  },
+  "diagnosticControl": {
+    "method": "Temporarily restore only CollapsedLauncher.tsx, LauncherStatus.tsx and ResultRow.tsx from af06108, run unchanged performance workload, restore corrected components from HEAD",
+    "ordinaryInteractions": "failed",
+    "reactCommitP95Ms": 4.4,
+    "reactCommitBudgetMs": 3,
+    "interpretation": "Pre-fix components also fail in this session; cause of timing variation and performance acceptance remain unresolved"
+  },
+  "visualEvidence": {
+    "screenshots": 86,
+    "recordings": 6,
+    "recordingsDecodedSuccessfully": 6
+  },
+  "budgetsOrRetriesChanged": false,
+  "finalReviewFixCommit": "d8666e11fcd6fdca56d388bdd025d59caea8f71b",
+  "finalPerformanceTests": {
+    "readyIndicator": "passed",
+    "ordinaryInteractions": "failed",
+    "reactCommitP95Ms": 3.4,
+    "reactCommitBudgetMs": 3,
+    "laterCasesDidNotRun": 2
+  },
+  "finalProfile": {
+    "sourceCommit": "00968db8836915846aa2cdde0e776609e36927f9",
+    "sourceWorktreeDirty": false,
+    "passed": false,
+    "passedChecks": 22,
+    "totalChecks": 23,
+    "failedCheck": "reactCommit",
+    "reactCommitP95Ms": 3.600000001490116,
+    "reactCommitBudgetMs": 3,
+    "strict120HzPassed": false,
+    "strict240HzPassed": false
+  }
+}

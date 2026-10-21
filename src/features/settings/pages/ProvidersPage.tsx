@@ -104,7 +104,7 @@ export function ProvidersPage({
   };
 
   const renderApp = (app: string) => (
-    <div key={app} className="grid min-w-0 gap-3 border-b border-border-subtle p-5 last:border-b-0">
+    <div key={app} className="grid min-w-0 gap-[12px] border-b border-border-subtle p-[16px] last:border-b-0">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <LumenText weight="medium">{app}</LumenText>
         <AddProviderDialog app={app as ProviderApp} api={{add: (input) => providersService.add(input)}} onAdded={refresh}>
@@ -136,7 +136,7 @@ export function ProvidersPage({
   return (
     <SettingsPage>
       <AddProviderDialog api={{add: (input) => providersService.add(input)}} onAdded={refresh}>
-        <LumenButton size="small" isDisabled={!native || loading || pending}>Add provider</LumenButton>
+        <LumenButton className="justify-self-start" size="small" isDisabled={!native || loading || pending}>Add provider</LumenButton>
       </AddProviderDialog>
       {error ? <SettingsCallout tone="error">{error} <LumenButton size="small" isDisabled={pending || loading} onPress={refresh}>Retry</LumenButton></SettingsCallout> : null}
       {!native ? (
@@ -144,27 +144,27 @@ export function ProvidersPage({
           Provider switching needs the Lumen desktop runtime; the list below previews the grouping.
         </SettingsCallout>
       ) : null}
-      <SettingSection title="Sidecar" description="Go proxy health on the loopback management port.">
-        <div className="flex min-h-16 items-center gap-4 p-5">
+      <SettingSection title="Connection" description="Local connection used to manage provider profiles and sign-in.">
+        <div className="flex min-h-[64px] items-center gap-[16px] p-[16px]">
           <StatusBadge tone={healthy ? 'success' : healthy === false ? 'warning' : 'neutral'}>
             {!native ? 'Sidecar unavailable' : healthy ? 'Sidecar ready' : healthy === false ? 'Sidecar unavailable' : 'Checking sidecar'}
           </StatusBadge>
         </div>
       </SettingSection>
-      <div data-testid="provider-list" className="grid content-start gap-8">
-        <SettingSection title="Switch" description="One live provider per tool; switching rewrites the floor keys.">
+      <div data-testid="provider-list" className="grid content-start gap-[24px]">
+        <SettingSection title="Switch" description="Use one provider at a time for each tool. Switching applies the selected profile's connection settings.">
           {sections.switchApps.map(renderApp)}
         </SettingSection>
-        <SettingSection title="Additive" description="Providers accumulate; enable or remove each one.">
+        <SettingSection title="Additive" description="Keep multiple providers available. Enable or remove each profile independently.">
           {sections.additiveApps.map(renderApp)}
         </SettingSection>
         <LumenText tone="tertiary" variant="meta">Adding or editing saves a profile. Switch or Enable applies it to the tool. API keys are stored in Windows Credential Manager.</LumenText>
       </div>
-      <SettingSection title="Authorization center" description="OAuth sign-in for ChatGPT, Anthropic, and xAI through the loopback sidecar. Only link status is shown; secrets never leave the sidecar.">
+      <SettingSection title="Authorization center" description="Sign in to ChatGPT, Anthropic, and xAI through the local connection. This page shows sign-in status without exposing credentials.">
         <AuthCenterPanel nativeRuntime={native} api={authApi} />
       </SettingSection>
-      <SettingSection title="Usage" description="Recent per-provider request counts from the sidecar. Pricing and model breakdowns follow later.">
-        <div className="p-5">
+      <SettingSection title="Usage" description="Recent request counts for each provider.">
+        <div className="p-[16px]">
           <UsagePanel nativeRuntime={native} api={usageApi} />
         </div>
       </SettingSection>

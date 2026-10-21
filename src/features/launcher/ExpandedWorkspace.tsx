@@ -253,10 +253,6 @@ export const ExpandedWorkspace = memo(function ExpandedWorkspace({
   const {reducedMotion} = useLumenMotion();
   const preview = useAppearanceStore((state) => state.preview);
   const {contentRef, showInlinePreview} = useInlinePreview(preview, previewAllowed);
-  const countLabel = lifecycle === 'searching'
-    ? 'Searching'
-    : `${results.length} ${results.length === 1 ? 'result' : 'results'}`;
-
   return (
     <section
       aria-label="Search workspace"
@@ -279,9 +275,8 @@ export const ExpandedWorkspace = memo(function ExpandedWorkspace({
           ? 'grid min-h-[94px] min-w-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(280px,38%)] overflow-hidden'
           : 'grid min-h-[94px] min-w-0 flex-1 grid-cols-1 overflow-hidden'}>
           <section aria-label="Search result list" className="flex min-h-0 min-w-0 flex-col">
-            <header className="flex min-h-[24px] shrink-0 items-center justify-between gap-[8px] px-[16px]">
+            <header className="flex min-h-[24px] shrink-0 items-center px-[16px]">
               <span className="font-sans text-xs font-medium text-[color:var(--einui-command-text)]">Local results</span>
-              <span className="font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">{countLabel}</span>
             </header>
             <SelectionBoundResults
               emptyState={results.length === 0 ? emptyLabel(lifecycle, error) : 'No files found'}

@@ -69,7 +69,7 @@ const ActionButtons = memo(function ActionButtons({
         aria-label={isOpening ? 'Opening selected result' : 'Open selected result'}
         isDisabled={!hasResult || isOpening}
         size="small"
-        variant="quiet"
+        variant="subtle"
         onPress={onOpen}
       >
         <LumenUiIcon name="forward" size="small" />

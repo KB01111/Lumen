@@ -64,6 +64,7 @@ async function waitForScenario(page, scenario) {
       await preview.getByText('Select a result to preview', {exact: true}).waitFor();
     }
   }
+  await page.getByText('Loading settings…', {exact: true}).waitFor({state: 'hidden'});
   await page.waitForFunction(() => [...document.querySelectorAll(
     '[data-launcher-motion="workspace"], [role="tabpanel"] > div, [aria-label="File preview"] [style*="opacity"]',
   )].every((element) => globalThis.getComputedStyle(element).opacity === '1'));
