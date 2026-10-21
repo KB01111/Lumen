@@ -32,6 +32,9 @@ export function LauncherStatus({label = 'Ready', searching = false}: LauncherSta
       <span className="text-xs text-[color:var(--einui-command-muted-text)]">
         {activityActive ? activityLabel : label}
       </span>
+      {activityActive && label !== 'Ready' ? (
+        <span className="text-xs text-[color:var(--einui-command-muted-text)]">{label}</span>
+      ) : null}
     </output>
   );
 }

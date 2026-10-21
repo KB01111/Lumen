@@ -40,6 +40,8 @@ describe('LauncherStatus', () => {
     useActivityStore.setState({active: true, mode: 'gaming'});
     const paused = renderStatus(<LauncherStatus label="8 results" searching />);
     expect(screen.getByText('Gaming pause')).toBeVisible();
+    expect(screen.getAllByText('8 results', {exact: true})).toHaveLength(1);
+    expect(screen.getByText('8 results')).toBeVisible();
     expect(paused.container.querySelector('[data-activity-indicator]')).toHaveAttribute(
       'data-activity-state',
       'idle',

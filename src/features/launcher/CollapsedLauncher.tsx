@@ -82,16 +82,20 @@ const LauncherComposer = memo(function LauncherComposer({
 });
 
 function LauncherFooter({
+  hasDraftQuery,
   searching,
   statusLabel,
 }: {
+  hasDraftQuery: boolean;
   searching: boolean;
   statusLabel?: string;
 }) {
   return (
     <>
       <LauncherStatus label={statusLabel} searching={searching} />
-      <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]">Esc to clear</span>
+      <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]">
+        {hasDraftQuery ? 'Esc to clear' : 'Esc to close'}
+      </span>
     </>
   );
 }
@@ -127,6 +131,7 @@ export function CollapsedLauncher({
   }
   const windowService = providedWindowService ?? windowServiceRef.current;
   const hasCommittedQuery = useQueryStore((state) => state.committed.length > 0);
+  const hasDraftQuery = useQueryStore((state) => state.draft.length > 0);
   const clearQuery = useQueryStore((state) => state.clear);
   const visible = useLauncherStore((state) => state.visible);
   const intent = useLauncherStore((state) => state.intent);
@@ -192,6 +197,7 @@ export function CollapsedLauncher({
       body={hasCommittedQuery ? expandedContent : retainedWorkspace.current}
       footer={(
         <LauncherFooter
+          hasDraftQuery={hasDraftQuery}
           searching={searching}
           statusLabel={presentationError ?? statusLabel}
         />

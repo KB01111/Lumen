@@ -27,11 +27,24 @@ function file(id: string, overrides: Partial<SearchResult> = {}): SearchResult {
 }
 
 describe('ResultGrid', () => {
+  it('keeps the actual filename suffix outside the truncating basename', () => {
+    const name = `${'long-report-'.repeat(15)}.tsx`;
+    render(<ResultGrid results={[file('long', {name, metadata: {extension: 'md'}})]} selectedId="long" />);
+    const row = screen.getByRole('row', {name: new RegExp(name)});
+    const suffix = screen.getByText('.tsx', {exact: true});
+    expect(suffix).toHaveClass('shrink-0');
+    expect(suffix.previousElementSibling).toHaveClass('truncate');
+    expect(suffix.parentElement).toHaveTextContent(name);
+    expect(row).toHaveAttribute('aria-label', expect.stringContaining(name));
+    expect(screen.queryByText('MD', {exact: true})).not.toBeInTheDocument();
+  });
+
   it('retains the filename and accessible path without a duplicate extension label', () => {
     render(<ResultGrid results={[file('report')]} selectedId="report" />);
     const row = screen.getByRole('row', {name: /report\.tsx, C:\\Projects\\Lumen\\src\\report\.tsx, Content/});
     expect(row).toBeVisible();
-    expect(screen.getByText('report.tsx', {exact: true})).toBeVisible();
+    expect(screen.getByTitle('report.tsx')).toBeVisible();
+    expect(screen.getByTitle('report.tsx')).toHaveTextContent('report.tsx');
     expect(screen.queryByText('TSX', {exact: true})).not.toBeInTheDocument();
   });
 

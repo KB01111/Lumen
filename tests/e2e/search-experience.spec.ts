@@ -89,6 +89,7 @@ test('keeps a stable answer region alongside local results after explicit submis
 });
 
 test('handles Unicode and very long filenames without horizontal overflow', async ({page}) => {
+  await page.setViewportSize({width: 720, height: 540});
   await page.goto('/?service=memory');
   const query = `årsrapport-${'väldigt-lång-'.repeat(12)}終`;
   await page.getByRole('searchbox', {name: 'Search files'}).fill(query);
@@ -98,6 +99,19 @@ test('handles Unicode and very long filenames without horizontal overflow', asyn
     (element) => element.scrollWidth - element.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+  const row = page.getByRole('row', {name: /årsrapport.*終/i});
+  const suffix = row.getByText('.docx', {exact: true});
+  await expect(suffix).toBeVisible();
+  const geometry = await suffix.evaluate((element) => {
+    const suffixBox = element.getBoundingClientRect();
+    const nameBox = element.parentElement!.getBoundingClientRect();
+    const base = element.previousElementSibling!;
+    return {
+      basenameClipped: base.scrollWidth > base.clientWidth,
+      suffixFits: suffixBox.left >= nameBox.left && suffixBox.right <= nameBox.right + 1,
+    };
+  });
+  expect(geometry).toEqual({basenameClipped: true, suffixFits: true});
 });
 
 test('keeps 10,000 results virtualized and selection responsive', async ({page}) => {

@@ -31,12 +31,12 @@ describe('activity classifications', () => {
     },
   );
 
-  it('contracts the launcher status into a quiet paused indicator', () => {
+  it('keeps the result count beside a quiet paused indicator', () => {
     useActivityStore.setState({active: true, mode: 'gaming'});
     renderPage(<LauncherStatus label="8 results" />);
 
     expect(screen.getByText('Gaming pause')).toBeVisible();
-    expect(screen.queryByText('8 results')).not.toBeInTheDocument();
+    expect(screen.getByText('8 results')).toBeVisible();
     expect(screen.getByTestId('launcher-activity')).toHaveAttribute('data-activity-compact', 'true');
     expect(document.querySelector('[data-activity-indicator]')).toHaveAttribute(
       'data-activity-state',

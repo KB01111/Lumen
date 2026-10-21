@@ -16,6 +16,7 @@ import {BrowserWindowService} from '../../platform/window/browser-window-service
 import {MemorySearchService} from '../../services/search/memory-search-service';
 import {usePreviewStore} from '../launcher/preview.store';
 import {useSettingsStore} from '../settings/settings.store';
+import {useActivityStore} from '../activity/activity.store';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
 import {useScopeStore} from './scope.store';
@@ -35,6 +36,7 @@ function file(id: string) {
 }
 
 afterEach(() => {
+  useActivityStore.getState().reset();
   useLauncherStore.getState().reset();
   usePreviewStore.getState().reset();
   useQueryStore.getState().reset();
@@ -56,6 +58,12 @@ describe('SearchExperience answer submission', () => {
     expect(screen.getAllByText('1 result', {exact: true})).toHaveLength(1);
     expect(screen.queryByText('Local runtime', {exact: true})).not.toBeInTheDocument();
     expect(screen.getByText('Esc to clear')).toBeVisible();
+    act(() => useActivityStore.getState().setMode('gaming'));
+    expect(screen.getByText('Gaming pause')).toBeVisible();
+    expect(screen.getAllByText('1 result', {exact: true})).toHaveLength(1);
+    expect(screen.getByText('1 result', {exact: true})).toBeVisible();
+    act(() => useActivityStore.getState().reset());
+    expect(screen.getAllByText('1 result', {exact: true})).toHaveLength(1);
   });
 
   it('keeps the warm launcher marker on a Tailwind contents wrapper', () => {
