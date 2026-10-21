@@ -23,11 +23,11 @@ The baseline was rebuilt from a `git archive` of the baseline commit into an ign
 
 | JavaScript closure | Baseline raw bytes | Refined raw bytes | Baseline gzip bytes | Refined gzip bytes |
 | --- | ---: | ---: | ---: | ---: |
-| Initial application | 1,006,568 | 1,007,738 | 320,638 | 319,304 |
-| Application plus General settings | 1,162,723 | 1,027,684 | 363,606 | 326,957 |
-| Additional code to open General settings | 156,155 | 19,946 | 42,968 | 7,653 |
+| Initial application | 1,006,568 | 1,007,738 | 317,953 | 319,304 |
+| Application plus General settings | 1,162,723 | 1,027,684 | 360,693 | 326,957 |
+| Additional code to open General settings | 156,155 | 19,946 | 42,740 | 7,653 |
 
-The combined General settings closure removes 135,039 raw bytes and 36,649 gzip bytes. The initial closure changes by +1,170 raw bytes and -1,334 gzip bytes. Eleven default page chunks remain separate. These measurements were refreshed after the final review fixes. Detailed filenames and measurement method are in `artifacts/performance/frontend-refinement-bundle-size.json`.
+The combined General settings closure removes 135,039 raw bytes and 33,736 gzip bytes. The initial closure changes by +1,170 raw bytes and +1,351 gzip bytes. Eleven default page chunks remain separate. These measurements were refreshed after the final review fixes. A final remeasurement of the emitted baseline/current files confirmed the artifact totals; the table above replaces stale baseline gzip values retained from the earlier report. Detailed filenames and measurement method are in `artifacts/performance/frontend-refinement-bundle-size.json`.
 
 ## Original verification
 

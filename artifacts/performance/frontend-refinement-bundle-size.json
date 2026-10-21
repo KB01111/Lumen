@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T16:09:17.941Z",
+  "generatedAt": "2026-10-21T16:54:35.817Z",
   "baselineCommit": "ba6ef4479ea71cd210099aef4e253813eeda0041",
   "method": "Static JavaScript import closure of Vite production manifests, gzip per emitted file. No latency or network-transfer claim. Same installed dependencies/configuration; baseline sources extracted from git archive.",
   "baseline": {
