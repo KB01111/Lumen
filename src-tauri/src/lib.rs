@@ -1,4 +1,5 @@
 mod activity;
+pub mod agent_memory;
 mod computer_use;
 mod consent;
 mod gateway;
@@ -124,6 +125,9 @@ pub fn run() {
                 app.path().app_data_dir()?
             };
             std::fs::create_dir_all(&data_directory)?;
+            app.manage(agent_memory::AgentMemoryRuntime::new(
+                data_directory.join("lumen-agent-memory.sqlite3"),
+            ));
             let settings_path = data_directory.join("lumen.settings.json");
             app.manage(consent::PersistedConsent::new(settings_path.clone()));
             let runtime_preferences = window::RuntimePreferences::load(&settings_path);
@@ -343,6 +347,13 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            agent_memory::agent_memory_providers,
+            agent_memory::set_agent_memory_provider,
+            agent_memory::review_native_agent_memory,
+            agent_memory::review_provider_agent_memory,
+            agent_memory::approve_agent_memory,
+            agent_memory::delete_agent_memory,
+            agent_memory::prune_agent_memory,
             improvement::commands::improvement_health,
             improvement::commands::improvement_snapshot,
             improvement::commands::improvement_candidate_base,

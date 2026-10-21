@@ -2469,6 +2469,7 @@ dependencies = [
  "base64 0.22.1",
  "futures-util",
  "keyring",
+ "lumen-agent-core",
  "notify",
  "pdf-extract",
  "quick-xml",
@@ -2495,6 +2496,21 @@ dependencies = [
  "ws-client",
  "zeroize",
  "zip",
+]
+
+[[package]]
+name = "lumen-agent-core"
+version = "0.1.0"
+dependencies = [
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror 2.0.19",
+ "tokio",
+ "tokio-util",
+ "uuid",
 ]
 
 [[package]]

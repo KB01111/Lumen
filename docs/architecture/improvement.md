@@ -2,6 +2,8 @@
 
 Prime Agent is an isolated candidate generator. Rust owns learning metadata, immutable harness versions, the evaluator, approvals, activation and rollback. The feature is disabled on first installation and has separate cloud consent; ordinary answer and Computer Use consent do not enable cloud improvement.
 
+The `lumen-agent-core` workspace now provides the shared `ImprovementGenerator` contract. The existing Prime runtime supplies a generation-only adapter; versioned candidate envelopes are checked against host-built base/evidence bindings before the existing job-bound import. Harness² remains disabled and uninstalled. No evaluator, database or promotion path is duplicated. See [the extension boundaries](../../lumen-agent-core/ARCHITECTURE.md) for memory, harness clients, research deferral and the native Windows/MXC migration direction.
+
 ## Native boundary and storage
 
 `src/services/improvement` provides strict Zod adapters for native IPC, unavailable browser behavior and explicitly labeled development fixtures. Native commands are registered in `src-tauri/src/improvement/commands.rs`. UI components never request provider endpoints, Docker arguments, scripts, tokens or evaluator modifications.

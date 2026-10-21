@@ -1,3 +1,4 @@
+use super::generators::{self, *};
 use super::{evaluation, store::ImprovementStore, types::*};
 use serde_json::json;
 
@@ -28,6 +29,180 @@ fn report(candidate: &ImprovementCandidate) -> EvaluationReport {
         reasons: vec![],
         hash: String::new(),
     }
+}
+
+fn generation_input() -> GenerationInput {
+    GenerationInput::new(
+        HarnessVersion::default(),
+        digest(b"config"),
+        vec![ExecutionTrace {
+            id: "failed-run".into(),
+            at: 1,
+            tool_id: ToolId::AnswerGenerate,
+            model: digest(b"model"),
+            route: "lumen.answer.local".into(),
+            error_code: TraceError::VerificationFailed,
+            outcome: TraceOutcome::Failed,
+            verified: true,
+            duration_ms: 100,
+            input_tokens: Some(3),
+            output_tokens: Some(4),
+            harness_version: 0,
+        }],
+    )
+    .unwrap()
+}
+
+struct FixtureGenerator(GeneratorId);
+impl ImprovementGenerator for FixtureGenerator {
+    type Input = GenerationInput;
+    type Candidate = GeneratedCandidate;
+    type Error = String;
+    fn id(&self) -> GeneratorId {
+        self.0
+    }
+    fn generate<'a>(
+        &'a self,
+        input: &'a GenerationInput,
+        _cancel: tokio_util::sync::CancellationToken,
+    ) -> futures_util::future::BoxFuture<'a, Result<GeneratedCandidate, String>> {
+        Box::pin(async move {
+            let mut candidate = manifest(input.active_version.id, CandidateKind::Prompt);
+            candidate.evidence_digest = input.evidence_digest.clone();
+            Ok(GeneratedCandidate {
+                schema_version: MANIFEST_VERSION,
+                generator: self.id(),
+                manifest: candidate,
+            })
+        })
+    }
+}
+
+#[tokio::test]
+async fn multiple_generators_feed_the_same_existing_evaluator_and_promotion_gate() {
+    for id in [GeneratorId::PrimeAgent, GeneratorId::Harness2] {
+        let store = ImprovementStore::memory().unwrap();
+        let input = generation_input();
+        let generated = generate_candidate(
+            &FixtureGenerator(id),
+            &input,
+            tokio_util::sync::CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        let candidate = store
+            .create_for_job("generator-job", generated, &input.config_digest)
+            .unwrap();
+        assert_eq!(candidate.status, CandidateStatus::Proposed);
+        assert_eq!(store.active().unwrap().id, 0);
+        assert!(
+            store
+                .approve(
+                    &ApprovalRef {
+                        candidate_id: candidate.id.clone(),
+                        candidate_hash: candidate.hash.clone(),
+                        base_version: 0,
+                        report_hash: digest(b"invented report")
+                    },
+                    &input.config_digest
+                )
+                .is_err()
+        );
+        let mut failed = report(&candidate);
+        failed.cases[0].candidate.successes = 0;
+        store.record_report(&candidate.id, failed, false).unwrap();
+        assert_eq!(store.active().unwrap().id, 0);
+        assert_eq!(
+            store.candidate(&candidate.id).unwrap().status,
+            CandidateStatus::Rejected
+        );
+    }
+}
+
+#[tokio::test]
+async fn harness2_runtime_is_disabled_and_generation_cannot_publish_after_cancellation() {
+    let input = generation_input();
+    assert!(
+        generate_candidate(
+            &Harness2Generator,
+            &input,
+            tokio_util::sync::CancellationToken::new()
+        )
+        .await
+        .unwrap_err()
+        .contains("disabled and uninstalled")
+    );
+    let cancel = tokio_util::sync::CancellationToken::new();
+    cancel.cancel();
+    assert!(
+        generate_candidate(&FixtureGenerator(GeneratorId::PrimeAgent), &input, cancel)
+            .await
+            .is_err()
+    );
+    assert_eq!(generators::descriptors()[1].state, "disabledUninstalled");
+}
+
+#[test]
+fn versioned_manifests_reject_policy_edits_hidden_cases_and_changed_bindings() {
+    let input = generation_input();
+    let mut candidate = manifest(0, CandidateKind::Prompt);
+    candidate.evidence_digest = input.evidence_digest.clone();
+    let envelope = GeneratedCandidate {
+        schema_version: 1,
+        generator: GeneratorId::Harness2,
+        manifest: candidate,
+    };
+    let good = serde_json::to_value(&envelope).unwrap();
+    assert!(
+        Harness2Generator::decode_manifest(&serde_json::to_vec(&good).unwrap())
+            .unwrap()
+            .validate(GeneratorId::Harness2, &input)
+            .is_ok()
+    );
+    for (field, value) in [
+        ("schemaVersion", json!(2)),
+        ("generator", json!("unregistered")),
+        ("promotion", json!(true)),
+        ("evaluationReport", json!({})),
+        ("hiddenCases", json!([])),
+    ] {
+        let mut bad = good.clone();
+        bad[field] = value;
+        assert!(Harness2Generator::decode_manifest(&serde_json::to_vec(&bad).unwrap()).is_err());
+    }
+    for (field, value) in [
+        ("nativePermissions", json!("allow")),
+        ("securityPolicy", json!("disabled")),
+        ("scripts", json!(["powershell"])),
+        (
+            "preferences",
+            json!([{"name":"answerLanguage","value":"en"}]),
+        ),
+    ] {
+        let mut bad = good.clone();
+        bad["manifest"][field] = value;
+        assert!(Harness2Generator::decode_manifest(&serde_json::to_vec(&bad).unwrap()).is_err());
+    }
+    for field in ["baseVersion", "evidenceDigest"] {
+        let mut bad = good.clone();
+        bad["manifest"][field] = if field == "baseVersion" {
+            json!(1)
+        } else {
+            json!(digest(b"other evidence"))
+        };
+        assert!(
+            Harness2Generator::decode_manifest(&serde_json::to_vec(&bad).unwrap())
+                .unwrap()
+                .validate(GeneratorId::Harness2, &input)
+                .is_err()
+        );
+    }
+    let exported = serde_json::to_value(&input).unwrap();
+    assert!(exported.get("heldOutCases").is_none());
+    assert_eq!(
+        exported["developmentCases"],
+        evaluation::development_cases()
+    );
 }
 
 #[test]

@@ -50,7 +50,9 @@ jobs:
       - name: Restore Rust cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: src-tauri -> target
+          workspaces: |
+            src-tauri -> target
+            lumen-agent-core -> target
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -132,6 +134,15 @@ jobs:
       - name: Run Rust tests
         working-directory: src-tauri
         run: cargo test --all-features
+
+      - name: Check Agent Core formatting
+        run: cargo fmt --manifest-path lumen-agent-core/Cargo.toml --all -- --check
+
+      - name: Run Agent Core Clippy
+        run: cargo clippy --manifest-path lumen-agent-core/Cargo.toml --locked --all-targets -- -D warnings
+
+      - name: Verify native Memory Core and both shared harness clients
+        run: bun run test:agent-core
 
       - name: Verify owned WinSearch release startup, Stop and profile isolation
         working-directory: src-tauri

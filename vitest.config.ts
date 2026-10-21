@@ -5,7 +5,7 @@ import {availableParallelism} from 'node:os';
 export default defineConfig({
   plugins: [tailwindcss()],
   test: {
-    include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.test.ts'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.test.ts', 'lumen-agent-core/runtime/**/*.test.ts'],
     exclude: [...configDefaults.exclude, 'scripts/stage-rivet-engine.test.ts', 'scripts/stage-windows-ai.test.ts'],
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
