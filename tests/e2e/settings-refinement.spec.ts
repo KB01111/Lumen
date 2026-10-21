@@ -142,9 +142,9 @@ test('settings controls stay within their content viewport at large text sizes',
   }
 });
 
-test('settings retain scroll viewports and contained controls across the constrained text-scale matrix', async ({page}) => {
-  await page.setViewportSize({width: 520, height: 340});
-  for (const scale of [100, 125, 150, 175, 200]) {
+for (const scale of [100, 125, 150, 175, 200]) {
+  test(`settings retain scroll viewports and contained controls at ${scale}% constrained text scale`, async ({page}) => {
+    await page.setViewportSize({width: 520, height: 340});
     await page.goto(`/?gallery=1&scenario=settings-general&capture=1&scale=${scale}`);
     const content = page.getByRole('main', {name: 'Settings content'});
     const nav = page.getByRole('navigation', {name: 'Settings'});
@@ -158,8 +158,8 @@ test('settings retain scroll viewports and contained controls across the constra
       await expectControlsContained(content, `${name} at ${scale}% text in 520x340`);
     }
     await expect(page.getByRole('button', {name: 'Close settings'})).toBeInViewport();
-  }
-});
+  });
+}
 
 test('keyboard page selection resets content scroll and keeps navigation focus', async ({page}) => {
   await page.setViewportSize({width: 880, height: 600});
