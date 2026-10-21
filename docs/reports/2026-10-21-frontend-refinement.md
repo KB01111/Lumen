@@ -1,7 +1,7 @@
 # Frontend refinement verification
 
 Date: 2026-10-21
-Status: approved frontend scope completed and verified; native/installed acceptance and strict 240Hz remain separate limits
+Status: review fixes verified functionally; current performance gates fail; native/installed acceptance remains separate
 Baseline: `ba6ef4479ea71cd210099aef4e253813eeda0041`
 Original verified runtime source: `d6f80c30545e79cac020e4bc07668f19d4e3fccf`
 Review fixes runtime source: `190f5fa787dc5f02cadd05acf01b0020db82ca99`
@@ -62,7 +62,7 @@ Independent read-only source review found no actionable Critical, Important or M
 
 Strict 120Hz passed. Strict 240Hz failed its cadence, input, selection and hover checks; React commit and synchronous-work checks passed. Neither budgets nor thresholds were modified. These results support the existing cadence-aware browser gate, not a strict 240Hz or native compositor claim. Raw samples, graphics/environment eligibility, checks and a separate post-measurement interaction trace are retained in `artifacts/performance/profile-summary.json` and `artifacts/performance/interaction-trace.zip`.
 
-## Refreshed visual evidence
+## Original visual evidence
 
 - `bun run capture:gallery`: all 86 states captured, plus the contact sheet and manifest. Inspected the contact sheet and full-size expanded results, General settings, Providers, onboarding Welcome, Computer Use approval, light theme, forced-colors theme and constrained work-area captures. No new visual correction was required. Partially visible list/card content belongs to the existing bounded scrollports; reachability is covered by the Edge matrices.
 - `bun run record:interactions`: all six browser studies regenerated. Their existing automation exercises search/selection, settings routing, onboarding, answer submission, approvals/denial/Stop, and activity/provider states. FFprobe confirmed VP8 at 1120x760, and FFmpeg decoded every recording without errors.
@@ -77,6 +77,30 @@ Strict 120Hz passed. Strict 240Hz failed its cadence, input, selection and hover
 | activity-provider-states.webm | 10.88s |
 
 The original screenshot and recording manifests named runtime source `d6f80c30545e79cac020e4bc07668f19d4e3fccf`; all 86 capture entries and six recording entries were checked against that SHA and their nonempty files. The original profile used the same SHA. The review follow-up refreshes this evidence for the corrected runtime below.
+
+## PR #30 review follow-up
+
+All three inline findings were valid and fixed in `190f5fa787dc5f02cadd05acf01b0020db82ca99`:
+
+- Long filenames now truncate only their basename, keeping the actual final suffix visible in the same visual filename. The accessible full filename/path remains unchanged; extension metadata cannot substitute a different suffix.
+- Active activity-policy text now appears alongside the supplied launcher status, keeping the result count visible exactly once through pause/resume.
+- The Escape hint uses a boolean selected from the live draft, including empty-draft/committed-query divergence during composition and the retained exiting workspace.
+
+Fresh typecheck, zero-warning lint and production build passed. All 809 unit/component tests in 93 files passed with process-scoped Python 3.11. The focused tests first reproduced all three findings, then passed after the fixes. Edge also verified that a long basename actually clips while its `.docx` suffix fits inside the filename bounds at 720px width.
+
+The full serial Edge run passed 132 cases in 35.2 minutes. Its combined 55-page/scale constrained matrix exhausted the default 30-second test deadline during the fifth scale; the trace showed successful containment assertions through Local AI at 200% before the deadline. That matrix is now five independent tests, one per text scale, retaining every page, assertion and the original default deadline. All five passed in 36.8 seconds (6.8–7.2 seconds each). The resulting 137-case suite was covered by the 132-case full-run success plus this five-case focused run; it was not rerun as one command after splitting the matrix. No performance or layout tolerance was relaxed.
+
+All 86 gallery captures and six recordings were refreshed against the review-fix runtime SHA. The contact sheet, expanded-results and long-filename captures were visually inspected, manifests/source SHAs and nonempty screenshot files were verified, and all six recordings decoded successfully with FFmpeg. The later evidence and test commits leave runtime sources unchanged.
+
+### Current performance limits
+
+The fresh performance evidence supersedes the original passing results above. It does **not** establish current performance acceptance:
+
+- `bun run test:performance`: the ready-indicator case passed, but input-to-next-frame p95 was 11.4ms against a 6.7ms cadence budget, failing the ordinary-interactions case. The two later cases did not run after that failure; a focused run subsequently passed both hover/idle/heap and static-palette cases. Hover p95 was 8.7ms against a 13.534ms observed-cadence budget.
+- `bun run profile`: 22 of 23 cadence-aware checks passed against clean source `1d123bcf0ef54064c8d7625578e5aa36c211b9c1`. React commit p95 was 4.2ms against 3ms, so the profile failed. Warm launcher p95 was 14.9ms, input-to-next-frame 12.6ms, selection 7.3ms and hover 9.1ms. The sampled frame-interval p95 was 16.7ms. Both strict 120Hz and strict 240Hz failed. Raw samples and the separate interaction trace are retained in the refreshed profile artifacts.
+- A diagnostic control temporarily restored only the three changed production components from pre-fix `af06108`, leaving the test workload/configuration unchanged. The same performance command failed React commit p95 at 4.4ms against 3ms. The corrected components were then restored from HEAD. This control shows that the pre-fix components also miss the gate in this session; it does not prove the source of timing variation or rule out every regression.
+
+No budgets, retries, animation policy, dependencies or native code were changed. Performance acceptance remains unresolved, and the PR must not be described as fully green or merge-ready from this local evidence. `artifacts/performance/review-verification.json` records these command outcomes alongside the raw profile.
 
 ## Evidence boundaries
 
