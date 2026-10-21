@@ -5,6 +5,7 @@ Status: review fixes verified functionally; current performance gates fail; nati
 Baseline: `ba6ef4479ea71cd210099aef4e253813eeda0041`
 Original verified runtime source: `d6f80c30545e79cac020e4bc07668f19d4e3fccf`
 Review fixes runtime source: `190f5fa787dc5f02cadd05acf01b0020db82ca99`
+Final follow-up runtime source: `d8666e11fcd6fdca56d388bdd025d59caea8f71b`
 
 ## Resulting behavior
 
@@ -22,11 +23,11 @@ The baseline was rebuilt from a `git archive` of the baseline commit into an ign
 
 | JavaScript closure | Baseline raw bytes | Refined raw bytes | Baseline gzip bytes | Refined gzip bytes |
 | --- | ---: | ---: | ---: | ---: |
-| Initial application | 1,006,568 | 1,007,490 | 320,638 | 319,248 |
-| Application plus General settings | 1,162,723 | 1,027,436 | 363,606 | 326,908 |
-| Additional code to open General settings | 156,155 | 19,946 | 42,968 | 7,660 |
+| Initial application | 1,006,568 | 1,007,738 | 320,638 | 319,304 |
+| Application plus General settings | 1,162,723 | 1,027,684 | 363,606 | 326,957 |
+| Additional code to open General settings | 156,155 | 19,946 | 42,968 | 7,653 |
 
-The combined General settings closure removes 135,287 raw bytes and 36,698 gzip bytes. The initial closure changes by +922 raw bytes and -1,390 gzip bytes. The SettingsShell chunk itself changes from 149.79 kB / 40.06 kB gzip to 11.32 kB / 3.89 kB gzip, with eleven separate default page chunks; the closure totals above account for shared code moving between chunks. These measurements were refreshed after the review fixes. Detailed filenames and measurement method are in `artifacts/performance/frontend-refinement-bundle-size.json`.
+The combined General settings closure removes 135,039 raw bytes and 36,649 gzip bytes. The initial closure changes by +1,170 raw bytes and -1,334 gzip bytes. Eleven default page chunks remain separate. These measurements were refreshed after the final review fixes. Detailed filenames and measurement method are in `artifacts/performance/frontend-refinement-bundle-size.json`.
 
 ## Original verification
 
@@ -92,7 +93,7 @@ The full serial Edge run passed 132 cases in 35.2 minutes. Its combined 55-page/
 
 All 86 gallery captures and six recordings were refreshed against the review-fix runtime SHA. The contact sheet, expanded-results and long-filename captures were visually inspected, manifests/source SHAs and nonempty screenshot files were verified, and all six recordings decoded successfully with FFmpeg. The later evidence and test commits leave runtime sources unchanged.
 
-### Current performance limits
+### Earlier review-fix performance observations
 
 The fresh performance evidence supersedes the original passing results above. It does **not** establish current performance acceptance:
 
@@ -101,6 +102,20 @@ The fresh performance evidence supersedes the original passing results above. It
 - A diagnostic control temporarily restored only the three changed production components from pre-fix `af06108`, leaving the test workload/configuration unchanged. The same performance command failed React commit p95 at 4.4ms against 3ms. The corrected components were then restored from HEAD. This control shows that the pre-fix components also miss the gate in this session; it does not prove the source of timing variation or rule out every regression.
 
 No budgets, retries, animation policy, dependencies or native code were changed. Performance acceptance remains unresolved, and the PR must not be described as fully green or merge-ready from this local evidence. `artifacts/performance/review-verification.json` records these command outcomes alongside the raw profile.
+
+## Final review follow-up
+
+Five subsequent inline comments were also valid (two describe the same suffix overflow). They are addressed in `d8666e1`:
+
+- An oversized suffix now has `max-w-full` and truncation, preserving ordinary extensions while containing a 200-character suffix at 520x340. Edge observed the overflow before the fix and verified clipping/containment afterward, with the exact full filename and accessible row label retained.
+- The footer uses an external boolean snapshot of the actual input value, subscribing to input events and programmatic query-store updates. It therefore reflects pending input before deferred search admission. Stable subscriptions avoid rerenders when empty/nonempty presence is unchanged. A frozen-frame regression reproduced the lag and verifies deletion, pending input and Escape clearing.
+- The filename assertion is anchored to reject appended text, and the Edge geometry assertion also checks that the suffix does not overlap the basename.
+
+Fresh typecheck, zero-warning lint, production build and all **810 unit/component tests** passed. All **34 affected Edge tests** passed in 7.1 minutes across search/results, accessibility/IME and the six-mode viewport/text-scale matrices. The two focused ordinary/oversized suffix cases also passed. The final functional suite has 138 cases; unchanged settings coverage comes from the full run and split-case verification described above, rather than another complete 138-case run.
+
+All 86 captures and six recordings were refreshed again for `d8666e1`; manifests and screenshot files were verified and all six recordings decoded successfully. Runtime sources remain unchanged by the later fixture/evidence commits.
+
+Final performance acceptance still fails. On the final runtime, `bun run test:performance` passed the ready-indicator case but failed ordinary React commit p95 at **3.4ms against 3ms**; the later two cases did not run in that final command. Their earlier focused passes are recorded above. The final clean-source profile (`00968db8836915846aa2cdde0e776609e36927f9`) passed **22 of 23** checks, failing React commit p95 at **3.6ms against 3ms**. Warm launcher p95 was 4.8ms, input-to-next-frame 7.4ms, selection 6ms and hover 12.4ms. Both strict 120Hz and 240Hz failed. The refreshed raw profile/trace and verification JSON preserve these limits. No further performance reruns or threshold changes were used to obtain a passing result.
 
 ## Evidence boundaries
 
