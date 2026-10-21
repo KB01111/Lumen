@@ -1,7 +1,7 @@
 # Frontend and layout refinement
 
 Date: 2026-10-21
-Status: approved by the user on 2026-10-21; implementation in progress
+Status: approved by the user on 2026-10-21; implemented and verified (see the dated frontend refinement report)
 Baseline: `ba6ef4479ea71cd210099aef4e253813eeda0041` (`origin/main` when inspected)
 
 ## Goal
@@ -85,4 +85,4 @@ The deliverable is a cohesive frontend refinement with tests, refreshed visual/p
 - [x] Check this proposal for missing decisions, conflicting scope, and unsupported performance claims.
 - [x] Receive user design approval.
 - [x] Commit the approved spec and write the implementation plan.
-- [ ] Implement, validate, refresh evidence, and review the final change.
+- [x] Implement, validate, refresh evidence, and review the final change.

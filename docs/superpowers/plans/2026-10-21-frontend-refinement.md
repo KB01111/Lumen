@@ -25,7 +25,7 @@ Files: `CollapsedLauncher.tsx`, `SearchExperience.tsx`, `ExpandedWorkspace.tsx`,
 - [x] Quiet composer brand/mode decoration without hiding the label, losing the 32px target or constraining query width. Remove redundant extension text and the duplicate list count, retain the footer's truthful search/answer/activity state, and replace `Local runtime` with `Esc to clear` (the first Escape clears a nonempty query).
 - [x] Make Open the visually emphasized result action using the existing subtle button variant. Keep the selected filename as useful action context and preserve all four actions and live announcements.
 - [x] Update the responsive test's footer locator to its structural slot instead of the obsolete runtime text. Preserve all original geometry/keyboard assertions.
-- [ ] Rerun focused tests, then inspect launcher captures at normal and constrained sizes.
+- [x] Rerun focused tests, then inspect launcher captures at normal and constrained sizes.
 
 Example regression assertions:
 
@@ -61,10 +61,10 @@ Files: new `src/features/settings/SettingsPageContent.tsx`, `SettingsShell.loadi
 
 - [x] Run `bun run typecheck`, `bun run lint`, and full `bun run test` with process-scoped Python 3.11; fix failures without reducing coverage or deadlines.
 - [x] Ensure 1420 and 1424 are not serving another checkout, then run `bun run test:e2e` followed by `bun run test:performance` serially against installed Edge. Full functional 133/133, strengthened settings rerun 26/26, performance 4/4.
-- [ ] Run `bun run build`, `bun run capture:gallery`, `bun run record:interactions`, and `bun run profile` serially. Inspect full-size representative results, settings, onboarding, Computer Use, light/forced-color and constrained screenshots.
-- [ ] Address any observed geometry, focus, lazy loading, or frame-budget regression at its cause. Re-run affected checks after changes, followed by final required checks as warranted.
-- [ ] Update architecture docs and create `docs/reports/2026-10-21-frontend-refinement.md` with exact changes, command outcomes, chunk measurements, artifact provenance, and remaining native/strict-refresh limits.
-- [ ] Review the final diff and checklist, run `git diff --check`, commit the scoped source/docs/evidence, and report verified completion only when the approved deliverable is satisfied.
+- [x] Run `bun run build`, `bun run capture:gallery`, `bun run record:interactions`, and `bun run profile` serially. Profiling ran first against the clean source commit so generated visual evidence could not mark its source tree dirty. Inspect full-size representative results, settings, onboarding, Computer Use, light/forced-color and constrained screenshots.
+- [x] Address any observed geometry, focus, lazy loading, or frame-budget regression at its cause. Re-run affected checks after changes, followed by final required checks as warranted. No runtime correction was needed after source review; the settings containment helper was strengthened and its full affected matrix rerun. Strict 240Hz remains an explicit failed result.
+- [x] Update architecture docs and create `docs/reports/2026-10-21-frontend-refinement.md` with exact changes, command outcomes, chunk measurements, artifact provenance, and remaining native/strict-refresh limits.
+- [x] Review the final diff and checklist, run `git diff --check`, commit the scoped source/docs/evidence, and report verified completion only when the approved deliverable is satisfied.
 
 ## Plan review
 
