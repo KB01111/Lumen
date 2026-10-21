@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T15:26:36.003Z",
+  "generatedAt": "2026-10-21T16:09:17.941Z",
   "baselineCommit": "ba6ef4479ea71cd210099aef4e253813eeda0041",
   "method": "Static JavaScript import closure of Vite production manifests, gzip per emitted file. No latency or network-transfer claim. Same installed dependencies/configuration; baseline sources extracted from git archive.",
   "baseline": {
@@ -47,10 +47,10 @@
   },
   "current": {
     "initialJavaScript": {
-      "rawBytes": 1007490,
-      "gzipBytes": 319248,
+      "rawBytes": 1007738,
+      "gzipBytes": 319304,
       "files": [
-        "assets/index-OSQH0NjU.js",
+        "assets/index-BZPyQ49p.js",
         "assets/rolldown-runtime-B0Z9INg1.js",
         "assets/react-aria-CNPPvd_H.js",
         "assets/react-core-DVoh6Tdv.js",
@@ -70,10 +70,10 @@
       ]
     },
     "settingsGeneralJavaScript": {
-      "rawBytes": 1027436,
-      "gzipBytes": 326908,
+      "rawBytes": 1027684,
+      "gzipBytes": 326957,
       "files": [
-        "assets/index-OSQH0NjU.js",
+        "assets/index-BZPyQ49p.js",
         "assets/rolldown-runtime-B0Z9INg1.js",
         "assets/react-aria-CNPPvd_H.js",
         "assets/react-core-DVoh6Tdv.js",
@@ -90,15 +90,15 @@
         "assets/AnimatePresence-C5-1pO7n.js",
         "assets/diagnostics.metrics-VkEbk1KI.js",
         "assets/search.types-bzAo8Jye.js",
-        "assets/SettingsShell-D6p4EHU-.js",
+        "assets/SettingsShell-DCk2zGBQ.js",
         "assets/StatusBadge-ClkJUzoa.js",
-        "assets/GeneralPage-sfDTdCMR.js",
+        "assets/GeneralPage-5diX8LQy.js",
         "assets/SettingRow-bWkreHv5.js",
         "assets/SettingsPage-CktYEjXD.js",
         "assets/native-operations.store-EuRIGotT.js"
       ]
     },
-    "shellChunk": "assets/SettingsShell-D6p4EHU-.js",
+    "shellChunk": "assets/SettingsShell-DCk2zGBQ.js",
     "defaultPageChunks": [
       "src/features/settings/pages/ActivityPage.tsx",
       "src/features/settings/pages/AgentGatewayPage.tsx",
