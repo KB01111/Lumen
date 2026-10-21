@@ -84,5 +84,5 @@ The deliverable is a cohesive frontend refinement with tests, refreshed visual/p
 - [x] Identify approaches, recommendation, affected components, and acceptance criteria.
 - [x] Check this proposal for missing decisions, conflicting scope, and unsupported performance claims.
 - [x] Receive user design approval.
-- [ ] Commit the approved spec and write the implementation plan.
+- [x] Commit the approved spec and write the implementation plan.
 - [ ] Implement, validate, refresh evidence, and review the final change.

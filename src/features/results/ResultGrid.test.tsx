@@ -27,6 +27,14 @@ function file(id: string, overrides: Partial<SearchResult> = {}): SearchResult {
 }
 
 describe('ResultGrid', () => {
+  it('retains the filename and accessible path without a duplicate extension label', () => {
+    render(<ResultGrid results={[file('report')]} selectedId="report" />);
+    const row = screen.getByRole('row', {name: /report\.tsx, C:\\Projects\\Lumen\\src\\report\.tsx, Content/});
+    expect(row).toBeVisible();
+    expect(screen.getByText('report.tsx', {exact: true})).toBeVisible();
+    expect(screen.queryByText('TSX', {exact: true})).not.toBeInTheDocument();
+  });
+
   it('coalesces unmounted virtual targets by index and cancels pending scroll on replacement, hide and unmount', async () => {
     const frames = new Map<number, FrameRequestCallback>();
     let next = 0;

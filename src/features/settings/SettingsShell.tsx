@@ -11,40 +11,13 @@ import {LumenSurface} from '../../design-system/primitives/LumenSurface';
 import {LumenText} from '../../design-system/primitives/LumenText';
 import {settingsPages, SettingsNav} from './SettingsNav';
 import {PersistenceNotice} from './components/PersistenceNotice';
-import {AppearancePage} from './pages/AppearancePage';
-import {AgentGatewayPage} from './pages/AgentGatewayPage';
-import {ActivityPage} from './pages/ActivityPage';
-import {ComputerUsePage} from './pages/ComputerUsePage';
-import {DiagnosticsPage} from './pages/DiagnosticsPage';
-import {GeneralPage} from './pages/GeneralPage';
-import {IndexedRootsPage} from './pages/IndexedRootsPage';
-import {LocalAiPage} from './pages/LocalAiPage';
-import {PrivacyPage} from './pages/PrivacyPage';
-import {ProvidersPage} from './pages/ProvidersPage';
-import {SearchPage} from './pages/SearchPage';
+import {SettingsPageContent} from './SettingsPageContent';
 import {settingsPageIdSchema, type SettingsPageId} from './settings.schema';
 import {useSettingsStore} from './settings.store';
 
 export interface SettingsShellProps {
   onClose(): void;
   pages?: Partial<Record<SettingsPageId, ReactNode>>;
-}
-
-function defaultPageContent(page: SettingsPageId) {
-  switch (page) {
-    case 'general': return <GeneralPage />;
-    case 'appearance': return <AppearancePage />;
-    case 'indexed-roots': return <IndexedRootsPage />;
-    case 'search': return <SearchPage />;
-    case 'local-ai': return <LocalAiPage />;
-    case 'agent-gateway': return <AgentGatewayPage />;
-    case 'providers': return <ProvidersPage />;
-    case 'computer-use': return <ComputerUsePage />;
-    case 'activity': return <ActivityPage />;
-    case 'privacy': return <PrivacyPage />;
-    case 'diagnostics': return <DiagnosticsPage />;
-    default: return null;
-  }
 }
 
 export function SettingsShell({onClose, pages}: SettingsShellProps) {
@@ -106,7 +79,7 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
         orientation="vertical"
         selectedKey={page.id}
         onSelectionChange={handleSelectionChange}
-        className="grid min-h-0 min-w-0 grid-cols-[clamp(148px,30%,260px)_minmax(0,1fr)]"
+        className="grid min-h-0 min-w-0 grid-cols-[clamp(148px,26%,224px)_minmax(0,1fr)]"
       >
         <div className="min-h-0 min-w-0 overflow-y-auto border-r border-border-subtle bg-surface-inset"><SettingsNav /></div>
         <main ref={contentRef} aria-label="Settings content" className="min-h-0 min-w-0 overflow-y-auto" data-testid="settings-content"
@@ -120,7 +93,7 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
           <TabPanel id={page.id} className="min-w-0 outline-none">
             <motion.div
               key={page.id}
-              className="mx-auto grid min-w-0 w-full max-w-[760px] content-start gap-[24px] px-[20px] py-[24px] [overflow-wrap:anywhere]"
+              className="mx-auto grid min-w-0 w-full max-w-[760px] content-start gap-[24px] px-[24px] py-[24px] [overflow-wrap:anywhere]"
               initial={{opacity: 0, transform: `translateY(${reducedMotion ? 0 : 6}px)`}}
               animate={{opacity: 1, transform: 'translateY(0px)'}}
               transition={{duration: pageDuration, ease: motionTokens.easing.standard}}
@@ -130,13 +103,7 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
                 <LumenText tone="secondary">{page.description}</LumenText>
               </div>
               <PersistenceNotice />
-              {pages?.[page.id] ?? defaultPageContent(page.id) ?? (
-                <div className="min-w-0 rounded-surface border border-border-subtle bg-surface-inset p-[16px]">
-                  <LumenText tone="secondary">
-                    Lumen keeps this area focused on the controls that belong to {page.label.toLowerCase()}.
-                  </LumenText>
-                </div>
-              )}
+              {pages?.[page.id] ?? <SettingsPageContent page={page.id} />}
             </motion.div>
           </TabPanel>
         </main>

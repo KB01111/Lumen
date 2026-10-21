@@ -14,6 +14,8 @@ Lumen's first-run and settings experiences are part of the same native React sur
 
 React Aria Components provides the tabs, switches, selects, sliders, dialogs, focus semantics, collection roles, and focus restoration. Those controls are styled directly with Lumen primitives rather than wrapped by a second interaction abstraction. Overlay portals are mounted inside the themed application root so confirmation dialogs inherit the active appearance.
 
+Default settings pages load individually on first visit through `SettingsPageContent`. Its Suspense fallback and error boundary live inside the active panel, so navigation, the page heading, persistence notices and Close stay available. Loading never requests focus. A page failure exposes fixed safe guidance and Reload Lumen; React caches rejected lazy imports, so recovery reloads the webview rather than pretending a remount retries the same import. Another page remains reachable. Injected gallery/test pages retain their existing service seams and bypass default page loading. The navigation rail caps at 224px, leaving more width for content; controls keep their existing wrapping and text-scale policies.
+
 ## Native management boundaries
 
 Local AI provisions one closed, checksum-pinned Lemonade/Qwen/Nomic profile. AgentGateway exposes a native provider/model registry, typed routes, MCP service registry and permissioned tools through native services; credentials stay in Windows Credential Manager. The registry and MCP implementation do not imply that a provider, route, MCP service, credential, consent, or live endpoint is available on every host. React never supplies an executable path, arbitrary process argument, model download URL, provider SDK, or secret-bearing diagnostic field.

@@ -1,0 +1,116 @@
+{
+  "generatedAt": "2026-10-21T11:26:59.232Z",
+  "baselineCommit": "ba6ef4479ea71cd210099aef4e253813eeda0041",
+  "method": "Static JavaScript import closure of Vite production manifests, gzip per emitted file. No latency or network-transfer claim. Same installed dependencies/configuration; baseline sources extracted from git archive.",
+  "baseline": {
+    "initialJavaScript": {
+      "rawBytes": 1006568,
+      "gzipBytes": 320638,
+      "files": [
+        "assets/index-CdHSAHQT.js",
+        "assets/rolldown-runtime-B0Z9INg1.js",
+        "assets/react-aria-CNPPvd_H.js",
+        "assets/react-core-DVoh6Tdv.js",
+        "assets/LumenUiIcon-C1INKo07.js",
+        "assets/search.types-DcfviS2T.js",
+        "assets/tauri-CVWoFdDw.js",
+        "assets/data-state-DtgTkagA.js",
+        "assets/MotionProvider-BOgUmeP9.js",
+        "assets/motion-BEKgtDhx.js",
+        "assets/AnimatePresence-C5-1pO7n.js",
+        "assets/diagnostics.metrics-VkEbk1KI.js"
+      ]
+    },
+    "settingsGeneralJavaScript": {
+      "rawBytes": 1162723,
+      "gzipBytes": 363606,
+      "files": [
+        "assets/index-CdHSAHQT.js",
+        "assets/rolldown-runtime-B0Z9INg1.js",
+        "assets/react-aria-CNPPvd_H.js",
+        "assets/react-core-DVoh6Tdv.js",
+        "assets/LumenUiIcon-C1INKo07.js",
+        "assets/search.types-DcfviS2T.js",
+        "assets/tauri-CVWoFdDw.js",
+        "assets/data-state-DtgTkagA.js",
+        "assets/MotionProvider-BOgUmeP9.js",
+        "assets/motion-BEKgtDhx.js",
+        "assets/AnimatePresence-C5-1pO7n.js",
+        "assets/diagnostics.metrics-VkEbk1KI.js",
+        "assets/SettingsShell-BpSH1QZ1.js",
+        "assets/diagnostics.store-DyWSRptf.js",
+        "assets/root-selection-service-eof-Uh4-.js"
+      ]
+    },
+    "shellChunk": "assets/SettingsShell-BpSH1QZ1.js",
+    "defaultPageChunks": []
+  },
+  "current": {
+    "initialJavaScript": {
+      "rawBytes": 1007081,
+      "gzipBytes": 321825,
+      "files": [
+        "assets/index-DwkrQ9in.js",
+        "assets/rolldown-runtime-B0Z9INg1.js",
+        "assets/react-aria-CNPPvd_H.js",
+        "assets/react-core-DVoh6Tdv.js",
+        "assets/LumenUiIcon-CvcaW1Up.js",
+        "assets/LumenIcon-BrgOXjXQ.js",
+        "assets/MotionProvider-Cl8kbjFP.js",
+        "assets/motion-BEKgtDhx.js",
+        "assets/tauri-CVWoFdDw.js",
+        "assets/data-state-DtgTkagA.js",
+        "assets/settings.store-BEL_-PTV.js",
+        "assets/native-ai-service-DaDtmTse.js",
+        "assets/windows-ai.types-DKbneb_3.js",
+        "assets/LumenButton-CC4Y4ouL.js",
+        "assets/AnimatePresence-C5-1pO7n.js",
+        "assets/diagnostics.metrics-VkEbk1KI.js",
+        "assets/search.types-bzAo8Jye.js"
+      ]
+    },
+    "settingsGeneralJavaScript": {
+      "rawBytes": 1027027,
+      "gzipBytes": 329488,
+      "files": [
+        "assets/index-DwkrQ9in.js",
+        "assets/rolldown-runtime-B0Z9INg1.js",
+        "assets/react-aria-CNPPvd_H.js",
+        "assets/react-core-DVoh6Tdv.js",
+        "assets/LumenUiIcon-CvcaW1Up.js",
+        "assets/LumenIcon-BrgOXjXQ.js",
+        "assets/MotionProvider-Cl8kbjFP.js",
+        "assets/motion-BEKgtDhx.js",
+        "assets/tauri-CVWoFdDw.js",
+        "assets/data-state-DtgTkagA.js",
+        "assets/settings.store-BEL_-PTV.js",
+        "assets/native-ai-service-DaDtmTse.js",
+        "assets/windows-ai.types-DKbneb_3.js",
+        "assets/LumenButton-CC4Y4ouL.js",
+        "assets/AnimatePresence-C5-1pO7n.js",
+        "assets/diagnostics.metrics-VkEbk1KI.js",
+        "assets/search.types-bzAo8Jye.js",
+        "assets/SettingsShell-BejyRl45.js",
+        "assets/StatusBadge-ClkJUzoa.js",
+        "assets/GeneralPage-BdMD1rGE.js",
+        "assets/SettingRow-bWkreHv5.js",
+        "assets/SettingsPage-CktYEjXD.js",
+        "assets/native-operations.store-EuRIGotT.js"
+      ]
+    },
+    "shellChunk": "assets/SettingsShell-BejyRl45.js",
+    "defaultPageChunks": [
+      "src/features/settings/pages/ActivityPage.tsx",
+      "src/features/settings/pages/AgentGatewayPage.tsx",
+      "src/features/settings/pages/AppearancePage.tsx",
+      "src/features/settings/pages/ComputerUsePage.tsx",
+      "src/features/settings/pages/DiagnosticsPage.tsx",
+      "src/features/settings/pages/GeneralPage.tsx",
+      "src/features/settings/pages/IndexedRootsPage.tsx",
+      "src/features/settings/pages/LocalAiPage.tsx",
+      "src/features/settings/pages/PrivacyPage.tsx",
+      "src/features/settings/pages/ProvidersPage.tsx",
+      "src/features/settings/pages/SearchPage.tsx"
+    ]
+  }
+}

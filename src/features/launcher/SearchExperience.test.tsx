@@ -44,6 +44,20 @@ afterEach(() => {
 });
 
 describe('SearchExperience answer submission', () => {
+  it('shows the result count once with a provider-neutral footer hint', async () => {
+    const user = userEvent.setup();
+    const service = new MemorySearchService();
+    render(<SearchExperience service={service} windowService={new BrowserWindowService()} />);
+    await user.type(screen.getByRole('searchbox', {name: 'Search files'}), 'release');
+    await waitFor(() => expect(service.requests.some(({request}) => request.query === 'release')).toBe(true));
+    await act(() => service.resolve('release', [file('release')]));
+
+    expect(await screen.findByRole('row', {name: /release\.md/i})).toBeVisible();
+    expect(screen.getAllByText('1 result', {exact: true})).toHaveLength(1);
+    expect(screen.queryByText('Local runtime', {exact: true})).not.toBeInTheDocument();
+    expect(screen.getByText('Esc to clear')).toBeVisible();
+  });
+
   it('keeps the warm launcher marker on a Tailwind contents wrapper', () => {
     const {container} = render(
       <SearchExperience

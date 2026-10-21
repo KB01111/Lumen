@@ -148,7 +148,7 @@ test('the constrained work area keeps controls contained while results and answe
     const launcher = page.getByLabel('Lumen launcher');
     const search = page.getByRole('searchbox', {name: 'Search files'});
     const composer = launcher.locator('[data-einui-slot="composer"]');
-    const footer = page.getByText('Local runtime', {exact: true}).locator('..');
+    const footer = launcher.locator('[data-einui-slot="footer"]');
     const grid = page.getByRole('grid', {name: 'Search results'});
     const resultViewport = grid.locator('..');
     const answer = page.getByTestId('answer-region');

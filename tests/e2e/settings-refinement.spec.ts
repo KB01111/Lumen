@@ -22,6 +22,11 @@ async function assignResizedHost(page: Page, scale: number) {
 }
 
 async function expectControlsContained(content: Locator, context: string) {
+  await expect(content.getByText('Loading settings…', {exact: true})).toBeHidden();
+  if (await content.getAttribute('data-testid') === 'settings-content') {
+    await expect(content.getByText('This settings page could not load.', {exact: true})).toBeHidden();
+    await expect(content.locator('button, input, [role="switch"], [role="slider"]').first()).toBeAttached();
+  }
   const outside = await content.evaluate((element) => {
     const bounds = element.getBoundingClientRect();
     return Array.from(element.querySelectorAll<HTMLElement>('button, input:not([type="checkbox"]), [role="switch"], [role="slider"]'))
