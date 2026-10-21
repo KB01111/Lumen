@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-21T11:26:59.232Z",
+  "generatedAt": "2026-10-21T15:26:36.003Z",
   "baselineCommit": "ba6ef4479ea71cd210099aef4e253813eeda0041",
   "method": "Static JavaScript import closure of Vite production manifests, gzip per emitted file. No latency or network-transfer claim. Same installed dependencies/configuration; baseline sources extracted from git archive.",
   "baseline": {
     "initialJavaScript": {
       "rawBytes": 1006568,
-      "gzipBytes": 320638,
+      "gzipBytes": 317953,
       "files": [
         "assets/index-CdHSAHQT.js",
         "assets/rolldown-runtime-B0Z9INg1.js",
@@ -23,7 +23,7 @@
     },
     "settingsGeneralJavaScript": {
       "rawBytes": 1162723,
-      "gzipBytes": 363606,
+      "gzipBytes": 360693,
       "files": [
         "assets/index-CdHSAHQT.js",
         "assets/rolldown-runtime-B0Z9INg1.js",
@@ -47,10 +47,10 @@
   },
   "current": {
     "initialJavaScript": {
-      "rawBytes": 1007081,
-      "gzipBytes": 321825,
+      "rawBytes": 1007490,
+      "gzipBytes": 319248,
       "files": [
-        "assets/index-DwkrQ9in.js",
+        "assets/index-OSQH0NjU.js",
         "assets/rolldown-runtime-B0Z9INg1.js",
         "assets/react-aria-CNPPvd_H.js",
         "assets/react-core-DVoh6Tdv.js",
@@ -70,10 +70,10 @@
       ]
     },
     "settingsGeneralJavaScript": {
-      "rawBytes": 1027027,
-      "gzipBytes": 329488,
+      "rawBytes": 1027436,
+      "gzipBytes": 326908,
       "files": [
-        "assets/index-DwkrQ9in.js",
+        "assets/index-OSQH0NjU.js",
         "assets/rolldown-runtime-B0Z9INg1.js",
         "assets/react-aria-CNPPvd_H.js",
         "assets/react-core-DVoh6Tdv.js",
@@ -90,15 +90,15 @@
         "assets/AnimatePresence-C5-1pO7n.js",
         "assets/diagnostics.metrics-VkEbk1KI.js",
         "assets/search.types-bzAo8Jye.js",
-        "assets/SettingsShell-BejyRl45.js",
+        "assets/SettingsShell-D6p4EHU-.js",
         "assets/StatusBadge-ClkJUzoa.js",
-        "assets/GeneralPage-BdMD1rGE.js",
+        "assets/GeneralPage-sfDTdCMR.js",
         "assets/SettingRow-bWkreHv5.js",
         "assets/SettingsPage-CktYEjXD.js",
         "assets/native-operations.store-EuRIGotT.js"
       ]
     },
-    "shellChunk": "assets/SettingsShell-BejyRl45.js",
+    "shellChunk": "assets/SettingsShell-D6p4EHU-.js",
     "defaultPageChunks": [
       "src/features/settings/pages/ActivityPage.tsx",
       "src/features/settings/pages/AgentGatewayPage.tsx",

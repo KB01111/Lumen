@@ -3,11 +3,12 @@
 Date: 2026-10-21
 Status: approved frontend scope completed and verified; native/installed acceptance and strict 240Hz remain separate limits
 Baseline: `ba6ef4479ea71cd210099aef4e253813eeda0041`
-Verified runtime source: `d6f80c30545e79cac020e4bc07668f19d4e3fccf`
+Original verified runtime source: `d6f80c30545e79cac020e4bc07668f19d4e3fccf`
+Review fixes runtime source: `190f5fa787dc5f02cadd05acf01b0020db82ca99`
 
 ## Resulting behavior
 
-The composer keeps the query visually primary with an unboxed neutral brand mark, tighter gaps and a bounded visible mode label. Result rows keep filename, path, source and availability while dropping the duplicate file-extension badge. The normal result count appears once in the footer; search, answering and activity-policy messages retain their existing priority. `Esc to clear` replaces the unsupported unconditional `Local runtime` assertion. Open has a subtle button surface while secondary actions stay quiet. Full paths, accessible row counts and live announcements remain available.
+The composer keeps the query visually primary with an unboxed neutral brand mark, tighter gaps and a bounded visible mode label. Result rows keep filename, path, source and availability while dropping the duplicate file-extension badge. The filename's actual final suffix stays visible beside its truncating basename. The normal result count appears once in the footer, including alongside an active activity-policy message. The Escape hint follows the live draft: `Esc to clear` for nonempty input and `Esc to close` for empty input. Open has a subtle button surface while secondary actions stay quiet. Full paths, accessible row counts and live announcements remain available.
 
 Settings navigation caps at 224px instead of 260px, leaving more content width, with 24px page gutters and independent scrollports. Provider rows use the common 16px padding and 24px section rhythm; Add provider and Refresh targets retain their natural action width. Provider copy explains connections, switching, sign-in and request counts without internal implementation jargon. Onboarding keeps its four scenes and anchored actions, with a smaller 64px ornament and clearer title/description/support hierarchy.
 
@@ -21,13 +22,13 @@ The baseline was rebuilt from a `git archive` of the baseline commit into an ign
 
 | JavaScript closure | Baseline raw bytes | Refined raw bytes | Baseline gzip bytes | Refined gzip bytes |
 | --- | ---: | ---: | ---: | ---: |
-| Initial application | 1,006,568 | 1,007,081 | 320,638 | 321,825 |
-| Application plus General settings | 1,162,723 | 1,027,027 | 363,606 | 329,488 |
-| Additional code to open General settings | 156,155 | 19,946 | 42,968 | 7,663 |
+| Initial application | 1,006,568 | 1,007,490 | 320,638 | 319,248 |
+| Application plus General settings | 1,162,723 | 1,027,436 | 363,606 | 326,908 |
+| Additional code to open General settings | 156,155 | 19,946 | 42,968 | 7,660 |
 
-The combined General settings closure removes 135,696 raw bytes and 34,118 gzip bytes. The initial closure changes by +513 raw bytes and +1,187 gzip bytes. The SettingsShell chunk itself changes from 149.79 kB / 40.06 kB gzip to 11.32 kB / 3.88 kB gzip, with eleven separate default page chunks; the closure totals above account for shared code moving between chunks. Detailed filenames and measurement method are in `artifacts/performance/frontend-refinement-bundle-size.json`.
+The combined General settings closure removes 135,287 raw bytes and 36,698 gzip bytes. The initial closure changes by +922 raw bytes and -1,390 gzip bytes. The SettingsShell chunk itself changes from 149.79 kB / 40.06 kB gzip to 11.32 kB / 3.89 kB gzip, with eleven separate default page chunks; the closure totals above account for shared code moving between chunks. These measurements were refreshed after the review fixes. Detailed filenames and measurement method are in `artifacts/performance/frontend-refinement-bundle-size.json`.
 
-## Verification
+## Original verification
 
 - `bun run typecheck`: passed.
 - `bun run lint`: passed with zero warnings, including the updated capture script and new loading tests.
@@ -40,7 +41,7 @@ The combined General settings closure removes 135,696 raw bytes and 34,118 gzip 
 
 Independent read-only source review found no actionable Critical, Important or Minor issues. A subsequent acceptance audit strengthened the existing settings containment helper to await loaded content, reject the page-load failure fallback, and require an actual control before measurement; an empty loading panel cannot now produce a vacuous pass. The affected 26 settings cases passed in a separate 13.2-minute rerun across all four window sizes, six presentation modes, eleven pages and five text scales. The reviewer also checked this strengthening and found no issues.
 
-## Final profile
+## Original profile
 
 `bun run profile` passed all 23 cadence-aware checks against the runtime source commit above, with `sourceWorktreeDirty: false`. Profiling ran before screenshot/recording capture, with no concurrent GPU test workload. It used headless Microsoft Edge 155.0.4283.62, the production profiling renderer, an 800x540 viewport and AMD Radeon 890M graphics (driver 32.0.32015.7029). The observed rAF estimate was 238Hz, with a 4.40ms p95 nominal frame interval; these are browser callback observations rather than native display-presentation measurements.
 
@@ -75,7 +76,7 @@ Strict 120Hz passed. Strict 240Hz failed its cadence, input, selection and hover
 | answer-approval-states.webm | 10.76s |
 | activity-provider-states.webm | 10.88s |
 
-The screenshot and recording manifests both name runtime source `d6f80c30545e79cac020e4bc07668f19d4e3fccf`; all 86 capture entries and six recording entries were checked against that SHA and their nonempty files. The profile uses the same SHA. Final evidence/documentation changes do not alter runtime sources, tests, build configuration or dependencies.
+The original screenshot and recording manifests named runtime source `d6f80c30545e79cac020e4bc07668f19d4e3fccf`; all 86 capture entries and six recording entries were checked against that SHA and their nonempty files. The original profile used the same SHA. The review follow-up refreshes this evidence for the corrected runtime below.
 
 ## Evidence boundaries
 
