@@ -8,6 +8,8 @@ import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
+import {shortcutAriaLabel, shortcutHintLabel} from '../settings/shortcut-format';
+import {useSettingsStore} from '../settings/settings.store';
 import {LauncherStatus} from './LauncherStatus';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
@@ -36,6 +38,7 @@ const LauncherComposer = memo(function LauncherComposer({
   voiceActive = false,
 }: LauncherComposerProps) {
   const intent = useLauncherStore((state) => state.intent);
+  const shortcut = useSettingsStore((state) => state.general.shortcut);
   return (
     <div className="flex w-full min-w-0 items-center gap-[8px]" data-tauri-drag-region>
       <span
@@ -74,8 +77,8 @@ const LauncherComposer = memo(function LauncherComposer({
           <LumenUiIcon name="voice" size="small" />
         </LumenButton>
       ) : null}
-      <kbd className="einui-command-shortcut lumen-composer-hint shrink-0" aria-label="Alt plus Space">
-        Alt&nbsp;&nbsp;Space
+      <kbd className="einui-command-shortcut lumen-composer-hint shrink-0" aria-label={shortcutAriaLabel(shortcut)}>
+        {shortcutHintLabel(shortcut)}
       </kbd>
     </div>
   );
