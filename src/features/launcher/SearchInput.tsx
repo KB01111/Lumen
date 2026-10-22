@@ -134,7 +134,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     return (
       <div
         aria-label={intent === 'computer' ? 'Browser task' : 'File search'}
-        className="flex min-w-0 flex-1 items-center gap-1 py-1"
+        className="flex min-w-0 flex-1 items-center gap-1 py-1 shadow-[inset_0_-2px_0_transparent] transition-[box-shadow] duration-[90ms] ease-standard focus-within:shadow-[inset_0_-2px_0_var(--lumen-focus)] forced-colors:focus-within:outline forced-colors:focus-within:outline-2 forced-colors:focus-within:outline-[Highlight]"
         role="search"
       >
         <input
