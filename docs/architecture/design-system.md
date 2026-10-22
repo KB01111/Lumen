@@ -22,7 +22,7 @@ System/Full/Reduced is the single authoritative motion preference: System follow
 
 ## Calm refinement tokens
 
-Hairlines are 8% (light) and 7% (dark) foreground, strong borders 14% / 13%. Secondary and tertiary text form a hierarchy through a lighter tertiary base colour, with alphas tuned so small labels and placeholders stay at or above 4.5:1 on the glass and raised surfaces (light 76% / 78%, dark 74% / 66%). Surface radius is 22px and control radius 10px. Shadows are single soft elevations, the control shadow has no inset highlight, and the accent glow is capped at 8% opacity. These values flow through the semantic tokens, so settings, onboarding and management surfaces inherit them without page-local overrides.
+Hairlines are 8% (light) and 7% (dark) foreground, strong borders 14% / 13%. Secondary and tertiary text form a hierarchy through a lighter tertiary base colour, with alphas tuned so small labels and placeholders stay at or above 4.5:1 on the glass and raised surfaces (light 76% / 78%, dark 74% / 66%). Surface radius is 22px and control radius 10px. Shadows are single soft elevations, the control shadow has no inset highlight, and the accent glow is 8% opacity at the default glass intensity (72) and scales with the glass-intensity setting. These values flow through the semantic tokens, so settings, onboarding and management surfaces inherit them without page-local overrides.
 
 ## Material and primitives
 
