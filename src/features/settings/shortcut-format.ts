@@ -1,6 +1,6 @@
-/** Splits a persisted chord such as `Ctrl + Shift + K` into its keys. */
+/** Splits a persisted chord such as `Ctrl + Shift + K` into its keys; a literal `+` key survives (`Ctrl + +`). */
 export function shortcutKeys(shortcut: string): string[] {
-  return shortcut.split('+').map((key) => key.trim()).filter(Boolean);
+  return shortcut.split(' + ').map((key) => key.trim()).filter(Boolean);
 }
 
 /** Screen-reader label for a persisted chord, e.g. `Ctrl plus Shift plus K`. */
