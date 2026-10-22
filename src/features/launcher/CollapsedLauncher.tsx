@@ -40,13 +40,13 @@ const LauncherComposer = memo(function LauncherComposer({
     <div className="flex w-full min-w-0 items-center gap-[8px]" data-tauri-drag-region>
       <span
         aria-hidden="true"
-        className="grid size-[32px] shrink-0 place-items-center text-text-secondary"
+        className="grid size-[28px] shrink-0 place-items-center text-text-secondary"
       >
         <LumenMark size="medium" />
       </span>
       <LumenButton
         aria-label={intent === 'computer' ? 'Switch to file search' : 'Switch to Computer Use'}
-        className="max-w-[144px] min-w-8 shrink-0 gap-[6px] px-[8px]"
+        className="max-w-[144px] min-w-8 shrink-0 gap-[6px] rounded-pill bg-[var(--einui-command-row)] px-[10px] text-text-secondary"
         isDisabled={intentLocked}
         size="small"
         variant="quiet"
@@ -74,7 +74,7 @@ const LauncherComposer = memo(function LauncherComposer({
           <LumenUiIcon name="voice" size="small" />
         </LumenButton>
       ) : null}
-      <kbd className="einui-command-shortcut shrink-0" aria-label="Alt plus Space">
+      <kbd className="einui-command-shortcut lumen-composer-hint shrink-0" aria-label="Alt plus Space">
         Alt&nbsp;&nbsp;Space
       </kbd>
     </div>
@@ -107,7 +107,7 @@ function LauncherFooter({
   return (
     <>
       <LauncherStatus label={statusLabel} searching={searching} />
-      <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]">
+      <span className="min-w-0 truncate">
         {hasInput ? 'Esc to clear' : 'Esc to close'}
       </span>
     </>

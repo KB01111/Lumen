@@ -14,7 +14,7 @@ function isSafeImageSource(sourceUrl?: string) {
 
 function Placeholder({kind, label}: {kind: SearchResultKind; label: string}) {
   return (
-    <div className="grid min-h-44 place-items-center gap-3 rounded-control border border-[color:var(--einui-command-divider)] bg-[var(--lumen-surface-inset)] p-6 text-center">
+    <div className="grid min-h-44 place-items-center gap-3 rounded-[14px] bg-[var(--lumen-surface-inset)] p-6 text-center">
       <FileGlyph kind={kind} size={48} />
       <span className="font-sans text-[0.9375rem] font-medium text-text-secondary">{label}</span>
     </div>

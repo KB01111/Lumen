@@ -29,11 +29,11 @@ export function LauncherStatus({label = 'Ready', searching = false}: LauncherSta
         reducedMotion={reducedMotion}
         tone={activityActive ? 'warning' : 'success'}
       />
-      <span className="text-xs text-[color:var(--einui-command-muted-text)]">
+      <span>
         {activityActive ? activityLabel : label}
       </span>
       {activityActive && label !== 'Ready' ? (
-        <span className="text-xs text-[color:var(--einui-command-muted-text)]">{label}</span>
+        <span>{label}</span>
       ) : null}
     </output>
   );

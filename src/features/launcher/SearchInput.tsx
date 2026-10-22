@@ -134,7 +134,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     return (
       <div
         aria-label={intent === 'computer' ? 'Browser task' : 'File search'}
-        className="-mx-1 flex min-w-0 flex-1 items-center gap-1 rounded-[var(--lumen-radius-control)] bg-transparent px-1 py-1 shadow-[inset_0_-1px_0_transparent] transition-[background-color,box-shadow] duration-[90ms] ease-standard focus-within:bg-[var(--einui-command-row)] focus-within:shadow-[inset_0_-1px_0_var(--lumen-focus)]"
+        className="flex min-w-0 flex-1 items-center gap-1 py-1"
         role="search"
       >
         <input
@@ -147,7 +147,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           placeholder={intent === 'computer' ? 'Describe browser task' : 'Search apps and files'}
           spellCheck={false}
           type="search"
-          className="min-w-0 flex-1 border-0 bg-transparent p-0 font-sans text-[1.0625rem] font-normal leading-tight tracking-tight text-[color:var(--einui-command-text)] caret-accent outline-none placeholder:text-[color:var(--einui-command-muted-text)]"
+          className="min-w-0 flex-1 border-0 bg-transparent p-0 font-sans text-[1.125rem] font-normal leading-tight tracking-[-0.01em] text-[color:var(--einui-command-text)] caret-accent outline-none placeholder:text-[color:var(--lumen-text-tertiary)]"
           onCompositionEnd={handleCompositionEnd}
           onCompositionStart={handleCompositionStart}
           onInput={handleInput}
