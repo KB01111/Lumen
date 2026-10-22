@@ -207,7 +207,7 @@ describe('ResultGrid', () => {
     );
   });
 
-  it('suppresses the selection capsule inset shadow in app-controlled high contrast', () => {
+  it('renders the selection capsule as a flat semantic tint without border or shadow', () => {
     const results = [file('selected')];
     const {container} = render(
       <ResultGrid results={results} selectedId="selected" />,
@@ -216,10 +216,8 @@ describe('ResultGrid', () => {
     const capsule = container.querySelector('[data-selection-capsule]');
 
     expect(capsule).not.toBeNull();
-    expect(capsule).toHaveClass('high-contrast:shadow-none');
-    expect(capsule?.className).toContain(
-      'shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]',
-    );
+    expect(capsule?.className).toContain('bg-[var(--einui-command-row-selected)]');
+    expect(capsule?.className).not.toMatch(/\bborder\b|shadow/);
   });
 
   it('clears a disabled selection so sibling surfaces cannot retain it', () => {

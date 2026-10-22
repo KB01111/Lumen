@@ -172,7 +172,7 @@ export function SelectionCapsule({
     <div
       ref={capsuleRef}
       aria-hidden="true"
-      className="pointer-events-none absolute inset-x-1.5 top-0 z-10 rounded-control border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row-selected)] shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] high-contrast:shadow-none"
+      className="pointer-events-none absolute inset-x-2 top-0 z-10 rounded-control bg-[var(--einui-command-row-selected)]"
       data-selection-capsule="true"
     />
   );

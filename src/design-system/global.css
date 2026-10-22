@@ -48,24 +48,24 @@
   --lumen-surface-raised: rgba(255, 255, 255, 0.96);
   --lumen-surface-inset: rgba(226, 225, 222, 0.66);
   --lumen-text-primary: rgba(31, 30, 29, 0.94);
-  --lumen-text-secondary: rgba(55, 53, 50, 0.84);
-  --lumen-text-tertiary: rgba(72, 69, 65, 0.78);
+  --lumen-text-secondary: rgba(55, 53, 50, 0.76);
+  --lumen-text-tertiary: rgba(60, 58, 55, 0.78);
   --lumen-text-inverse: #f9fafb;
   --lumen-text-button: rgba(31, 30, 29, 0.94);
   --lumen-accent: #0066cc;
   --lumen-focus: #005fcc;
-  --lumen-border-subtle: rgba(37, 43, 48, 0.12);
-  --lumen-border-strong: rgba(37, 43, 48, 0.2);
+  --lumen-border-subtle: rgba(37, 43, 48, 0.08);
+  --lumen-border-strong: rgba(37, 43, 48, 0.14);
   --lumen-border-specular: rgba(255, 255, 255, 0.88);
   --lumen-success: #16784a;
   --lumen-warning: #8b5d09;
   --lumen-danger: #bd3434;
   --lumen-scrim: rgba(1, 5, 9, 0.58);
   --lumen-radius-pill: 999px;
-  --lumen-radius-surface: 18px;
-  --lumen-radius-control: 12px;
-  --lumen-shadow-surface: 0 24px 68px rgba(32, 37, 42, 0.22), 0 6px 20px rgba(32, 37, 42, 0.12);
-  --lumen-shadow-control: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 1px 4px rgba(31, 36, 40, 0.12);
+  --lumen-radius-surface: 22px;
+  --lumen-radius-control: 10px;
+  --lumen-shadow-surface: 0 20px 56px rgba(32, 37, 42, 0.14), 0 2px 10px rgba(32, 37, 42, 0.06);
+  --lumen-shadow-control: 0 1px 2px rgba(31, 36, 40, 0.08);
   --lumen-result-row-height: 58px;
   --lumen-duration-hover: 90ms;
   --lumen-duration-press: 72ms;
@@ -81,29 +81,29 @@
 }
 
 [data-resolved-theme="dark"] {
-  --lumen-canvas: #111110;
+  --lumen-canvas: #161615;
   --lumen-surface-glass: rgba(28, 28, 27, 0.94);
   --lumen-surface-raised: rgba(36, 36, 34, 0.96);
   --lumen-surface-inset: rgba(8, 8, 8, 0.58);
   --lumen-text-primary: rgba(250, 250, 249, 0.96);
-  --lumen-text-secondary: rgba(225, 224, 221, 0.84);
-  --lumen-text-tertiary: rgba(212, 210, 205, 0.72);
+  --lumen-text-secondary: rgba(225, 224, 221, 0.74);
+  --lumen-text-tertiary: rgba(212, 210, 205, 0.66);
   --lumen-text-inverse: #111110;
   --lumen-text-button: rgba(250, 250, 249, 0.96);
   --lumen-accent: #5aa2ff;
   --lumen-focus: #80baff;
-  --lumen-border-subtle: rgba(240, 243, 245, 0.12);
-  --lumen-border-strong: rgba(240, 243, 245, 0.22);
-  --lumen-border-specular: rgba(255, 255, 255, 0.16);
+  --lumen-border-subtle: rgba(240, 243, 245, 0.07);
+  --lumen-border-strong: rgba(240, 243, 245, 0.13);
+  --lumen-border-specular: rgba(255, 255, 255, 0.1);
   --lumen-success: #7bdca9;
   --lumen-warning: #f0c879;
   --lumen-danger: #ff9b9b;
   --lumen-scrim: rgba(0, 0, 0, 0.68);
   --lumen-radius-pill: 999px;
-  --lumen-radius-surface: 18px;
-  --lumen-radius-control: 12px;
-  --lumen-shadow-surface: 0 26px 72px rgba(0, 0, 0, 0.42), 0 7px 24px rgba(0, 0, 0, 0.24);
-  --lumen-shadow-control: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 1px 4px rgba(0, 0, 0, 0.2);
+  --lumen-radius-surface: 22px;
+  --lumen-radius-control: 10px;
+  --lumen-shadow-surface: 0 22px 60px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.22);
+  --lumen-shadow-control: 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
 [data-transparency='disabled'] {
@@ -371,7 +371,7 @@ input[type='search']::-webkit-search-cancel-button {
   inset: -0.75rem;
   background: radial-gradient(circle, color-mix(in srgb, var(--lumen-accent) 22%, transparent) 0%, transparent 72%);
   filter: blur(40px);
-  opacity: calc(0.18 * var(--lumen-glass-strength));
+  opacity: calc(0.08 * var(--lumen-glass-strength));
 }
 
 .einui-command-exterior-white-glow {
@@ -397,8 +397,8 @@ input[type='search']::-webkit-search-cancel-button {
   align-items: center;
   flex-shrink: 0;
   display: flex;
-  min-height: 52px;
-  padding: 4px 16px;
+  min-height: 56px;
+  padding: 4px 16px 4px 18px;
 }
 
 .einui-command-palette-wrapper[data-expanded='false'] .einui-command-composer {
@@ -446,34 +446,36 @@ input[type='search']::-webkit-search-cancel-button {
 
 .einui-command-row[aria-selected='true'] {
   background: var(--einui-command-row-selected);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   color: var(--einui-command-text);
 }
 
 .einui-command-shortcut {
   align-items: center;
   background: var(--einui-command-shortcut);
-  border: 1px solid var(--einui-command-row-hover);
+  border: 0;
   border-radius: 0.375rem;
   color: var(--einui-command-muted-text);
   display: inline-flex;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   line-height: 1rem;
-  padding: 0.125rem 0.375rem;
+  padding: 0.125rem 0.4375rem;
+}
+
+.einui-command-composer:has(input:not(:placeholder-shown)) .lumen-composer-hint {
+  display: none;
 }
 
 .einui-command-footer {
   align-items: center;
-  background: var(--einui-command-row);
-  border-top: 1px solid var(--einui-command-divider);
-  color: var(--einui-command-muted-text);
+  background: transparent;
+  color: var(--lumen-text-tertiary);
   display: flex;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   justify-content: space-between;
   line-height: 1rem;
   flex-shrink: 0;
-  padding: 6px 16px;
+  padding: 2px 18px 8px;
 }
 
 .lumen-workspace-scroll {

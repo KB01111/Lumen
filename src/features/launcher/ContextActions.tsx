@@ -34,10 +34,10 @@ export function ContextActions({
   return (
     <div
       aria-label="Result actions"
-      className="@container/actions flex min-h-[40px] min-w-0 shrink-0 items-center gap-[4px] border-t border-[color:var(--einui-command-divider)] px-[12px] py-[4px]"
+      className="@container/actions flex min-h-[44px] min-w-0 shrink-0 items-center gap-[4px] border-t border-[color:var(--einui-command-divider)] px-[14px] py-[6px]"
     >
       <span
-        className="min-w-0 flex-1 truncate text-xs text-[color:var(--einui-command-muted-text)]"
+        className="min-w-0 flex-1 truncate px-[6px] text-xs text-[color:var(--lumen-text-tertiary)]"
         title={result?.path}
       >
         {result ? result.name : 'Choose a result for actions'}
@@ -69,12 +69,12 @@ const ActionButtons = memo(function ActionButtons({
         aria-label={isOpening ? 'Opening selected result' : 'Open selected result'}
         isDisabled={!hasResult || isOpening}
         size="small"
-        variant="subtle"
+        variant="primary"
         onPress={onOpen}
       >
         <LumenUiIcon name="forward" size="small" />
         <span className="hidden @min-[640px]/actions:inline">{isOpening ? 'Opening' : 'Open'}</span>
-        <kbd aria-hidden="true" className="ml-1 font-sans text-xs text-[color:var(--einui-command-muted-text)]">↵</kbd>
+        <kbd aria-hidden="true" className="ml-1 font-sans text-xs opacity-70">↵</kbd>
       </LumenButton>
       <LumenButton
         aria-label="Open containing folder"
