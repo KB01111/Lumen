@@ -13,4 +13,10 @@ describe('shortcut formatting', () => {
     expect(shortcutKeys('Ctrl + Shift + +')).toEqual(['Ctrl', 'Shift', '+']);
     expect(shortcutAriaLabel('Ctrl + +')).toBe('Ctrl plus +');
   });
+
+  it('accepts unspaced delimiters', () => {
+    expect(shortcutKeys('Alt+Space')).toEqual(['Alt', 'Space']);
+    expect(shortcutKeys('Ctrl+Shift+K')).toEqual(['Ctrl', 'Shift', 'K']);
+    expect(shortcutKeys('Ctrl+Shift++')).toEqual(['Ctrl', 'Shift', '+']);
+  });
 });
