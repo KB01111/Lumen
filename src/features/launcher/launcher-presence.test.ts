@@ -166,8 +166,25 @@ describe('launcher presence', () => {
     expect(animations[0].playState).toBe('running');
     expect(nativeHide).not.toHaveBeenCalled();
     animations[0].finish();
-    await Promise.all([first, second]);
-    expect(nativeHide).toHaveBeenCalled();
+    await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+    expect(nativeHide).toHaveBeenCalledTimes(1);
+    expect(windowService.snapshot().visible).toBe(false);
+  });
+
+  it('starts a fresh hide after a summon instead of joining the superseded one', async () => {
+    const {animations, element} = presenceSurface();
+    detach = attachLauncherPresence(element, false);
+    const windowService = new BrowserWindowService();
+    await windowService.show('collapsed');
+
+    const superseded = requestWindowHide(windowService);
+    useLauncherStore.getState().show('collapsed');
+    await expect(superseded).resolves.toBe(false);
+    animations[1].finish();
+    const hidden = requestWindowHide(windowService);
+    animations[2].finish();
+
+    await expect(hidden).resolves.toBe(true);
     expect(windowService.snapshot().visible).toBe(false);
   });
 
