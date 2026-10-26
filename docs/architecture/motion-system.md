@@ -37,7 +37,8 @@ A hidden native window keeps presenting the last frame it painted, so the launch
 - A summon during a dismissal turns around from the current opacity and transform, and the superseded hide is never sent to native. A dismissal interrupted by a summon does the same in reverse. A repeated hide joins the dismissal in flight rather than restarting it, so no request hides the window mid-fade.
 - Shows with nothing held (first launch, native close, an unmounted surface) appear immediately, as before. Hides with nothing to animate issue the native request synchronously.
 - Only the collapsed mode animates. Expanded, onboarding and settings modes sit on an opaque native backdrop that web opacity cannot fade, so they hide and show at once.
-- The dismissal is bounded by a guard timer and is skipped in a hidden document. Finished animations release their effects; only the held, non-running dismissal frame persists while hidden.
+- The dismissal is bounded by a guard timer that jumps a stalled fade to its held transparent frame, and it is skipped in a hidden document. Finished animations release their effects; only the held, non-running dismissal frame persists while hidden, including across a motion-policy change.
+- Leaving collapsed mode, for example by typing straight after the shortcut, settles any running summon at rest at once.
 
 ## Spatial rules
 

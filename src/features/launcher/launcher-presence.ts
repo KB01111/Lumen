@@ -124,7 +124,11 @@ export function dismissLauncher(): Promise<void> | null {
   ], {duration: durationMs, easing: 'linear', fill: 'forwards'});
   track(next);
   const settled = new Promise<void>((resolve) => {
-    const guard = window.setTimeout(resolve, durationMs + 120);
+    // A stalled timeline jumps to its held transparent frame before the hide.
+    const guard = window.setTimeout(() => {
+      next.finish();
+      resolve();
+    }, durationMs + 120);
     next.finished.then(
       () => {
         window.clearTimeout(guard);
@@ -146,16 +150,29 @@ export function attachLauncherPresence(element: HTMLElement, reducedMotion: bool
   releaseHeldFrame();
   const attached: PresenceSurface = {element, reducedMotion};
   surface = attached;
-  const unsubscribe = useLauncherStore.subscribe(
+  const unsubscribeVisibility = useLauncherStore.subscribe(
     (state) => state.visible,
     (visible) => {
       if (visible) summonLauncher();
     },
   );
+  // Leaving the collapsed pill settles any presence motion at rest at once.
+  const unsubscribeMode = useLauncherStore.subscribe(
+    (state) => state.mode,
+    (mode) => {
+      if (mode !== 'collapsed') releaseHeldFrame();
+    },
+  );
   return () => {
-    unsubscribe();
+    unsubscribeVisibility();
+    unsubscribeMode();
     if (surface !== attached) return;
     releaseHeldFrame();
     surface = null;
   };
+}
+
+/** Applies a motion-policy change without releasing a held dismissal frame. */
+export function setLauncherPresenceReducedMotion(reducedMotion: boolean) {
+  if (surface) surface.reducedMotion = reducedMotion;
 }

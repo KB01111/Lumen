@@ -1,7 +1,11 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {BrowserWindowService} from '../../platform/window/browser-window-service';
-import {attachLauncherPresence, dismissLauncher} from './launcher-presence';
+import {
+  attachLauncherPresence,
+  dismissLauncher,
+  setLauncherPresenceReducedMotion,
+} from './launcher-presence';
 import {useLauncherStore} from './launcher.store';
 import {requestWindowHide} from './useLauncherPresentation';
 
@@ -224,7 +228,39 @@ describe('launcher presence', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     expect(settled).toHaveBeenCalledTimes(1);
-    expect(animations[0].playState).toBe('running');
+    expect(animations[0].playState).toBe('finished');
+    expect(element.style.opacity).toBe('0');
+  });
+
+  it('keeps a held frame across a motion-policy change and summons with the new policy', async () => {
+    const {animations, element} = presenceSurface();
+    detach = attachLauncherPresence(element, false);
+    useLauncherStore.getState().hide();
+    const dismissal = dismissLauncher();
+    animations[0].finish();
+    await dismissal;
+
+    setLauncherPresenceReducedMotion(true);
+    expect(animations[0].playState).toBe('finished');
+    useLauncherStore.getState().show('collapsed');
+
+    expect(animations[1].keyframes[0]).toEqual({opacity: 0, transform: 'none'});
+    expect(animations[1].options.duration).toBe(80);
+  });
+
+  it('settles a running summon at rest when the launcher expands', async () => {
+    const {animations, element} = presenceSurface();
+    detach = attachLauncherPresence(element, false);
+    useLauncherStore.getState().hide();
+    const dismissal = dismissLauncher();
+    animations[0].finish();
+    await dismissal;
+    useLauncherStore.getState().show('collapsed');
+    expect(animations[1].playState).toBe('running');
+
+    useLauncherStore.getState().setMode('expanded');
+
+    expect(animations[1].playState).toBe('idle');
   });
 
   it('skips the dismissal without a surface or when the document is hidden', () => {
