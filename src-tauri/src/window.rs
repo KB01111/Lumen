@@ -53,6 +53,51 @@ impl WindowStateEvent {
     }
 }
 
+/// The mode the native window was last shown in; summons restore it.
+#[derive(Default)]
+pub struct PresentedMode(Mutex<Option<WindowMode>>);
+
+impl PresentedMode {
+    fn get(&self) -> Option<WindowMode> {
+        self.0.lock().ok().and_then(|mode| *mode)
+    }
+
+    fn set(&self, mode: WindowMode) {
+        if let Ok(mut presented) = self.0.lock() {
+            *presented = Some(mode);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ShowPlan {
+    mode: WindowMode,
+    apply_bounds: bool,
+}
+
+/// Commands present exactly the requested mode. Shortcut and second-instance
+/// summons restore the last presented mode, so the frontend never corrects
+/// them with a second resize, and keep an already-visible window's size and
+/// material: re-pressing the shortcut repositions and refocuses without
+/// collapsing an expanded workspace.
+const fn show_plan(
+    requested: WindowMode,
+    source: WindowStateSource,
+    presented: Option<WindowMode>,
+    visible: bool,
+) -> ShowPlan {
+    match (source, presented) {
+        (WindowStateSource::Command, _) | (_, None) => ShowPlan {
+            mode: requested,
+            apply_bounds: true,
+        },
+        (_, Some(mode)) => ShowPlan {
+            mode,
+            apply_bounds: !visible,
+        },
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WindowGeometry {
     pub width: f64,
@@ -420,6 +465,20 @@ fn place_on_preferred_monitor(
         .map_err(|error| error.to_string())
 }
 
+/// A visible summon keeps the window's bounds, so it is centered with its
+/// current logical size rather than the mode's baseline size.
+fn current_geometry(window: &WebviewWindow, geometry: WindowGeometry) -> WindowGeometry {
+    window
+        .outer_size()
+        .and_then(|size| Ok(size.to_logical::<f64>(window.scale_factor()?)))
+        .map(|size| WindowGeometry {
+            width: size.width,
+            height: size.height,
+            ..geometry
+        })
+        .unwrap_or(geometry)
+}
+
 fn native_effects_for_mode(mode: WindowMode) -> Option<tauri::utils::config::WindowEffectsConfig> {
     (mode != WindowMode::Collapsed).then(|| {
         EffectsBuilder::new()
@@ -483,20 +542,37 @@ fn show_window(
     mode: WindowMode,
     source: WindowStateSource,
 ) -> Result<WindowStateEvent, String> {
-    let geometry = geometry_for(mode);
+    let presented = window.try_state::<PresentedMode>();
+    let plan = show_plan(
+        mode,
+        source,
+        presented.as_ref().and_then(|presented| presented.get()),
+        window.is_visible().unwrap_or(false),
+    );
+    let geometry = geometry_for(plan.mode);
     let monitor_behavior = window
         .try_state::<RuntimePreferences>()
         .map(|preferences| preferences.monitor_behavior())
         .unwrap_or_default();
-    apply_geometry(window, geometry)?;
-    place_on_preferred_monitor(window, geometry, monitor_behavior)?;
-    apply_native_material(window, mode)?;
+    let placement = if plan.apply_bounds {
+        apply_geometry(window, geometry)?;
+        geometry
+    } else {
+        current_geometry(window, geometry)
+    };
+    place_on_preferred_monitor(window, placement, monitor_behavior)?;
+    if plan.apply_bounds {
+        apply_native_material(window, plan.mode)?;
+    }
     window.show().map_err(|error| error.to_string())?;
     window.set_focus().map_err(|error| error.to_string())?;
     window
         .emit("lumen://focus-input", ())
         .map_err(|error| error.to_string())?;
-    let state = WindowStateEvent::visible(mode, source);
+    if let Some(presented) = presented {
+        presented.set(plan.mode);
+    }
+    let state = WindowStateEvent::visible(plan.mode, source);
     if source != WindowStateSource::Command {
         window
             .emit("lumen://window-state", state)
@@ -745,6 +821,68 @@ mod tests {
         );
 
         assert_eq!(position, LauncherPosition { x: 2675, y: 234 });
+
+        // A user-resized window centers with its own width, not the baseline.
+        let resized = launcher_position(
+            WorkArea {
+                x: 0,
+                y: 0,
+                width: 1920,
+                height: 1080,
+            },
+            960.0,
+            540.0,
+            1.0,
+        );
+        assert_eq!(resized.x, (1920 - 960) / 2);
+    }
+
+    #[test]
+    fn summons_restore_the_presented_mode_and_keep_visible_bounds() {
+        let shortcut = WindowStateSource::Shortcut;
+        assert_eq!(
+            show_plan(WindowMode::Collapsed, shortcut, None, false),
+            ShowPlan {
+                mode: WindowMode::Collapsed,
+                apply_bounds: true,
+            }
+        );
+        assert_eq!(
+            show_plan(
+                WindowMode::Collapsed,
+                shortcut,
+                Some(WindowMode::Expanded),
+                false
+            ),
+            ShowPlan {
+                mode: WindowMode::Expanded,
+                apply_bounds: true,
+            }
+        );
+        assert_eq!(
+            show_plan(
+                WindowMode::Collapsed,
+                WindowStateSource::SecondInstance,
+                Some(WindowMode::Expanded),
+                true
+            ),
+            ShowPlan {
+                mode: WindowMode::Expanded,
+                apply_bounds: false,
+            }
+        );
+        assert_eq!(
+            show_plan(
+                WindowMode::Settings,
+                WindowStateSource::Command,
+                Some(WindowMode::Expanded),
+                true
+            ),
+            ShowPlan {
+                mode: WindowMode::Settings,
+                apply_bounds: true,
+            }
+        );
     }
 
     #[test]

@@ -251,6 +251,7 @@ pub fn run() {
             smoke_checkpoint("windows-ai");
             windows_ai::queue_activations(app.handle(), &std::env::args().collect::<Vec<_>>());
             app.manage(window::ShortcutRegistration::default());
+            app.manage(window::PresentedMode::default());
             if let Err(error) = window::register_initial_shortcut(app.handle(), &initial_shortcut) {
                 tauri_plugin_log::log::warn!("Global shortcut unavailable: {error}");
             }

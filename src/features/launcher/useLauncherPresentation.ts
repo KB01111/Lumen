@@ -5,6 +5,7 @@ import type {
   WindowService,
   WindowStateEvent,
 } from '../../platform/window/window-service';
+import {dismissLauncher} from './launcher-presence';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
 
@@ -48,9 +49,32 @@ export async function requestWindowShow(windowService: WindowService, mode: Wind
   }
 }
 
-export async function requestWindowHide(windowService: WindowService) {
+let dismissingHide: {request: Promise<boolean>; windowService: WindowService} | null = null;
+
+export function requestWindowHide(windowService: WindowService): Promise<boolean> {
+  // A repeated hide during the dismissal joins the request in flight, so no
+  // caller is reported as superseded by an identical hide.
+  if (dismissingHide?.windowService === windowService && !useLauncherStore.getState().visible) {
+    return dismissingHide.request;
+  }
   const previous = useLauncherStore.getState();
   useLauncherStore.getState().hide();
+  const dismissal = dismissLauncher();
+  if (!dismissal) return hideNatively(windowService, previous);
+  const request = dismissal.then(() => {
+    if (dismissingHide?.request === request) dismissingHide = null;
+    // A summon during the dismissal supersedes this hide, like any newer request.
+    if (useLauncherStore.getState().visible) return false;
+    return hideNatively(windowService, previous);
+  });
+  dismissingHide = {request, windowService};
+  return request;
+}
+
+async function hideNatively(
+  windowService: WindowService,
+  previous: ReturnType<typeof useLauncherStore.getState>,
+) {
   try {
     return await windowService.hide();
   } catch {

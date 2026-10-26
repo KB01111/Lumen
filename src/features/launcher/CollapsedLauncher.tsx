@@ -10,6 +10,7 @@ import type {WindowService} from '../../platform/window/window-service';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
 import {shortcutAriaLabel, shortcutHintLabel} from '../settings/shortcut-format';
 import {useSettingsStore} from '../settings/settings.store';
+import {attachLauncherPresence, setLauncherPresenceReducedMotion} from './launcher-presence';
 import {LauncherStatus} from './LauncherStatus';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
@@ -154,6 +155,8 @@ export function CollapsedLauncher({
   const setIntent = useLauncherStore((state) => state.setIntent);
   const {reducedMotion} = useLumenMotion();
   const fallbackInputRef = useRef<HTMLInputElement>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  const reducedMotionRef = useRef(reducedMotion);
   const previousVisible = useRef(visible);
   const visibleRenderStartedAt = useRef<number | null>(visible ? performance.now() : null);
   if (visible) {
@@ -171,6 +174,18 @@ export function CollapsedLauncher({
     hasContent: hasCommittedQuery,
     windowService,
   });
+
+  // Attach once: re-attaching on a motion-policy change would drop a held
+  // dismissal frame while the window is hidden.
+  useLayoutEffect(() => {
+    const palette = paletteRef.current;
+    return palette ? attachLauncherPresence(palette, reducedMotionRef.current) : undefined;
+  }, []);
+
+  useLayoutEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+    setLauncherPresenceReducedMotion(reducedMotion);
+  }, [reducedMotion]);
 
   useLayoutEffect(() => {
     if (!visible || !focusOnMount) {
@@ -195,6 +210,7 @@ export function CollapsedLauncher({
 
   return (
     <GlassCommandPalette
+      ref={paletteRef}
       aria-label="Lumen launcher"
       composer={(
         <LauncherComposer

@@ -14,6 +14,8 @@ Lumen runs in one persistent, borderless Tauri 2 window. Closing hides the windo
 
 Rust owns the geometry table. Placement reads the cursor's active monitor work area, converts logical size with that monitor's scale factor, centers horizontally, and places the launcher 18 percent into the remaining vertical space. Changing modes clears old constraints before applying the new size.
 
+Frontend commands present exactly the mode they request. Shortcut and second-instance summons restore the last presented mode, so a launcher hidden with a retained query reopens expanded in one native step instead of collapsing and then expanding again. Pressing the shortcut while the window is already visible keeps its size and material, then repositions and refocuses it; it never collapses an expanded workspace. The web summon and dismiss choreography is described in [motion-system.md](motion-system.md#summon-and-dismiss).
+
 The React palette never owns or continuously animates those OS bounds. It requests expanded bounds first and reveals its clipped inner workspace only after that request resolves; it hides the inner workspace before requesting collapsed bounds. Within constrained bounds, the composer and compact footer stay stable while result and answer regions scroll internally and preview collapses before primary results.
 
 ## Material fallback
