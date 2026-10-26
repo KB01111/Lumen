@@ -24,6 +24,32 @@ test('launcher exit retains content and the input survives reversal with its car
   expect(await identity?.evaluate((element) => element.isConnected)).toBe(true);
 });
 
+test('hotkey summon rises from the held transparent dismissal and settles at rest', async ({page}) => {
+  await page.emulateMedia({reducedMotion: 'no-preference'});
+  await page.goto('/?service=memory');
+  const search = page.getByRole('searchbox', {name: 'Search files'});
+  const palette = page.locator('.einui-command-palette-wrapper');
+  await expect(search).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-launcher-visible="false"]')).toBeAttached();
+  await expect.poll(() => palette.evaluate((element) => getComputedStyle(element).opacity)).toBe('0');
+  expect(await palette.evaluate((element) => element.getAnimations().map((animation) => animation.playState))).toEqual(['finished']);
+
+  const summon = await palette.evaluate((element) => {
+    window.dispatchEvent(new CustomEvent('lumen:diagnostics-show-launcher'));
+    return element.getAnimations().map((animation) => (animation.effect as KeyframeEffect).getKeyframes()
+      .map(({opacity, transform}) => ({opacity, transform})));
+  });
+  expect(summon).toEqual([[
+    {opacity: '0', transform: 'translateY(-4px) scale(0.97)'},
+    {opacity: '1', transform: 'none'},
+  ]]);
+  await expect.poll(() => palette.evaluate((element) => element.getAnimations().length)).toBe(0);
+  expect(await palette.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
+  await expect(search).toBeFocused();
+});
+
 test('full-motion selection settles on virtual rows after rapid reversal and scroll', async ({page}) => {
   await page.goto('/?gallery=1&scenario=large-results&capture=1&theme=dark');
   const capsule = page.locator('[data-selection-capsule]');

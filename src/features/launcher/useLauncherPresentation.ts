@@ -5,6 +5,7 @@ import type {
   WindowService,
   WindowStateEvent,
 } from '../../platform/window/window-service';
+import {dismissLauncher} from './launcher-presence';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
 
@@ -51,6 +52,12 @@ export async function requestWindowShow(windowService: WindowService, mode: Wind
 export async function requestWindowHide(windowService: WindowService) {
   const previous = useLauncherStore.getState();
   useLauncherStore.getState().hide();
+  const dismissal = dismissLauncher();
+  if (dismissal) {
+    await dismissal;
+    // A summon during the dismissal supersedes this hide, like any newer request.
+    if (useLauncherStore.getState().visible) return false;
+  }
   try {
     return await windowService.hide();
   } catch {

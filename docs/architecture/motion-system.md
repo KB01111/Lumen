@@ -14,10 +14,12 @@ For the launcher, native and web ordering is explicit: Rust/window services allo
 | Launcher open | 160 ms | Internal opacity and slight upward settle; details-overlay fade-in |
 | Launcher close | 120 ms | Internal exit opacity; details-overlay and dialog exit |
 | Launcher expansion | 190 ms | Internal region reveal after the native resize request; details-dialog content entry |
+| Launcher summon | 200 ms | Collapsed pill entrance after the native show: opacity with a 4 px rise and 0.97 → 1 scale |
+| Launcher dismiss | 110 ms | Collapsed pill exit before the native hide: transparent by 75 percent, then held |
 | Preview | 160 ms | Preview content replacement and details entry |
 | Page | 210 ms | Onboarding and management-page movement |
 
-The standard easing curve is `cubic-bezier(0.2, 0.8, 0.2, 1)`. Exits use `cubic-bezier(0.4, 0, 1, 1)`. Moving selection and scope geometry uses one shared spring (damping ratio ≈ 0.96: a quiet, tactile snap without visible overshoot):
+The standard easing curve is `cubic-bezier(0.2, 0.8, 0.2, 1)`. Exits use `cubic-bezier(0.4, 0, 1, 1)`. The summon uses an exponential settle, `cubic-bezier(0.16, 1, 0.3, 1)`: about 40 percent opacity on the first 60 Hz frame and 80 percent within roughly 50 ms, then a soft landing without overshoot. Moving selection and scope geometry uses one shared spring (damping ratio ≈ 0.96: a quiet, tactile snap without visible overshoot):
 
 ```text
 type: spring
@@ -25,6 +27,17 @@ stiffness: 560
 damping: 38
 mass: 0.7
 ```
+
+## Summon and dismiss
+
+A hidden native window keeps presenting the last frame it painted, so the launcher's hotkey entrance is choreographed around that frame (`src/features/launcher/launcher-presence.ts`):
+
+- Hiding from the launcher (Escape on an empty query, opening a file) fades the collapsed pill out with WAAPI and holds a transparent end frame before the native hide is requested. The fade reaches zero at 75 percent of its duration, so the captured frame is transparent rather than mid-fade.
+- The next shortcut, second-instance or command show therefore starts invisible. The visible-state change starts the summon in the same task, from the held frame, on the wrapper that owns the surface and exterior glow.
+- A summon during a dismissal turns around from the current opacity and transform, and the superseded hide is never sent to native. A dismissal interrupted by a summon does the same in reverse.
+- Shows with nothing held (first launch, native close, an unmounted surface) appear immediately, as before. Hides with nothing to animate issue the native request synchronously.
+- Only the collapsed mode animates. Expanded, onboarding and settings modes sit on an opaque native backdrop that web opacity cannot fade, so they hide and show at once.
+- The dismissal is bounded by a guard timer and is skipped in a hidden document. Finished animations release their effects; only the held, non-running dismissal frame persists while hidden.
 
 ## Spatial rules
 
@@ -46,7 +59,7 @@ The compact launcher activity mark is the only Lottie/GSAP-owned motion path. A 
 
 ## Reduced motion
 
-One System/Full/Reduced setting resolves the motion policy. System follows Windows/browser media changes; Full requests full motion; Reduced makes layout movement immediate and retains at most an 80 ms opacity transition so state changes remain legible. The preview's single shimmer sweep is disabled. The same geometry, focus order, announcements, and action timing remain available.
+One System/Full/Reduced setting resolves the motion policy. System follows Windows/browser media changes; Full requests full motion; Reduced makes layout movement immediate and retains at most an 80 ms opacity transition so state changes remain legible. The launcher summon and dismiss become 80 ms opacity-only fades. The preview's single shimmer sweep is disabled. The same geometry, focus order, announcements, and action timing remain available.
 
 Reduced motion is enforced by `MotionConfig`, explicit component flags and token-driven durations from `useLumenMotion()`. CSS suppresses cosmetic translate/scale and gives React Aria overlays opacity-only keyframes of at most 80 ms. It does not clear functional transforms needed by virtualized rows or slider geometry.
 
