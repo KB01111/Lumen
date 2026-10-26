@@ -80,6 +80,14 @@ describe('Lumen CSS appearance contract', () => {
   --lumen-shadow-control: none;
 }`);
   });
+  it('removes the decorative beam and bloom in reduced effects', () => {
+    expect(normalizedCss).toContain(`
+[data-effects='reduced'] .einui-command-specular-top,
+[data-effects='reduced'] [data-material-layer='luminosity'] {
+  display: none;
+}`);
+  });
+
   it('keeps the Lottie activity mark semantic and static in forced colors', () => {
     expect(normalizedCss).toContain(`
 .lumen-activity-lottie path {

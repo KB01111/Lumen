@@ -147,7 +147,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           placeholder={intent === 'computer' ? 'Describe browser task' : 'Search apps and files'}
           spellCheck={false}
           type="search"
-          className="min-h-[32px] min-w-0 flex-1 appearance-none rounded-none border-0 bg-transparent p-0 font-sans text-[1.1875rem] font-normal leading-tight tracking-[-0.012em] text-[color:var(--einui-command-text)] caret-accent shadow-none outline-none placeholder:text-[color:var(--lumen-text-tertiary)] placeholder:opacity-90"
+          className="min-h-[32px] min-w-0 flex-1 appearance-none rounded-none border-0 bg-transparent p-0 font-sans text-[1.1875rem] font-normal leading-tight tracking-[-0.012em] text-[color:var(--einui-command-text)] caret-accent shadow-none outline-none placeholder:text-[color:var(--lumen-text-tertiary)]"
           onCompositionEnd={handleCompositionEnd}
           onCompositionStart={handleCompositionStart}
           onInput={handleInput}

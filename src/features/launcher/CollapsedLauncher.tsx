@@ -44,9 +44,9 @@ const LauncherComposer = memo(function LauncherComposer({
       <LumenButton
         aria-label={intent === 'computer' ? 'Switch to file search' : 'Switch to Computer Use'}
         className={cn(
-          'h-[30px] min-h-[30px] max-w-[148px] min-w-8 shrink-0 gap-[6px] rounded-pill px-[10px] font-medium',
+          'h-[32px] min-h-[32px] max-w-[148px] min-w-8 shrink-0 gap-[6px] rounded-pill px-[10px] font-medium',
           intent === 'computer'
-            ? 'border-accent/30 bg-accent/12 text-accent data-[hovered]:bg-accent/18'
+            ? 'border-accent/35 bg-accent/10 text-[color:var(--einui-command-text)] data-[hovered]:bg-accent/15 [&>svg]:text-accent'
             : 'border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row)] text-[color:var(--einui-command-muted-text)] data-[hovered]:border-[color:var(--einui-command-border)] data-[hovered]:bg-[var(--einui-command-row-hover)] data-[hovered]:text-[color:var(--einui-command-text)]',
         )}
         isDisabled={intentLocked}

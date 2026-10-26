@@ -607,3 +607,9 @@ input[type='search']::-webkit-search-cancel-button {
 [data-effects='reduced'] .einui-command-palette-wrapper > [data-einui-layer='exterior-white-glow'] {
   display: none;
 }
+
+/* The beam and its bloom are decorative light; reduced effects removes them. */
+[data-effects='reduced'] .einui-command-specular-top,
+[data-effects='reduced'] [data-material-layer='luminosity'] {
+  display: none;
+}
