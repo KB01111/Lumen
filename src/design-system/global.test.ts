@@ -13,28 +13,29 @@ describe('Lumen CSS appearance contract', () => {
   --einui-command-muted-text: var(--lumen-text-secondary);
   --einui-command-border: var(--lumen-border-strong);
   --einui-command-divider: var(--lumen-border-subtle);
-  --einui-command-row: color-mix(in srgb, var(--lumen-text-primary) 3%, transparent);
-  --einui-command-row-hover: color-mix(in srgb, var(--lumen-text-primary) 6%, transparent);
-  --einui-command-row-selected: color-mix(in srgb, var(--lumen-text-primary) 10%, transparent);
-  --einui-command-shortcut: var(--lumen-surface-raised);
+  --einui-command-row: color-mix(in srgb, var(--lumen-text-primary) 4%, transparent);
+  --einui-command-row-hover: color-mix(in srgb, var(--lumen-text-primary) 5%, transparent);
+  --einui-command-row-selected: color-mix(in srgb, var(--lumen-accent) 11%, transparent);
+  --einui-command-row-selected-edge: color-mix(in srgb, var(--lumen-accent) 24%, transparent);
+  --einui-command-tray: color-mix(in srgb, var(--lumen-surface-inset) 45%, transparent);
   --einui-command-shadow: var(--lumen-shadow-surface);
 }`);
   });
 
-  it('uses neutral opaque surfaces in light and dark themes', () => {
+  it('uses the midnight-tinted opaque surfaces in light and dark themes', () => {
     expect(normalizedCss).toContain(`
 [data-transparency='disabled'] {
-  --lumen-canvas: #f5f4f0;
-  --lumen-surface-glass: #fbfaf8;
+  --lumen-canvas: #f2f5f8;
+  --lumen-surface-glass: #fafcfd;
   --lumen-surface-raised: #ffffff;
-  --lumen-surface-inset: #e8e7e3;
+  --lumen-surface-inset: #e4eaf0;
 }`);
     expect(normalizedCss).toContain(`
 [data-resolved-theme='dark']:where([data-transparency='disabled']) {
-  --lumen-canvas: #10100f;
-  --lumen-surface-glass: #1b1b19;
-  --lumen-surface-raised: #292927;
-  --lumen-surface-inset: #0c0c0b;
+  --lumen-canvas: #070b10;
+  --lumen-surface-glass: #0d131b;
+  --lumen-surface-raised: #17202b;
+  --lumen-surface-inset: #05090e;
 }`);
   });
 

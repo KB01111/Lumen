@@ -10,8 +10,3 @@ export function shortcutKeys(shortcut: string): string[] {
 export function shortcutAriaLabel(shortcut: string): string {
   return shortcutKeys(shortcut).join(' plus ');
 }
-
-/** Compact visual label for key hints, e.g. `Ctrl  Shift  K`. */
-export function shortcutHintLabel(shortcut: string): string {
-  return shortcutKeys(shortcut).join('  ');
-}

@@ -5,6 +5,7 @@ import {TabPanel, Tabs} from 'react-aria-components';
 
 import {useLumenMotion} from '../../design-system/MotionProvider';
 import {motionTokens} from '../../design-system/motion';
+import {LumenAppMark} from '../../design-system/icons/LumenAppMark';
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
@@ -67,7 +68,8 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
       material="mica"
     >
       <header data-tauri-drag-region className="flex min-w-0 items-center justify-between gap-[12px] border-b border-border-subtle px-[20px]">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-[12px]">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-[10px]">
+          <LumenAppMark size="small" />
           <LumenText weight="semibold">Lumen</LumenText>
           <LumenText tone="tertiary" variant="meta">Settings</LumenText>
         </div>
@@ -99,7 +101,7 @@ export function SettingsShell({onClose, pages}: SettingsShellProps) {
               transition={{duration: pageDuration, ease: motionTokens.easing.standard}}
             >
               <div className="grid min-w-0 gap-[8px]">
-                <LumenText as="h1" variant="title">{page.label}</LumenText>
+                <LumenText as="h1" variant="title" weight="semibold">{page.label}</LumenText>
                 <LumenText tone="secondary">{page.description}</LumenText>
               </div>
               <PersistenceNotice />

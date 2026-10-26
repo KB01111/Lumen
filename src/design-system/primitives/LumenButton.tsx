@@ -5,12 +5,12 @@ import {cva} from 'class-variance-authority';
 import {cn} from '../../lib/cn';
 
 const buttonStyles = cva(
-  'inline-flex min-w-[32px] cursor-default select-none items-center justify-center gap-[8px] rounded-control border font-sans outline-none transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--lumen-duration-hover)] ease-standard data-[focus-visible]:ring-2 data-[focus-visible]:ring-focus/70 data-[pressed]:translate-y-px data-[pressed]:scale-[.985] data-[pressed]:duration-[var(--lumen-duration-press)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-55',
+  'inline-flex min-w-[32px] cursor-default select-none items-center justify-center gap-[8px] rounded-control border font-sans outline-none transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--lumen-duration-hover)] ease-standard data-[focus-visible]:outline-2 data-[focus-visible]:outline-offset-2 data-[focus-visible]:outline-focus data-[pressed]:translate-y-px data-[pressed]:scale-[.985] data-[pressed]:duration-[var(--lumen-duration-press)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-55',
   {
     variants: {
       variant: {
-        primary: 'border-border-specular bg-accent text-text-inverse data-[hovered]:brightness-110',
-        subtle: 'border-border-subtle bg-surface-raised text-text-button data-[hovered]:border-border-strong',
+        primary: 'border-transparent bg-accent bg-[linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,255,255,0)_70%)] font-medium text-text-inverse shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_6px_18px_-8px_var(--lumen-accent)] data-[hovered]:brightness-110 data-[disabled]:shadow-none high-contrast:border-[ButtonText] high-contrast:bg-none high-contrast:shadow-none',
+        subtle: 'border-border-subtle bg-surface-raised text-text-button shadow-control data-[hovered]:border-border-strong data-[hovered]:bg-surface-inset',
         quiet: 'border-transparent bg-transparent text-text-secondary shadow-none data-[hovered]:bg-surface-inset data-[hovered]:text-text-primary',
         danger: 'border-danger/45 bg-danger/10 text-danger',
       },

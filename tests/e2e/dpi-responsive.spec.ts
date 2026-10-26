@@ -167,7 +167,7 @@ test('the constrained work area keeps controls contained while results and answe
     await expect(answer).toHaveCount(1);
     await expect(modeControl).toHaveAccessibleName('Switch to Computer Use');
     await expect(modeLabel).toBeVisible();
-    await expect(shortcut).toBeHidden();
+    await expect(shortcut).toHaveCount(0);
     await expect(page.getByRole('region', {name: 'File preview'})).toBeHidden();
 
     const [galleryBounds, launcherBounds, composerBounds, footerBounds, searchBounds, modeBounds] = await Promise.all([

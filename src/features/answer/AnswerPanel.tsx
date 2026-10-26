@@ -84,10 +84,10 @@ export function AnswerPanel({
   }, [answer.text, answer.phase]);
 
   return (
-    <section aria-label="AI answer" className="lumen-answer-panel @container/answer min-w-0 border-b border-[color:var(--einui-command-divider)]">
+    <section aria-label="AI answer" className="lumen-answer-panel @container/answer min-w-0 border-b border-[color:var(--einui-command-divider)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--lumen-accent)_7%,transparent),transparent_85%)] high-contrast:bg-none">
       <header className="flex min-w-0 flex-wrap items-center justify-between gap-[8px]">
         <div className="flex min-w-0 items-baseline gap-[8px]">
-          <span className="whitespace-nowrap font-sans text-xs font-medium text-[color:var(--einui-command-text)]">AI answer</span>
+          <span className="inline-flex items-center gap-[6px] self-center whitespace-nowrap font-sans text-xs font-semibold text-[color:var(--einui-command-text)]"><LumenUiIcon className="text-accent" name="model" size="small" />AI answer</span>
           <span className="truncate font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)] @max-[560px]/answer:sr-only">{statusLabel(answer)}</span>
         </div>
         <div className="flex min-w-0 items-center gap-[4px]">

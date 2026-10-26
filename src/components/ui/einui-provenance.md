@@ -18,8 +18,15 @@ Lumen deliberately adapts color and luminosity through `--einui-command-*`
 variables. The user-approved 2026-10-05 design refinement binds both light and
 dark palettes to Lumen's semantic surface, border, text, and neutral interaction
 roles. It reduces additive white highlights and the existing semantic-accent
-glow. The shortcut fill follows the quiet neutral row role; the owned shell no
-longer claims color-identical output to the original registry recipe.
+glow. The owned shell no longer claims color-identical output to the original
+registry recipe.
+
+The 2026-10-26 midnight beam overhaul keeps the same layer topology but
+repurposes the top specular layer as Lumen's signature beam: a 1px
+`--lumen-beam` edge with a soft bloom beneath it. Selection uses an accent tint
+with an accent hairline (`--einui-command-row-selected-edge`), and the footer
+draws a shared tray (`--einui-command-tray`). The composer's shortcut hint and
+its `--einui-command-shortcut` fill were removed.
 
 ## Deliberate boundary
 

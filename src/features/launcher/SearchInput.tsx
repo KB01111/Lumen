@@ -134,7 +134,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     return (
       <div
         aria-label={intent === 'computer' ? 'Browser task' : 'File search'}
-        className="flex min-w-0 flex-1 items-center gap-1 py-1 shadow-[inset_0_-2px_0_transparent] transition-[box-shadow] duration-[90ms] ease-standard focus-within:shadow-[inset_0_-2px_0_var(--lumen-focus)] forced-colors:focus-within:outline forced-colors:focus-within:outline-2 forced-colors:focus-within:outline-[Highlight]"
+        className="flex min-w-0 flex-1 items-center gap-1 py-1 forced-colors:focus-within:outline forced-colors:focus-within:outline-2 forced-colors:focus-within:outline-[Highlight]"
         role="search"
       >
         <input
@@ -147,7 +147,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           placeholder={intent === 'computer' ? 'Describe browser task' : 'Search apps and files'}
           spellCheck={false}
           type="search"
-          className="min-w-0 flex-1 border-0 bg-transparent p-0 font-sans text-[1.125rem] font-normal leading-tight tracking-[-0.01em] text-[color:var(--einui-command-text)] caret-accent outline-none placeholder:text-[color:var(--lumen-text-tertiary)]"
+          className="min-h-[32px] min-w-0 flex-1 appearance-none rounded-none border-0 bg-transparent p-0 font-sans text-[1.1875rem] font-normal leading-tight tracking-[-0.012em] text-[color:var(--einui-command-text)] caret-accent shadow-none outline-none placeholder:text-[color:var(--lumen-text-tertiary)] placeholder:opacity-90"
           onCompositionEnd={handleCompositionEnd}
           onCompositionStart={handleCompositionStart}
           onInput={handleInput}
@@ -156,7 +156,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
         <span ref={clearWrapperRef} hidden={!useQueryStore.getState().draft}>
           <LumenIconButton
             aria-label="Clear search"
-            className="shrink-0 text-[color:var(--einui-command-muted-text)]"
+            className="shrink-0 rounded-pill text-[color:var(--einui-command-muted-text)]"
             size="small"
             variant="quiet"
             onPress={clearInput}

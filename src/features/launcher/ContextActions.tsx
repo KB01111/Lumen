@@ -34,10 +34,10 @@ export function ContextActions({
   return (
     <div
       aria-label="Result actions"
-      className="@container/actions flex min-h-[44px] min-w-0 shrink-0 items-center gap-[4px] border-t border-[color:var(--einui-command-divider)] px-[14px] py-[6px]"
+      className="@container/actions flex min-h-[44px] min-w-0 shrink-0 items-center gap-[4px] border-t border-[color:var(--einui-command-divider)] bg-[var(--einui-command-tray)] px-[12px] pt-[7px] pb-[3px]"
     >
       <span
-        className="min-w-0 flex-1 truncate px-[6px] text-xs text-[color:var(--lumen-text-tertiary)]"
+        className="min-w-0 flex-1 truncate px-[6px] text-xs font-medium text-[color:var(--einui-command-muted-text)]"
         title={result?.path}
       >
         {result ? result.name : 'Choose a result for actions'}
@@ -74,7 +74,7 @@ const ActionButtons = memo(function ActionButtons({
       >
         <LumenUiIcon name="forward" size="small" />
         <span className="hidden @min-[640px]/actions:inline">{isOpening ? 'Opening' : 'Open'}</span>
-        <kbd aria-hidden="true" className="ml-1 font-sans text-xs opacity-70">↵</kbd>
+        <kbd aria-hidden="true" className="ml-0.5 font-sans text-xs opacity-75">↵</kbd>
       </LumenButton>
       <LumenButton
         aria-label="Open containing folder"

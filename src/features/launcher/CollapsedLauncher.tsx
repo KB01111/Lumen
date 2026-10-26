@@ -1,15 +1,15 @@
 import {memo, useCallback, useLayoutEffect, useRef, useSyncExternalStore, type ReactNode, type RefObject} from 'react';
 
 import {GlassCommandPalette} from '../../components/ui/GlassCommandPalette';
-import {LumenMark} from '../../design-system/icons/LumenMark';
+import {LumenAppMark} from '../../design-system/icons/LumenAppMark';
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {useLumenMotion} from '../../design-system/MotionProvider';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
+import {LumenIconButton} from '../../design-system/primitives/LumenIconButton';
 import {createWindowService} from '../../platform/window/tauri-window-service';
 import type {WindowService} from '../../platform/window/window-service';
+import {cn} from '../../lib/cn';
 import {measureAfterPaint} from '../diagnostics/diagnostics.metrics';
-import {shortcutAriaLabel, shortcutHintLabel} from '../settings/shortcut-format';
-import {useSettingsStore} from '../settings/settings.store';
 import {LauncherStatus} from './LauncherStatus';
 import {useLauncherStore} from './launcher.store';
 import {useQueryStore} from './query.store';
@@ -38,21 +38,20 @@ const LauncherComposer = memo(function LauncherComposer({
   voiceActive = false,
 }: LauncherComposerProps) {
   const intent = useLauncherStore((state) => state.intent);
-  const shortcut = useSettingsStore((state) => state.general.shortcut);
   return (
-    <div className="flex w-full min-w-0 items-center gap-[8px]" data-tauri-drag-region>
-      <span
-        aria-hidden="true"
-        className="grid size-[28px] shrink-0 place-items-center text-text-secondary"
-      >
-        <LumenMark size="medium" />
-      </span>
+    <div className="flex w-full min-w-0 items-center gap-[10px]" data-tauri-drag-region>
+      <LumenAppMark />
       <LumenButton
         aria-label={intent === 'computer' ? 'Switch to file search' : 'Switch to Computer Use'}
-        className="max-w-[144px] min-w-8 shrink-0 gap-[6px] rounded-pill bg-[var(--einui-command-row)] px-[10px] text-text-secondary"
+        className={cn(
+          'h-[30px] min-h-[30px] max-w-[148px] min-w-8 shrink-0 gap-[6px] rounded-pill px-[10px] font-medium',
+          intent === 'computer'
+            ? 'border-accent/30 bg-accent/12 text-accent data-[hovered]:bg-accent/18'
+            : 'border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row)] text-[color:var(--einui-command-muted-text)] data-[hovered]:border-[color:var(--einui-command-border)] data-[hovered]:bg-[var(--einui-command-row-hover)] data-[hovered]:text-[color:var(--einui-command-text)]',
+        )}
         isDisabled={intentLocked}
         size="small"
-        variant="quiet"
+        variant="subtle"
         onPress={onIntentChange}
       >
         <LumenUiIcon name={intent === 'computer' ? 'search' : 'computer'} size="small" />
@@ -60,6 +59,7 @@ const LauncherComposer = memo(function LauncherComposer({
           {intent === 'computer' ? 'File search' : 'Computer Use'}
         </span>
       </LumenButton>
+      <span aria-hidden="true" className="h-[20px] w-px shrink-0 bg-[var(--einui-command-divider)]" />
       <SearchInput
         ref={inputRef}
         intent={intent}
@@ -67,19 +67,16 @@ const LauncherComposer = memo(function LauncherComposer({
         onSubmit={intentLocked ? undefined : onComputerSubmit}
       />
       {onVoiceRequest ? (
-        <LumenButton
+        <LumenIconButton
           aria-label={voiceActive ? 'Stop voice input' : 'Start voice input'}
-          className="shrink-0"
+          className={voiceActive ? 'rounded-pill bg-accent/15 text-accent' : 'rounded-pill'}
           size="small"
           variant="quiet"
           onPress={onVoiceRequest}
         >
           <LumenUiIcon name="voice" size="small" />
-        </LumenButton>
+        </LumenIconButton>
       ) : null}
-      <kbd className="einui-command-shortcut lumen-composer-hint shrink-0" aria-label={shortcutAriaLabel(shortcut)}>
-        {shortcutHintLabel(shortcut)}
-      </kbd>
     </div>
   );
 });

@@ -2,6 +2,7 @@ import {useEffect, useLayoutEffect, useMemo, useRef} from 'react';
 import {GridList, type Key, type Selection} from 'react-aria-components';
 import {motion} from 'motion/react';
 
+import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {motionTokens} from '../../design-system/motion';
 import type {SearchResult} from '../../services/search/search.types';
 import {useAppearanceStore} from '../../state/appearance.store';
@@ -205,11 +206,14 @@ export function ResultGrid({
   const renderEmptyState = () => (
     <motion.div
       animate={{opacity: 1}}
-      className="grid min-h-[220px] place-items-center p-6 text-center font-sans text-[0.9375rem] text-[color:var(--einui-command-muted-text)]"
+      className="grid min-h-[220px] place-content-center justify-items-center gap-[12px] p-6 text-center font-sans text-[0.9375rem] text-[color:var(--einui-command-muted-text)]"
       initial={reducedMotion ? false : {opacity: 0}}
       transition={{duration: motionTokens.duration.selection}}
     >
-      {emptyLabel}
+      <span aria-hidden="true" className="grid size-[44px] place-items-center rounded-[14px] border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row)] text-[color:var(--lumen-text-tertiary)]">
+        <LumenUiIcon name="search" />
+      </span>
+      <span>{emptyLabel}</span>
     </motion.div>
   );
   const gridClassName = 'relative grid content-start gap-1 p-1.5 outline-none';
