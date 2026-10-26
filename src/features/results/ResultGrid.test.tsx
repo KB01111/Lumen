@@ -207,6 +207,14 @@ describe('ResultGrid', () => {
     );
   });
 
+  it('colors row metadata with the row-local muted token so high-contrast highlights can override it', () => {
+    render(<ResultGrid results={[file('sized'), file('pending', {availability: 'loading'})]} selectedId="sized" />);
+    for (const label of [screen.getByText('2 KB', {exact: true}), screen.getByText('Loading', {exact: true})]) {
+      expect(label).toHaveClass('text-[color:var(--einui-command-muted-text)]');
+      expect(label.className).not.toContain('--lumen-text-tertiary');
+    }
+  });
+
   it('renders the selection capsule as an accent tint with a hairline edge that yields to high contrast', () => {
     const results = [file('selected')];
     const {container} = render(
