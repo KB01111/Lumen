@@ -147,6 +147,26 @@ describe('launcher presence', () => {
     expect(windowService.snapshot().visible).toBe(false);
   });
 
+  it('joins a repeated hide to the dismissal in flight', async () => {
+    const {animations, element} = presenceSurface();
+    detach = attachLauncherPresence(element, false);
+    const windowService = new BrowserWindowService();
+    await windowService.show('collapsed');
+    const nativeHide = vi.spyOn(windowService, 'hide');
+
+    const first = requestWindowHide(windowService);
+    const second = requestWindowHide(windowService);
+    await Promise.resolve();
+
+    expect(animations).toHaveLength(1);
+    expect(animations[0].playState).toBe('running');
+    expect(nativeHide).not.toHaveBeenCalled();
+    animations[0].finish();
+    await Promise.all([first, second]);
+    expect(nativeHide).toHaveBeenCalled();
+    expect(windowService.snapshot().visible).toBe(false);
+  });
+
   it('never animates expanded modes over their native backdrop', () => {
     const {animations, element} = presenceSurface();
     detach = attachLauncherPresence(element, false);

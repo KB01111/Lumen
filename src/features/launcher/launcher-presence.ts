@@ -26,6 +26,7 @@ interface PresenceFrame {
 
 let surface: PresenceSurface | null = null;
 let animation: Animation | null = null;
+let dismissal: {animation: Animation; settled: Promise<void>} | null = null;
 
 const restFrame: PresenceFrame = {opacity: 1, transform: 'none'};
 
@@ -106,6 +107,9 @@ export function dismissLauncher(): Promise<void> | null {
   if (!element || !canAnimate(element) || document.visibilityState === 'hidden') {
     return null;
   }
+  // A repeated hide joins the dismissal in flight instead of restarting it,
+  // so the earlier request cannot hide the window mid-fade.
+  if (dismissal && dismissal.animation === animation) return dismissal.settled;
   const {launcher, duration, easing, reduced} = motionTokens;
   const reducedMotion = surface?.reducedMotion ?? false;
   const dismissed: PresenceFrame = {
@@ -119,7 +123,7 @@ export function dismissLauncher(): Promise<void> | null {
     {...dismissed},
   ], {duration: durationMs, easing: 'linear', fill: 'forwards'});
   track(next);
-  return new Promise<void>((resolve) => {
+  const settled = new Promise<void>((resolve) => {
     const guard = window.setTimeout(resolve, durationMs + 120);
     next.finished.then(
       () => {
@@ -133,6 +137,8 @@ export function dismissLauncher(): Promise<void> | null {
       },
     );
   });
+  dismissal = {animation: next, settled};
+  return settled;
 }
 
 /** Binds the choreography to the launcher surface for as long as it is mounted. */

@@ -34,7 +34,7 @@ A hidden native window keeps presenting the last frame it painted, so the launch
 
 - Hiding from the launcher (Escape on an empty query, opening a file) fades the collapsed pill out with WAAPI and holds a transparent end frame before the native hide is requested. The fade reaches zero at 75 percent of its duration, so the captured frame is transparent rather than mid-fade.
 - The next shortcut, second-instance or command show therefore starts invisible. The visible-state change starts the summon in the same task, from the held frame, on the wrapper that owns the surface and exterior glow.
-- A summon during a dismissal turns around from the current opacity and transform, and the superseded hide is never sent to native. A dismissal interrupted by a summon does the same in reverse.
+- A summon during a dismissal turns around from the current opacity and transform, and the superseded hide is never sent to native. A dismissal interrupted by a summon does the same in reverse. A repeated hide joins the dismissal in flight rather than restarting it, so no request hides the window mid-fade.
 - Shows with nothing held (first launch, native close, an unmounted surface) appear immediately, as before. Hides with nothing to animate issue the native request synchronously.
 - Only the collapsed mode animates. Expanded, onboarding and settings modes sit on an opaque native backdrop that web opacity cannot fade, so they hide and show at once.
 - The dismissal is bounded by a guard timer and is skipped in a hidden document. Finished animations release their effects; only the held, non-running dismissal frame persists while hidden.
