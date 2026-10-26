@@ -62,7 +62,9 @@ export function ResultRow({
       textValue={result.name}
     >
       <>
-        <FileGlyph kind={result.kind} selected={selected} size="large" />
+        <span className={`grid size-[32px] place-items-center rounded-[9px] transition-colors duration-[var(--lumen-duration-selection)] ease-standard high-contrast:bg-transparent ${selected ? 'bg-accent/12' : 'bg-[var(--einui-command-row)]'}`}>
+          <FileGlyph kind={result.kind} selected={selected} size="large" />
+        </span>
         <div className="grid min-w-0 gap-0.5">
           <div className="flex min-w-0 items-baseline gap-[8px]">
             <span className="inline-flex min-w-0 font-sans text-sm font-medium text-[color:var(--einui-command-text)]" title={result.name}>
@@ -75,9 +77,9 @@ export function ResultRow({
             {result.match.source !== 'filename' && result.match.fragment ? <span className="min-w-0 truncate text-[color:var(--einui-command-muted-text)]">{result.match.fragment}</span> : null}
           </div>
         </div>
-        <span className="hidden shrink-0 rounded-pill bg-[var(--einui-command-row)] px-[8px] py-[2px] font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)] @min-[560px]/results:block">{sourceLabels[result.match.source]}</span>
-        <span className="flex max-w-[110px] justify-end text-right font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">{stateLabel || formatSize(result.metadata.sizeBytes)}</span>
-        <kbd aria-hidden="true" className="hidden min-w-[42px] justify-end font-sans text-xs text-[color:var(--einui-command-muted-text)] opacity-0 group-aria-selected:opacity-100 @min-[680px]/results:flex">Enter</kbd>
+        <span className="hidden shrink-0 rounded-pill border border-[color:var(--einui-command-divider)] px-[8px] py-[1px] font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)] @min-[560px]/results:block">{sourceLabels[result.match.source]}</span>
+        <span className="flex max-w-[110px] justify-end text-right font-sans text-[0.6875rem] tabular-nums text-[color:var(--einui-command-muted-text)]">{stateLabel || formatSize(result.metadata.sizeBytes)}</span>
+        <kbd aria-hidden="true" className="hidden min-w-[42px] justify-end opacity-0 group-aria-selected:opacity-100 @min-[680px]/results:flex"><span className="grid h-[20px] min-w-[24px] place-items-center rounded-[6px] border border-[color:var(--einui-command-divider)] bg-[var(--einui-command-row)] px-[6px] font-sans text-[0.6875rem] text-[color:var(--einui-command-muted-text)]">↵</span></kbd>
       </>
     </GridListItem>
   );

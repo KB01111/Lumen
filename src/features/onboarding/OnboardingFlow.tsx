@@ -4,6 +4,7 @@ import {AnimatePresence, motion} from 'motion/react';
 
 import {useLumenMotion} from '../../design-system/MotionProvider';
 import {motionTokens} from '../../design-system/motion';
+import {LumenAppMark} from '../../design-system/icons/LumenAppMark';
 import {LumenUiIcon} from '../../design-system/icons/LumenUiIcon';
 import {LumenButton} from '../../design-system/primitives/LumenButton';
 import {LumenSurface} from '../../design-system/primitives/LumenSurface';
@@ -35,7 +36,7 @@ function StandardScene({step}: {step: Exclude<OnboardingStep, 'root' | 'shortcut
     return (
       <OnboardingScene
         description="Find the file you mean before the thought is gone."
-        icon={<LumenUiIcon className="size-12" name="search" />}
+        icon={<LumenUiIcon className="size-10" name="search" />}
         support="Fast local search comes first. AI and cloud providers remain optional."
         title="Everything, within reach"
       />
@@ -51,7 +52,7 @@ function ChoicesScene() {
   return (
     <OnboardingScene
       description="Exact local search is always available. AI answers are optional."
-      icon={<LumenUiIcon className="size-12" name="hardware" />}
+      icon={<LumenUiIcon className="size-10" name="hardware" />}
       support="Cloud answers can send the query and relevant local excerpts to your configured provider. Leave this off to keep answers local."
       title="Choose how answers run"
     >
@@ -181,13 +182,16 @@ export function OnboardingFlow({
       onKeyDown={handleKeyDown}
     >
       <header data-tauri-drag-region className="flex min-h-[54px] min-w-0 items-center justify-between gap-[12px] border-b border-border-subtle px-[20px]">
-        <LumenText weight="semibold">Lumen</LumenText>
+        <div className="flex min-w-0 items-center gap-[10px]">
+          <LumenAppMark size="small" />
+          <LumenText weight="semibold">Lumen</LumenText>
+        </div>
         <div aria-label={`Step ${currentIndex + 1} of ${onboardingSteps.length}`} className="flex shrink-0 items-center gap-[8px]">
           {onboardingSteps.map((item, index) => (
             <span
               key={item}
               aria-hidden="true"
-              className={index <= currentIndex ? 'h-[3px] w-[18px] rounded-pill bg-accent' : 'h-[3px] w-[18px] rounded-pill bg-border-strong'}
+              className={index === currentIndex ? 'h-[4px] w-[26px] rounded-pill bg-accent shadow-[0_0_8px_var(--lumen-accent)] transition-[width] duration-[var(--lumen-duration-page)] ease-standard' : index < currentIndex ? 'h-[4px] w-[12px] rounded-pill bg-accent/60 transition-[width] duration-[var(--lumen-duration-page)] ease-standard' : 'h-[4px] w-[12px] rounded-pill bg-border-strong transition-[width] duration-[var(--lumen-duration-page)] ease-standard'}
             />
           ))}
         </div>

@@ -210,11 +210,12 @@ describe('GlassCommandPalette', () => {
 }`);
   });
 
-  it('uses the shared neutral shortcut fill and system-color fallback', () => {
-    expect(paletteStyles).toContain('--einui-command-shortcut: var(--einui-command-row);');
-    expect(paletteStyles).toContain('background: var(--einui-command-shortcut);');
+  it('uses the shared footer tray and system-color fallback', () => {
+    expect(paletteStyles).toContain('--einui-command-tray: color-mix(in srgb, var(--lumen-surface-inset) 55%, transparent);');
+    expect(paletteStyles).toContain('background: var(--einui-command-tray);');
     expect(paletteStyles).toContain("[data-contrast='high'] .einui-command-palette-wrapper {");
-    expect(paletteStyles).toContain('--einui-command-shortcut: Canvas;');
+    expect(paletteStyles).toContain('--einui-command-tray: Canvas;');
+    expect(paletteStyles).not.toContain('--einui-command-shortcut');
   });
 
   it('keeps command and demo concerns outside the component contract', () => {

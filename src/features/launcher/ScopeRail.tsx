@@ -55,19 +55,19 @@ export const ScopeRail = memo(function ScopeRail() {
 
   return (
     <Tabs
-      className="min-w-0 border-t border-[color:var(--einui-command-divider)]"
+      className="min-w-0"
       selectedKey={activeScope}
       onSelectionChange={(key) => setScope(key as SearchScope)}
     >
-      <TabList aria-label="Search scopes" className="flex items-center gap-[2px] overflow-x-auto px-[14px] py-[6px] [scrollbar-width:none]" items={enabledScopes}>
+      <TabList aria-label="Search scopes" className="flex items-center gap-[2px] overflow-x-auto px-[12px] pt-[2px] pb-[8px] [scrollbar-width:none]" items={enabledScopes}>
         {(scope) => (
           <Tab
             id={scope.id}
             className={({isFocusVisible, isHovered, isSelected}) =>
               cn(
                 'relative min-h-[32px] shrink-0 cursor-default rounded-pill bg-transparent px-[12px] py-[4px] font-sans text-[0.8125rem] font-medium text-[color:var(--einui-command-muted-text)] outline-2 outline-offset-1 outline-transparent transition-[background-color,color,outline-color] duration-[var(--lumen-duration-selection)] ease-standard',
-                isHovered && 'bg-[var(--einui-command-row-hover)] text-[color:var(--einui-command-text)]',
-                isSelected && 'text-[color:var(--einui-command-text)]',
+                isHovered && 'bg-[var(--einui-command-row-hover)] text-[color:var(--einui-command-text)] high-contrast:text-[HighlightText]',
+                isSelected && 'text-[color:var(--einui-command-text)] high-contrast:text-[HighlightText]',
                 isFocusVisible && 'outline-[color:var(--lumen-focus)]',
               )
             }
@@ -79,7 +79,7 @@ export const ScopeRail = memo(function ScopeRail() {
                     aria-hidden="true"
                     layoutId="lumen-scope-indicator"
                     transition={layoutTransition}
-                    className="absolute inset-0 z-0 rounded-pill bg-[var(--einui-command-row-selected)]"
+                    className="absolute inset-0 z-0 rounded-pill bg-[var(--einui-command-row-selected)] shadow-[inset_0_0_0_1px_var(--einui-command-row-selected-edge)]"
                   />
                 ) : null}
                 <span className="relative z-10">{scope.label}</span>

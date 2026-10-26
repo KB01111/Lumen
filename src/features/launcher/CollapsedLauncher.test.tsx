@@ -22,17 +22,16 @@ afterEach(() => {
 });
 
 describe('CollapsedLauncher', () => {
-  it('shows the configured global shortcut in the composer hint', () => {
+  it('keeps the composer free of a global shortcut hint', () => {
     render(<CollapsedLauncher windowService={new BrowserWindowService()} />);
-    const defaultHint = screen.getByLabelText('Alt plus Space');
-    expect(defaultHint).toHaveTextContent('Alt Space');
-    expect(defaultHint).toHaveClass('lumen-composer-hint');
+    const launcher = screen.getByLabelText('Lumen launcher');
+    expect(screen.queryByLabelText('Alt plus Space')).not.toBeInTheDocument();
+    expect(launcher).not.toHaveTextContent(/Alt\s*\+?\s*Space/);
 
     act(() => useSettingsStore.setState((state) => ({general: {...state.general, shortcut: 'Ctrl + Shift + K'}})));
-    const hint = screen.getByLabelText('Ctrl plus Shift plus K');
-    expect(hint).toHaveTextContent('Ctrl Shift K');
-    expect(hint).toHaveClass('lumen-composer-hint');
-    expect(screen.queryByLabelText('Alt plus Space')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Ctrl plus Shift plus K')).not.toBeInTheDocument();
+    expect(launcher).not.toHaveTextContent(/Ctrl\s*\+?\s*Shift\s*\+?\s*K/);
+    expect(launcher.querySelector('kbd')).toBeNull();
   });
 
   it('updates the Escape hint before deferred input reaches the query store', async () => {

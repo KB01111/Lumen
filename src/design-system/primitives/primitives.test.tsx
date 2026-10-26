@@ -24,6 +24,7 @@ describe('Lumen primitives', () => {
 
     const action = screen.getByRole('button', {name: 'Continue'});
     expect(action).toHaveAttribute('data-variant', 'primary');
+    expect(action.className).toContain('data-[focus-visible]:outline-solid');
     expect(screen.getByRole('button', {name: 'Open settings'})).toBeVisible();
 
     await user.tab();

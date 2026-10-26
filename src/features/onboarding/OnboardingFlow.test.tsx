@@ -96,7 +96,8 @@ describe('OnboardingFlow', () => {
     await user.click(screen.getByRole('button', {name: 'Begin'}));
     await user.click(await screen.findByRole('button', {name: 'Choose folder'}));
     await act(async () => service.resolve('C:\\Projects'));
-    expect(screen.getByText('C:\\Projects')).toBeVisible();
+    // The entering scene fades in; wait for it rather than racing its first frame.
+    await waitFor(() => expect(screen.getByText('C:\\Projects')).toBeVisible());
 
     await user.click(screen.getByRole('button', {name: 'Continue'}));
     await user.click(screen.getByRole('button', {name: 'Continue'}));

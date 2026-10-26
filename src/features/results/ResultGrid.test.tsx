@@ -207,7 +207,15 @@ describe('ResultGrid', () => {
     );
   });
 
-  it('renders the selection capsule as a flat semantic tint without border or shadow', () => {
+  it('colors row metadata with the row-local muted token so high-contrast highlights can override it', () => {
+    render(<ResultGrid results={[file('sized'), file('pending', {availability: 'loading'})]} selectedId="sized" />);
+    for (const label of [screen.getByText('2 KB', {exact: true}), screen.getByText('Loading', {exact: true})]) {
+      expect(label).toHaveClass('text-[color:var(--einui-command-muted-text)]');
+      expect(label.className).not.toContain('--lumen-text-tertiary');
+    }
+  });
+
+  it('renders the selection capsule as an accent tint with a hairline edge that yields to high contrast', () => {
     const results = [file('selected')];
     const {container} = render(
       <ResultGrid results={results} selectedId="selected" />,
@@ -217,7 +225,10 @@ describe('ResultGrid', () => {
 
     expect(capsule).not.toBeNull();
     expect(capsule?.className).toContain('bg-[var(--einui-command-row-selected)]');
-    expect(capsule?.className).not.toMatch(/\bborder\b|shadow/);
+    expect(capsule?.className).toContain('shadow-[inset_0_0_0_1px_var(--einui-command-row-selected-edge)]');
+    expect(capsule?.className).toContain('high-contrast:shadow-none');
+    expect(capsule?.className).toContain('high-contrast:before:hidden');
+    expect(capsule?.className).not.toMatch(/\bborder\b/);
   });
 
   it('clears a disabled selection so sibling surfaces cannot retain it', () => {

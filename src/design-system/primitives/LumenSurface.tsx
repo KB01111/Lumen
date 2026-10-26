@@ -37,7 +37,7 @@ export const LumenSurface = forwardRef<HTMLDivElement, LumenSurfaceProps>(
         data-material={material}
       >
         <span aria-hidden="true" data-material-layer="specular" className="pointer-events-none absolute inset-0 -z-30 rounded-[inherit] shadow-[inset_0_1px_0_var(--lumen-border-specular)]" />
-        <span aria-hidden="true" data-material-layer="luminosity" className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(120%_90%_at_14%_-18%,rgba(255,255,255,0.025),transparent_54%)]" />
+        <span aria-hidden="true" data-material-layer="luminosity" className="pointer-events-none absolute inset-0 -z-20 rounded-[inherit] [background:linear-gradient(90deg,transparent_8%,color-mix(in_srgb,var(--lumen-beam)_55%,transparent)_50%,transparent_92%)_top/100%_1px_no-repeat,radial-gradient(60%_140px_at_50%_0%,color-mix(in_srgb,var(--lumen-beam)_7%,transparent),transparent)]" />
         <span aria-hidden="true" data-material-layer="noise" className="pointer-events-none absolute inset-0 -z-10 bg-[image:var(--lumen-surface-noise)] bg-repeat mix-blend-soft-light [background-size:180px_180px]" style={noiseStyle} />
         {children}
       </div>

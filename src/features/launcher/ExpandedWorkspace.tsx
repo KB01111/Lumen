@@ -275,8 +275,8 @@ export const ExpandedWorkspace = memo(function ExpandedWorkspace({
           ? 'grid min-h-[94px] min-w-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(280px,38%)] overflow-hidden'
           : 'grid min-h-[94px] min-w-0 flex-1 grid-cols-1 overflow-hidden'}>
           <section aria-label="Search result list" className="flex min-h-0 min-w-0 flex-col">
-            <header className="flex min-h-[28px] shrink-0 items-end px-[20px] pb-[2px]">
-              <span className="font-sans text-[0.6875rem] font-medium tracking-[0.02em] text-[color:var(--lumen-text-tertiary)]">Local results</span>
+            <header className="flex min-h-[30px] shrink-0 items-end px-[20px] pb-[4px]">
+              <span className="font-sans text-[0.625rem] font-semibold uppercase tracking-[0.09em] text-[color:var(--lumen-text-tertiary)]">Local results</span>
             </header>
             <SelectionBoundResults
               emptyState={results.length === 0 ? emptyLabel(lifecycle, error) : 'No files found'}
