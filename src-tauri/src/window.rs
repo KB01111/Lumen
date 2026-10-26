@@ -465,6 +465,20 @@ fn place_on_preferred_monitor(
         .map_err(|error| error.to_string())
 }
 
+/// A visible summon keeps the window's bounds, so it is centered with its
+/// current logical size rather than the mode's baseline size.
+fn current_geometry(window: &WebviewWindow, geometry: WindowGeometry) -> WindowGeometry {
+    window
+        .outer_size()
+        .and_then(|size| Ok(size.to_logical::<f64>(window.scale_factor()?)))
+        .map(|size| WindowGeometry {
+            width: size.width,
+            height: size.height,
+            ..geometry
+        })
+        .unwrap_or(geometry)
+}
+
 fn native_effects_for_mode(mode: WindowMode) -> Option<tauri::utils::config::WindowEffectsConfig> {
     (mode != WindowMode::Collapsed).then(|| {
         EffectsBuilder::new()
@@ -540,10 +554,13 @@ fn show_window(
         .try_state::<RuntimePreferences>()
         .map(|preferences| preferences.monitor_behavior())
         .unwrap_or_default();
-    if plan.apply_bounds {
+    let placement = if plan.apply_bounds {
         apply_geometry(window, geometry)?;
-    }
-    place_on_preferred_monitor(window, geometry, monitor_behavior)?;
+        geometry
+    } else {
+        current_geometry(window, geometry)
+    };
+    place_on_preferred_monitor(window, placement, monitor_behavior)?;
     if plan.apply_bounds {
         apply_native_material(window, plan.mode)?;
     }
@@ -804,6 +821,20 @@ mod tests {
         );
 
         assert_eq!(position, LauncherPosition { x: 2675, y: 234 });
+
+        // A user-resized window centers with its own width, not the baseline.
+        let resized = launcher_position(
+            WorkArea {
+                x: 0,
+                y: 0,
+                width: 1920,
+                height: 1080,
+            },
+            960.0,
+            540.0,
+            1.0,
+        );
+        assert_eq!(resized.x, (1920 - 960) / 2);
     }
 
     #[test]
