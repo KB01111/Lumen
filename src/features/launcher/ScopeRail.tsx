@@ -66,8 +66,8 @@ export const ScopeRail = memo(function ScopeRail() {
             className={({isFocusVisible, isHovered, isSelected}) =>
               cn(
                 'relative min-h-[30px] shrink-0 cursor-default rounded-pill bg-transparent px-[12px] py-[4px] font-sans text-[0.8125rem] font-medium text-[color:var(--einui-command-muted-text)] outline-2 outline-offset-1 outline-transparent transition-[background-color,color,outline-color] duration-[var(--lumen-duration-selection)] ease-standard',
-                isHovered && 'bg-[var(--einui-command-row-hover)] text-[color:var(--einui-command-text)]',
-                isSelected && 'text-[color:var(--einui-command-text)]',
+                isHovered && 'bg-[var(--einui-command-row-hover)] text-[color:var(--einui-command-text)] high-contrast:text-[HighlightText]',
+                isSelected && 'text-[color:var(--einui-command-text)] high-contrast:text-[HighlightText]',
                 isFocusVisible && 'outline-[color:var(--lumen-focus)]',
               )
             }

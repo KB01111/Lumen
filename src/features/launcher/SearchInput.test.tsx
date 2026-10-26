@@ -66,3 +66,12 @@ describe('SearchInput composition admission', () => {
     });
   }
 });
+
+describe('SearchInput focus indicator', () => {
+  it('draws a semantic focus beam outside forced colors and an outline within them', () => {
+    render(<SearchInput onEscapeEmpty={() => undefined} />);
+    const field = screen.getByRole('search', {name: 'File search'});
+    expect(field).toHaveClass('bg-[length:0%_2px]', 'focus-within:bg-[length:100%_2px]', 'forced-colors:focus-within:outline');
+    expect(field.className).toContain('var(--lumen-focus)');
+  });
+});
