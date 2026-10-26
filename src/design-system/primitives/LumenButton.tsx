@@ -5,7 +5,7 @@ import {cva} from 'class-variance-authority';
 import {cn} from '../../lib/cn';
 
 const buttonStyles = cva(
-  'inline-flex min-w-[32px] cursor-default select-none items-center justify-center gap-[8px] rounded-control border font-sans outline-none transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--lumen-duration-hover)] ease-standard data-[focus-visible]:outline-2 data-[focus-visible]:outline-offset-2 data-[focus-visible]:outline-focus data-[pressed]:translate-y-px data-[pressed]:scale-[.985] data-[pressed]:duration-[var(--lumen-duration-press)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-55',
+  'inline-flex min-w-[32px] cursor-default select-none items-center justify-center gap-[8px] rounded-control border font-sans outline-none transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--lumen-duration-hover)] ease-standard data-[focus-visible]:outline-2 data-[focus-visible]:outline-solid data-[focus-visible]:outline-offset-2 data-[focus-visible]:outline-focus data-[pressed]:translate-y-px data-[pressed]:scale-[.985] data-[pressed]:duration-[var(--lumen-duration-press)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-55',
   {
     variants: {
       variant: {

@@ -86,6 +86,10 @@ describe('Lumen CSS appearance contract', () => {
 [data-effects='reduced'] [data-material-layer='luminosity'] {
   display: none;
 }`);
+    expect(normalizedCss).toContain(`
+[data-transparency='disabled'] [data-material-layer='luminosity'] {
+  display: none;
+}`);
   });
 
   it('keeps the Lottie activity mark semantic and static in forced colors', () => {

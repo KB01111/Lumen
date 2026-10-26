@@ -30,6 +30,7 @@ describe('CollapsedLauncher', () => {
 
     act(() => useSettingsStore.setState((state) => ({general: {...state.general, shortcut: 'Ctrl + Shift + K'}})));
     expect(screen.queryByLabelText('Ctrl plus Shift plus K')).not.toBeInTheDocument();
+    expect(launcher).not.toHaveTextContent(/Ctrl\s*\+?\s*Shift\s*\+?\s*K/);
     expect(launcher.querySelector('kbd')).toBeNull();
   });
 
