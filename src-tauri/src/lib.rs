@@ -235,9 +235,15 @@ pub fn run() {
             } else {
                 development_vector
             };
-            app.manage(search::winsearch_engine::EngineRuntime::new(
+            let winsearch = search::winsearch_engine::EngineRuntime::new(
                 app.path().resource_dir()?, data_directory.join("winsearch-engine"),
-            ));
+            );
+            // A persisted pause must reach the engine with the first admitted folders, not after them.
+            winsearch.set_background_normal(
+                app.state::<activity::ActivityRuntime>().snapshot().background_policy
+                    == activity::BackgroundPolicy::Normal,
+            );
+            app.manage(winsearch);
             // Start the verified engine in the background so the first query can use it.
             let warm_up = app.handle().clone();
             tauri::async_runtime::spawn(async move {
