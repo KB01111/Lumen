@@ -773,7 +773,9 @@ impl EngineRuntime {
         Ok(())
     }
 
-    /// Records the host's folder grants and forwards them to the engine.
+    /// Records the host's folder grants and forwards them to the engine (used by the native test;
+    /// the host records grants synchronously and pushes the cached policy separately).
+    #[cfg(test)]
     pub(crate) async fn configure_roots(
         &self,
         roots: &[super::indexing::IndexRootRequest],

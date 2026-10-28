@@ -12,13 +12,17 @@ use std::{
 use futures_util::future::{Either, select};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, State, ipc::Channel};
-use ws_client::protocol::{
-    FileKind as EngineFileKind, MatchLocation, ResultKind, SearchDisposition, SearchMode,
-    SearchOutcome, SearchQuery, SearchResult, SemanticIssue, SemanticPhase as EnginePhase,
+use ws_client::{
+    SearchBatch,
+    protocol::{
+        FileKind as EngineFileKind, MatchLocation, ResultKind, SearchDisposition, SearchMode,
+        SearchOutcome, SearchQuery, SearchResult, SemanticIssue, SemanticPhase as EnginePhase,
+    },
 };
 
 use super::{
     IndexedHit, SearchFailure,
+    index::LocalIdentity,
     indexing::{
         HybridHit, HybridSearchResponse, IndexRuntime, SearchFilterRequest, SemanticPhase,
         SemanticRetrievalStatus, validate_search_options,
@@ -156,7 +160,7 @@ pub(super) fn map_result(
         }) if seconds.is_finite() && seconds >= 0.0 => {
             let start = (seconds * 1000.0) as u64;
             let end = (end_seconds.is_finite() && end_seconds >= seconds)
-                .then(|| (end_seconds * 1000.0) as u64);
+                .then_some((end_seconds * 1000.0) as u64);
             (None, Some(start), end)
         }
         _ => (None, None, None),
@@ -171,6 +175,13 @@ pub(super) fn map_result(
     } else {
         "content"
     };
+    let local = local(Path::new(&metadata.path));
+    // The engine and the local crawler index independently: the local hash and revision describe
+    // the file only while the size and modification time they were recorded with still match.
+    let fresh = local.as_ref().filter(|identity| {
+        identity.size_bytes == Some(metadata.size_bytes)
+            && identity.modified_ms == metadata.modified_ms
+    });
     Some(HybridHit {
         hit: IndexedHit {
             stable_id: local.as_ref().map_or_else(
@@ -244,6 +255,13 @@ pub(super) fn semantic_status(outcome: Option<&SearchOutcome>) -> SemanticRetrie
     }
 }
 
+/// What ended one wait on the engine stream.
+enum Wake {
+    Batch(Result<Option<SearchBatch>, ws_client::Error>),
+    Stale,
+    Deadline,
+}
+
 async fn wait_until_stale(runtime: IndexRuntime, request_id: u64) {
     while runtime.search_is_current(request_id) {
         tokio::time::sleep(STALE_POLL).await;
@@ -308,16 +326,23 @@ pub async fn search_winsearch(
     let mut items: Vec<HybridHit> = Vec::new();
     let mut seen = HashSet::new();
     loop {
-        let pending = Box::pin(stream.next());
-        let stale = Box::pin(wait_until_stale(runtime.clone(), request_id));
-        let received = match tokio::time::timeout_at(deadline, select(pending, stale)).await {
-            Ok(Either::Left((received, _))) => received,
-            Ok(Either::Right((_, pending))) => {
-                drop(pending);
+        // The futures that borrow `stream` end with this block, so it can be cancelled below.
+        let wake = {
+            let pending = Box::pin(stream.next());
+            let stale = Box::pin(wait_until_stale(runtime.clone(), request_id));
+            match tokio::time::timeout_at(deadline, select(pending, stale)).await {
+                Ok(Either::Left((received, _))) => Wake::Batch(received),
+                Ok(Either::Right(_)) => Wake::Stale,
+                Err(_) => Wake::Deadline,
+            }
+        };
+        let received = match wake {
+            Wake::Batch(received) => received,
+            Wake::Stale => {
                 let _ = stream.cancel().await;
                 return Ok(HybridSearchResponse::lexical(Vec::new()));
             }
-            Err(_) => {
+            Wake::Deadline => {
                 // A stalled stream must not hold the launcher: the frontend falls back locally.
                 let _ = stream.cancel().await;
                 return Err(unavailable());
@@ -326,7 +351,8 @@ pub async fn search_winsearch(
         let Some(batch) = received.map_err(|_| unavailable())? else {
             return Err(unavailable());
         };
-        let worker_roots = roots.clone();
+        // Grants are re-read per batch so a folder revoked mid-search stops contributing at once.
+        let worker_roots = engine.configured_roots();
         let worker_index = runtime.clone();
         let results = batch.batch;
         let mapped = tauri::async_runtime::spawn_blocking(move || {
