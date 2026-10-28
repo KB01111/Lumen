@@ -561,8 +561,19 @@ pub(crate) struct EngineRuntime {
     startup: tokio::sync::Mutex<()>,
     /// Last folder policy sent by the host; a restarted engine comes back deferred, so it is re-sent.
     config: Mutex<Option<ws_client::protocol::IndexingConfig>>,
-    /// Granted roots exactly as configured, for confining engine results.
-    roots: Mutex<Vec<PathBuf>>,
+    /// Granted roots with their admission policy, for confining engine results.
+    roots: Mutex<Vec<GrantedRoot>>,
+    /// Whether background work is currently allowed (no pause, game or battery restriction).
+    background_normal: AtomicBool,
+    /// Serializes configuration sends so the newest policy is always the last one delivered.
+    lane: tokio::sync::Mutex<()>,
+}
+
+/// A folder grant and the policy its results must still satisfy when they are shown.
+#[derive(Clone, Debug)]
+pub(super) struct GrantedRoot {
+    pub path: PathBuf,
+    pub policy: super::traversal::TraversalPolicy,
 }
 
 /// Engine results must not delay typing: a search never waits for a cold start.
@@ -599,6 +610,8 @@ impl EngineRuntime {
             startup: tokio::sync::Mutex::new(()),
             config: Mutex::new(None),
             roots: Mutex::new(Vec::new()),
+            background_normal: AtomicBool::new(true),
+            lane: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -681,29 +694,61 @@ impl EngineRuntime {
         &self,
         roots: &[super::indexing::IndexRootRequest],
         background_normal: bool,
-    ) -> Result<ws_client::protocol::IndexingConfig, SearchFailure> {
+    ) -> Result<(), SearchFailure> {
+        self.background_normal
+            .store(background_normal, Ordering::SeqCst);
         let config = indexing_config(roots, background_normal);
-        *self.config.lock().map_err(|_| unavailable())? = Some(config.clone());
-        *self.roots.lock().map_err(|_| unavailable())? =
-            roots.iter().map(|root| PathBuf::from(&root.path)).collect();
-        Ok(config)
+        // A root whose policy cannot be enforced locally is never served from the engine.
+        let granted = roots
+            .iter()
+            .filter_map(|root| {
+                let bytes = root.max_file_size_mb.checked_mul(1024 * 1024)?;
+                let policy = super::traversal::TraversalPolicy::new(
+                    root.exclusions.clone(),
+                    root.include_hidden,
+                    bytes,
+                )
+                .ok()?;
+                Some(GrantedRoot {
+                    path: PathBuf::from(&root.path),
+                    policy,
+                })
+            })
+            .collect();
+        *self.config.lock().map_err(|_| unavailable())? = Some(config);
+        *self.roots.lock().map_err(|_| unavailable())? = granted;
+        Ok(())
     }
 
-    /// Records the host's folder grants and forwards them to the engine.
-    pub(crate) async fn configure_roots(
-        &self,
-        roots: &[super::indexing::IndexRootRequest],
-        background_normal: bool,
-    ) -> Result<(), SearchFailure> {
-        let config = self.remember_roots(roots, background_normal)?;
+    /// Applies a background-policy change (pause, game, battery) to the cached engine policy.
+    /// Returns whether the engine's configuration changed and must be re-sent.
+    pub(crate) fn set_background_normal(&self, normal: bool) -> bool {
+        if self.background_normal.swap(normal, Ordering::SeqCst) == normal {
+            return false;
+        }
+        let Ok(mut slot) = self.config.lock() else {
+            return false;
+        };
+        let Some(config) = slot.as_mut() else {
+            return false;
+        };
+        config.paused = config.roots.is_empty() || !normal;
+        true
+    }
+
+    #[cfg(test)]
+    pub(super) fn cached_config(&self) -> Option<ws_client::protocol::IndexingConfig> {
+        self.config.lock().ok().and_then(|config| config.clone())
+    }
+
+    /// Sends the newest cached policy to the (possibly restarted) engine, in order.
+    pub(crate) async fn push_config(&self) -> Result<(), SearchFailure> {
+        let _lane = self.lane.lock().await;
         let process = self.ensure_process().await?;
-        // Overlapping calls all send the newest policy, so a late send cannot revert it.
-        let latest = self
-            .config
-            .lock()
-            .map_err(|_| unavailable())?
-            .clone()
-            .unwrap_or(config);
+        let latest = self.config.lock().map_err(|_| unavailable())?.clone();
+        let Some(latest) = latest else {
+            return Ok(());
+        };
         process
             .client
             .set_indexing_config(latest)
@@ -712,7 +757,17 @@ impl EngineRuntime {
             .map_err(|_| unavailable())
     }
 
-    pub(super) fn configured_roots(&self) -> Vec<PathBuf> {
+    /// Records the host's folder grants and forwards them to the engine.
+    pub(crate) async fn configure_roots(
+        &self,
+        roots: &[super::indexing::IndexRootRequest],
+        background_normal: bool,
+    ) -> Result<(), SearchFailure> {
+        self.remember_roots(roots, background_normal)?;
+        self.push_config().await
+    }
+
+    pub(super) fn configured_roots(&self) -> Vec<GrantedRoot> {
         self.roots
             .lock()
             .map(|roots| roots.clone())

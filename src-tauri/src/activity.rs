@@ -7,7 +7,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
@@ -393,8 +393,24 @@ fn observe_activity() -> ObservedActivity {
     ObservedActivity::default()
 }
 
+/// Forwards a background-policy transition (user pause, game, battery) to the WinSearch engine,
+/// which otherwise keeps indexing with the policy it last received.
+fn sync_engine(app: &AppHandle, snapshot: &ActivitySnapshot) {
+    let engine = app.state::<crate::search::winsearch_engine::EngineRuntime>();
+    if engine.set_background_normal(snapshot.background_policy == BackgroundPolicy::Normal) {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = app
+                .state::<crate::search::winsearch_engine::EngineRuntime>()
+                .push_config()
+                .await;
+        });
+    }
+}
+
 #[tauri::command]
 pub fn get_activity_status(
+    app: AppHandle,
     state: State<'_, ActivityRuntime>,
     index: State<'_, crate::search::IndexRuntime>,
     enrichment: State<'_, crate::gateway::EnrichmentSupervisor>,
@@ -402,11 +418,13 @@ pub fn get_activity_status(
     let snapshot = state.snapshot();
     enrichment.set_activity_paused(snapshot.background_policy != BackgroundPolicy::Normal);
     index.set_content_enabled(snapshot.background_policy == BackgroundPolicy::Normal);
+    sync_engine(&app, &snapshot);
     snapshot
 }
 
 #[tauri::command]
 pub fn set_activity_policy(
+    app: AppHandle,
     state: State<'_, ActivityRuntime>,
     index: State<'_, crate::search::IndexRuntime>,
     enrichment: State<'_, crate::gateway::EnrichmentSupervisor>,
@@ -415,11 +433,13 @@ pub fn set_activity_policy(
     let snapshot = state.set_policy(policy)?;
     enrichment.set_activity_paused(snapshot.background_policy != BackgroundPolicy::Normal);
     index.set_content_enabled(snapshot.background_policy == BackgroundPolicy::Normal);
+    sync_engine(&app, &snapshot);
     Ok(snapshot)
 }
 
 #[tauri::command]
 pub fn set_user_pause(
+    app: AppHandle,
     state: State<'_, ActivityRuntime>,
     index: State<'_, crate::search::IndexRuntime>,
     enrichment: State<'_, crate::gateway::EnrichmentSupervisor>,
@@ -428,6 +448,7 @@ pub fn set_user_pause(
     let snapshot = state.set_user_paused(paused)?;
     enrichment.set_activity_paused(snapshot.background_policy != BackgroundPolicy::Normal);
     index.set_content_enabled(snapshot.background_policy == BackgroundPolicy::Normal);
+    sync_engine(&app, &snapshot);
     Ok(snapshot)
 }
 

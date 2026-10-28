@@ -1,8 +1,34 @@
 use super::*;
-use crate::search::{indexing::IndexRootRequest, test_support::SearchFixture, winsearch_engine};
+use crate::search::{
+    indexing::IndexRootRequest,
+    test_support::SearchFixture,
+    traversal::TraversalPolicy,
+    winsearch_engine::{self, EngineRuntime, GrantedRoot},
+};
 use ws_client::protocol::{
     EngineRunState, EngineStatus, EntryReference, MatchingMoment, SemanticOutcome,
 };
+
+fn granted(
+    path: &std::path::Path,
+    exclusions: &[&str],
+    hidden: bool,
+    max_bytes: u64,
+) -> GrantedRoot {
+    GrantedRoot {
+        path: path.to_path_buf(),
+        policy: TraversalPolicy::new(
+            exclusions.iter().map(|value| value.to_string()).collect(),
+            hidden,
+            max_bytes,
+        )
+        .unwrap(),
+    }
+}
+
+fn open_root(path: &std::path::Path) -> GrantedRoot {
+    granted(path, &[], false, u64::MAX)
+}
 
 fn filter(id: &str, value: &str) -> SearchFilterRequest {
     serde_json::from_value(serde_json::json!({"id": id, "value": value})).unwrap()
@@ -78,12 +104,12 @@ fn query_leaves_local_only_requests_to_the_local_index() {
 fn mapped_hits_keep_the_existing_contract() {
     let fixture = SearchFixture::new("winsearch-map");
     let path = fixture.file("notes/plan.md", b"hello");
-    let roots = vec![fixture.root().to_path_buf()];
+    let roots = vec![open_root(fixture.root())];
     let mut result = hit(&path, "e42", Some("proof"));
     result.location = Some(MatchLocation::Page { page: 3 });
     let mapped = map_result(&roots, &result).expect("confined hit");
     assert_eq!(mapped.hit.stable_id, "winsearch:e42");
-    assert_eq!(mapped.hit.root_path, roots[0]);
+    assert_eq!(mapped.hit.root_path, roots[0].path);
     assert_eq!(mapped.hit.name, "plan.md");
     assert_eq!(mapped.hit.page, Some(3));
     assert_eq!(mapped.hit.snippet, "matching excerpt");
@@ -99,7 +125,7 @@ fn mapped_hits_are_dropped_outside_grants_or_without_bound_proof() {
     let fixture = SearchFixture::new("winsearch-confine");
     let inside = fixture.file("a.txt", b"a");
     let outside = fixture.outside_file("b.txt", b"b");
-    let roots = vec![fixture.root().to_path_buf()];
+    let roots = vec![open_root(fixture.root())];
     assert!(map_result(&roots, &hit(&outside, "e1", Some("proof"))).is_none());
     assert!(map_result(&roots, &hit(&inside, "e1", None)).is_none());
     assert!(map_result(&roots, &hit(&inside, "not-an-id", Some("proof"))).is_none());
@@ -122,7 +148,7 @@ fn mapped_hits_are_dropped_outside_grants_or_without_bound_proof() {
 fn mapped_hits_use_moments_timestamps_and_bounded_snippets() {
     let fixture = SearchFixture::new("winsearch-moment");
     let path = fixture.file("clip.mp3", b"x");
-    let roots = vec![fixture.root().to_path_buf()];
+    let roots = vec![open_root(fixture.root())];
     let mut result = hit(&path, "e7", Some("proof"));
     result.excerpt = None;
     result.matching_moments = vec![MatchingMoment {
@@ -207,7 +233,7 @@ fn engine_is_ready_only_after_it_has_indexed_without_failing() {
 #[test]
 fn merging_deduplicates_paths_orders_by_rank_and_truncates() {
     let fixture = SearchFixture::new("winsearch-merge");
-    let roots = vec![fixture.root().to_path_buf()];
+    let roots = vec![open_root(fixture.root())];
     let mapped = |name: &str, score: f64| {
         let path = fixture.file(name, b"x");
         let mut result = hit(&path, "e1", Some("proof"));
@@ -230,4 +256,57 @@ fn merging_deduplicates_paths_orders_by_rank_and_truncates() {
     );
     let names: Vec<_> = items.iter().map(|item| item.hit.name.as_str()).collect();
     assert_eq!(names, ["b.txt", "c.txt"]);
+}
+
+#[test]
+fn hits_indexed_before_a_policy_change_are_not_shown() {
+    let fixture = SearchFixture::new("winsearch-policy");
+    let secret = fixture.file("private/plan.txt", b"x");
+    let scratch = fixture.file("scratch.tmp", b"x");
+    let hidden = fixture.file(".hidden/notes.txt", b"x");
+    let big = fixture.file("big.bin", &[0u8; 64]);
+    let kept = fixture.file("docs/ok.txt", b"x");
+    let restricted = vec![granted(fixture.root(), &["private", "*.tmp"], false, 32)];
+    for path in [&secret, &scratch, &hidden, &big] {
+        assert!(
+            map_result(&restricted, &hit(path, "e1", Some("proof"))).is_none(),
+            "{path:?}"
+        );
+    }
+    assert!(map_result(&restricted, &hit(&kept, "e1", Some("proof"))).is_some());
+    // The same entries are admitted once the stricter policy is relaxed.
+    let relaxed = vec![granted(fixture.root(), &[], true, u64::MAX)];
+    for path in [&secret, &scratch, &hidden, &big] {
+        assert!(
+            map_result(&relaxed, &hit(path, "e1", Some("proof"))).is_some(),
+            "{path:?}"
+        );
+    }
+}
+
+#[test]
+fn background_pause_reaches_the_cached_engine_policy_once_per_transition() {
+    let engine = EngineRuntime::new(std::path::PathBuf::new(), std::path::PathBuf::new());
+    let root = IndexRootRequest {
+        path: "C:\\Docs".into(),
+        cloud_enrichment: false,
+        exclusions: Vec::new(),
+        include_hidden: false,
+        max_file_size_mb: 1,
+    };
+    assert!(!engine.set_background_normal(false) || engine.cached_config().is_none());
+    engine.remember_roots(&[root], true).unwrap();
+    assert!(!engine.cached_config().unwrap().paused);
+    assert!(engine.set_background_normal(false));
+    assert!(engine.cached_config().unwrap().paused);
+    assert!(
+        !engine.set_background_normal(false),
+        "no change, nothing to re-send"
+    );
+    assert!(engine.set_background_normal(true));
+    assert!(!engine.cached_config().unwrap().paused);
+    // Revoking every grant keeps the engine paused whatever the activity policy says.
+    engine.remember_roots(&[], true).unwrap();
+    assert!(engine.cached_config().unwrap().paused);
+    assert!(engine.configured_roots().is_empty());
 }

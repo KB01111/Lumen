@@ -16,6 +16,14 @@ Date: 2026-10-27. Engine pin: WinSearch `85a915d460b1fa751bbe86f289ff77c18c032c2
   accumulated snapshots over a Tauri `Channel`. It never waits for a cold engine start,
   checks the engine has indexed something, supersedes through the existing request-id
   fence and cancels the native stream promptly (`cancel_winsearch_search` for aborts).
+- **Policy at display time.** Each hit is re-checked against its root's *current*
+  exclusion, hidden-file and size policy (`traversal::record_matches_policy`), so entries
+  the engine indexed before a policy tightened are never shown. Roots whose policy cannot
+  be enforced locally are not served from the engine.
+- **Pause and background policy.** Every activity-policy transition (user pause, game,
+  fullscreen, battery) is applied to the cached engine policy and re-sent through one
+  ordered configuration lane (`EngineRuntime::set_background_normal` / `push_config`), so
+  the engine pauses with the local index.
 - **Mapping.** Every hit is re-confined to a granted root and must carry a bound
   `EntryReference`; it is mapped onto the existing `HybridHit` contract with
   `stableId = winsearch:<result id>`, so the Zod schema, previews and actions are
@@ -25,7 +33,9 @@ Date: 2026-10-27. Engine pin: WinSearch `85a915d460b1fa751bbe86f289ff77c18c032c2
   build (`winSearch` option, `App.tsx`) and forwards snapshots through `onUpdate`.
   It falls back to `search_hybrid` when the engine is unavailable, invalid, empty, or
   the scope is Recent, Related or Code, or more than one extension/kind filter is used
-  (the engine ORs alternatives; the local filters intersect).
+  (the engine ORs alternatives; the local filters intersect). When the user has tuned
+  filename priority or recency away from the defaults, the local ranker stays authoritative
+  because the engine cannot honor those weights.
 - **Startup.** The verified engine is warmed in the background when the app starts.
 
 ## Evidence
@@ -42,5 +52,6 @@ Date: 2026-10-27. Engine pin: WinSearch `85a915d460b1fa751bbe86f289ff77c18c032c2
 
 - Both crawlers still run while the engine is healthy. Pins, history, Recent, Related,
   `indexed:` identities and answer-context admission remain on the local index.
-- Pinning an engine result is a no-op until engine identities are migrated.
+- Pinning an engine result is a no-op until engine identities are migrated, and engine
+  results are not reranked locally or pinned-first; both apply only to local results.
 - No installed-app, controlled-performance or signed-package acceptance is claimed.

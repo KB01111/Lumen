@@ -394,7 +394,10 @@ export class DevelopmentFileSearchService implements SearchService {
 
   /** Searches the native WinSearch engine when enabled, otherwise (or on any engine problem) the local index. */
   private async searchIndexed(request: SearchRequest, args: Record<string, unknown>, signal: AbortSignal | undefined, startedAt: number, onUpdate?: (snapshot: SearchResponse) => void): Promise<unknown> {
-    if (this.winSearch && request.scope !== 'recent') {
+    // The engine ranks on its own: honor tuned filename-priority/recency by keeping the local ranker.
+    const defaults = defaultSearchPreferences;
+    if (this.winSearch && request.scope !== 'recent'
+        && args.filenamePriority === defaults.filenamePriority && args.recency === defaults.recency) {
       try {
         const raw = await this.searchWinSearch(request, args, signal, startedAt, onUpdate);
         if (raw !== undefined) return raw;

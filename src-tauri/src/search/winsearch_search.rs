@@ -19,8 +19,8 @@ use super::{
         HybridHit, HybridSearchResponse, IndexRuntime, SearchFilterRequest, SemanticPhase,
         SemanticRetrievalStatus, validate_search_options,
     },
-    metadata,
-    winsearch_engine::EngineRuntime,
+    metadata, traversal,
+    winsearch_engine::{EngineRuntime, GrantedRoot},
 };
 
 const MAX_RESULTS: usize = 10_000;
@@ -95,8 +95,10 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-/// Maps one engine hit onto the existing hit contract, re-confining it to the granted roots.
-pub(super) fn map_result(roots: &[PathBuf], hit: &SearchResult) -> Option<HybridHit> {
+/// Maps one engine hit onto the existing hit contract, re-confining it to the granted roots and
+/// re-applying each root's current exclusion, hidden-file and size policy, so entries the engine
+/// indexed before a policy change are never shown.
+pub(super) fn map_result(roots: &[GrantedRoot], hit: &SearchResult) -> Option<HybridHit> {
     if matches!(
         hit.kind,
         ResultKind::Application
@@ -113,9 +115,10 @@ pub(super) fn map_result(roots: &[PathBuf], hit: &SearchResult) -> Option<Hybrid
     let revision = reference.source_revision.as_deref()?;
     let path = PathBuf::from(hit.path.as_deref()?);
     let (root, metadata) = roots.iter().find_map(|root| {
-        metadata::get_file_metadata_impl(root, &path)
+        metadata::get_file_metadata_impl(&root.path, &path)
             .ok()
-            .map(|record| (root, record))
+            .filter(|record| traversal::record_matches_policy(record, &root.policy))
+            .map(|record| (&root.path, record))
     })?;
     if metadata.name.is_empty() {
         return None;

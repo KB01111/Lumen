@@ -18,7 +18,7 @@ function response(...items: unknown[]) {
 
 type Handler = (command: string, args?: Record<string, unknown>) => unknown | Promise<unknown>;
 
-function setup(handler: Handler, options: {winSearch?: boolean} = {winSearch: true}) {
+function setup(handler: Handler, options: {winSearch?: boolean; preferences?: Record<string, unknown>} = {winSearch: true}) {
   const channels: WinSearchChannel[] = [];
   const invoke = vi.fn(async (command: string, args?: Record<string, unknown>) => {
     if (command === 'synchronize_index_roots' || command === 'get_index_status') return readyStatus;
@@ -26,6 +26,7 @@ function setup(handler: Handler, options: {winSearch?: boolean} = {winSearch: tr
   });
   const service = new DevelopmentFileSearchService({
     getRoots: () => ['C:\\Docs'],
+    ...(options.preferences ? {getSearchPreferences: () => options.preferences as never} : {}),
     invoke,
     winSearch: options.winSearch ? {createChannel: () => { const channel = {onmessage: () => undefined}; channels.push(channel); return channel; }} : undefined,
   });
@@ -73,6 +74,17 @@ describe('DevelopmentFileSearchService with the WinSearch engine', () => {
     const {service, commands} = setup(command => command === 'search_hybrid' ? response(hit('indexed', 'Local.md'))
       : command === 'search_related' ? [hit('indexed', 'Local.md')] : undefined);
     await service.search({...request, scope, relatedTo: 'indexed:Local.md'});
+    expect(commands()).not.toContain('search_winsearch');
+  });
+
+  it.each([
+    ['filename priority', {filenamePriority: 100, recency: 'balanced'}],
+    ['recency', {filenamePriority: 82, recency: 'high'}],
+  ])('keeps the local ranker when %s is tuned away from the default', async (_name, tuned) => {
+    const preferences = {...tuned, showPinned: true, semanticEnabled: false, rerankingEnabled: false};
+    const {service, commands} = setup(command => command === 'search_hybrid' ? response(hit('indexed', 'Local.md')) : undefined, {winSearch: true, preferences});
+    const result = await service.search(request);
+    expect(result.groups[0]?.items.map(item => item.id)).toEqual(['indexed:Local.md']);
     expect(commands()).not.toContain('search_winsearch');
   });
 

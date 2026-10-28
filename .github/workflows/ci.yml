@@ -370,7 +370,7 @@ jobs:
             printf 'Verify the downloads against `SHA256SUMS` before installing:\n\n```\n'
             cat "${sums[0]}"
             printf '```\n\n'
-            printf '- `%s`: per-user installer\n- `%s`: per-machine MSI (installs to Program Files, needs administrator rights)\n\n' "$(basename "${nsis[0]}")" "$(basename "${msi[0]}")"
+            printf -- '- `%s`: per-user installer\n- `%s`: per-machine MSI (installs to Program Files, needs administrator rights)\n\n' "$(basename "${nsis[0]}")" "$(basename "${msi[0]}")"
             printf 'Both installers bundle the pinned, hash-verified WinSearch engine. Built from commit `%s`.\n' "$GITHUB_SHA"
           } > release-notes.md
           args=(--repo "$GITHUB_REPOSITORY" --prerelease --title "Lumen $RELEASE_TAG (unsigned)" --notes-file release-notes.md)
