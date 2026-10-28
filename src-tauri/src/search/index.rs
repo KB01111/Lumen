@@ -995,8 +995,8 @@ impl IndexDatabase {
             .query_row(
                 "SELECT files.stable_id, files.content_hash, files.index_revision,
                         EXISTS(SELECT 1 FROM pins WHERE pins.file_id = files.id),
-                        json_extract(file_inventory.metadata, '$.sizeBytes'),
-                        json_extract(file_inventory.metadata, '$.modifiedMs')
+                        CASE WHEN json_valid(file_inventory.metadata) THEN json_extract(file_inventory.metadata, '$.sizeBytes') END,
+                        CASE WHEN json_valid(file_inventory.metadata) THEN json_extract(file_inventory.metadata, '$.modifiedMs') END
                  FROM files LEFT JOIN file_inventory ON file_inventory.file_id = files.id
                  WHERE files.path = ?1",
                 [path.to_string_lossy().into_owned()],
@@ -2011,6 +2011,46 @@ mod tests {
         let cleared = database.clear_history().unwrap();
         assert_eq!(cleared.entry_count, 0);
         assert!(!database.history_status().unwrap().enabled);
+    }
+
+    #[test]
+    fn local_identity_survives_malformed_inventory_metadata() {
+        let fixture = SearchFixture::new("local-identity");
+        let path = fixture.file("report.txt", b"quarterly report");
+        let database = IndexDatabase::open_memory().unwrap();
+        database
+            .upsert_document(
+                fixture.root(),
+                &document(path.clone(), "report", "hash-report", "quarterly report"),
+            )
+            .unwrap();
+        let stable_id = database.stable_id_for_path(&path).unwrap().unwrap();
+        database.set_pinned(&stable_id, true).unwrap();
+
+        let identity = database.local_identity_for_path(&path).unwrap().unwrap();
+        assert_eq!(identity.stable_id, stable_id);
+        assert!(identity.pinned);
+        assert_eq!(identity.content_hash, "hash-report");
+
+        {
+            let connection = database.connection.lock().unwrap();
+            connection
+                .execute(
+                    "INSERT OR REPLACE INTO file_inventory(file_id, metadata) SELECT id, 'not json' FROM files",
+                    [],
+                )
+                .unwrap();
+        }
+        let degraded = database.local_identity_for_path(&path).unwrap().unwrap();
+        assert_eq!(degraded.stable_id, stable_id);
+        assert!(degraded.pinned);
+        assert_eq!((degraded.size_bytes, degraded.modified_ms), (None, None));
+        assert!(
+            database
+                .local_identity_for_path(&path.with_extension("missing"))
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
