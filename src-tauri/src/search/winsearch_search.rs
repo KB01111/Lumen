@@ -372,7 +372,8 @@ pub async fn search_winsearch(
         if batch.done {
             return match batch.outcome.map(|outcome| outcome.disposition) {
                 None | Some(SearchDisposition::Complete) => {
-                    runtime.record_user_query(&query, !items.is_empty())?;
+                    // History is optional bookkeeping: a failed write must not discard a completed search.
+                    let _ = runtime.record_user_query(&query, !items.is_empty());
                     Ok(HybridSearchResponse {
                         items,
                         semantic: semantic_status(batch.outcome.as_ref()),
