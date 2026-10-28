@@ -94,10 +94,15 @@ describe('DevelopmentFileSearchService with the WinSearch engine', () => {
     expect(commands()).not.toContain('search_winsearch');
   });
 
-  it.each(['recent', 'related'] as const)('keeps the %s scope on the local index', async scope => {
+  it.each([
+    ['recent', 'search_hybrid'],
+    ['related', 'search_related'],
+  ] as const)('answers the %s scope from the local index through %s', async (scope, localCommand) => {
     const {service, commands} = setup(command => command === 'search_hybrid' ? response(hit('indexed', 'Local.md'))
       : command === 'search_related' ? [hit('indexed', 'Local.md')] : undefined);
-    await service.search({...request, scope, relatedTo: 'indexed:Local.md'});
+    const result = await service.search({...request, scope, relatedTo: 'indexed:Local.md'});
+    expect(result.groups[0]?.items.map(item => item.id)).toEqual(['indexed:Local.md']);
+    expect(commands()).toContain(localCommand);
     expect(commands()).not.toContain('search_winsearch');
   });
 

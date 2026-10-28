@@ -995,8 +995,10 @@ impl IndexDatabase {
             .query_row(
                 "SELECT files.stable_id, files.content_hash, files.index_revision,
                         EXISTS(SELECT 1 FROM pins WHERE pins.file_id = files.id),
-                        CASE WHEN json_valid(file_inventory.metadata) THEN json_extract(file_inventory.metadata, '$.sizeBytes') END,
-                        CASE WHEN json_valid(file_inventory.metadata) THEN json_extract(file_inventory.metadata, '$.modifiedMs') END
+                        CASE WHEN json_valid(file_inventory.metadata) AND json_type(file_inventory.metadata, '$.sizeBytes') = 'integer'
+                             THEN json_extract(file_inventory.metadata, '$.sizeBytes') END,
+                        CASE WHEN json_valid(file_inventory.metadata) AND json_type(file_inventory.metadata, '$.modifiedMs') = 'integer'
+                             THEN json_extract(file_inventory.metadata, '$.modifiedMs') END
                  FROM files LEFT JOIN file_inventory ON file_inventory.file_id = files.id
                  WHERE files.path = ?1",
                 [path.to_string_lossy().into_owned()],
@@ -2026,25 +2028,42 @@ mod tests {
             .unwrap();
         let stable_id = database.stable_id_for_path(&path).unwrap().unwrap();
         database.set_pinned(&stable_id, true).unwrap();
+        let set_inventory = |metadata: &str| {
+            let connection = database.connection.lock().unwrap();
+            connection
+                .execute(
+                    "INSERT OR REPLACE INTO file_inventory(file_id, metadata) SELECT id, ?1 FROM files",
+                    [metadata],
+                )
+                .unwrap();
+        };
 
         let identity = database.local_identity_for_path(&path).unwrap().unwrap();
         assert_eq!(identity.stable_id, stable_id);
         assert!(identity.pinned);
         assert_eq!(identity.content_hash, "hash-report");
 
-        {
-            let connection = database.connection.lock().unwrap();
-            connection
-                .execute(
-                    "INSERT OR REPLACE INTO file_inventory(file_id, metadata) SELECT id, 'not json' FROM files",
-                    [],
-                )
-                .unwrap();
+        set_inventory(r#"{"sizeBytes":12,"modifiedMs":1786000000000}"#);
+        let valid = database.local_identity_for_path(&path).unwrap().unwrap();
+        assert_eq!(
+            (valid.size_bytes, valid.modified_ms),
+            (Some(12), Some(1786000000000))
+        );
+
+        // Valid JSON with wrongly typed fields and outright malformed JSON must only drop the
+        // freshness fields, never the file's id, pin or hash.
+        for broken in [r#"{"sizeBytes":"unknown","modifiedMs":1.5}"#, "not json"] {
+            set_inventory(broken);
+            let degraded = database.local_identity_for_path(&path).unwrap().unwrap();
+            assert_eq!(degraded.stable_id, stable_id, "{broken}");
+            assert!(degraded.pinned, "{broken}");
+            assert_eq!(degraded.content_hash, "hash-report", "{broken}");
+            assert_eq!(
+                (degraded.size_bytes, degraded.modified_ms),
+                (None, None),
+                "{broken}"
+            );
         }
-        let degraded = database.local_identity_for_path(&path).unwrap().unwrap();
-        assert_eq!(degraded.stable_id, stable_id);
-        assert!(degraded.pinned);
-        assert_eq!((degraded.size_bytes, degraded.modified_ms), (None, None));
         assert!(
             database
                 .local_identity_for_path(&path.with_extension("missing"))

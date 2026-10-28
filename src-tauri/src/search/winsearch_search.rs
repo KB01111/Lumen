@@ -372,7 +372,7 @@ pub async fn search_winsearch(
         if batch.done {
             return match batch.outcome.map(|outcome| outcome.disposition) {
                 None | Some(SearchDisposition::Complete) => {
-                    let _ = runtime.record_user_query(&query, !items.is_empty());
+                    runtime.record_user_query(&query, !items.is_empty())?;
                     Ok(HybridSearchResponse {
                         items,
                         semantic: semantic_status(batch.outcome.as_ref()),

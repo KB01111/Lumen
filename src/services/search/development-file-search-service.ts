@@ -406,6 +406,8 @@ export class DevelopmentFileSearchService implements SearchService {
         throwIfAborted(signal);
       }
     }
+    // A cancelled request must not start the local fallback.
+    throwIfAborted(signal);
     return this.invoke('search_hybrid', args);
   }
 

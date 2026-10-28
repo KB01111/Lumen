@@ -304,7 +304,11 @@ fn background_pause_reaches_the_cached_engine_policy_once_per_transition() {
         include_hidden: false,
         max_file_size_mb: 1,
     };
-    assert!(!engine.set_background_normal(false) || engine.cached_config().is_none());
+    assert!(
+        !engine.set_background_normal(false),
+        "nothing is cached yet, so nothing needs re-sending"
+    );
+    assert!(engine.cached_config().is_none());
     engine.remember_roots(&[root], true).unwrap();
     assert!(!engine.cached_config().unwrap().paused);
     assert!(engine.set_background_normal(false));
