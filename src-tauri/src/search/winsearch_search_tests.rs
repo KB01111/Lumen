@@ -204,7 +204,7 @@ fn folder_grants_become_an_unpaused_engine_policy() {
     let roots = vec![IndexRootRequest {
         path: "C:\\Users\\me\\Docs".into(),
         cloud_enrichment: false,
-        exclusions: vec!["secret".into()],
+        exclusions: vec!["private-notes".into()],
         include_hidden: true,
         max_file_size_mb: 2,
     }];
@@ -214,7 +214,7 @@ fn folder_grants_become_an_unpaused_engine_policy() {
     let policy = &config.root_policies[0];
     assert_eq!(
         (policy.exclusions.clone(), policy.include_hidden),
-        (vec!["secret".to_owned()], true)
+        (vec!["private-notes".to_owned()], true)
     );
     assert_eq!(policy.max_file_size_bytes, 2 * 1024 * 1024);
     assert!(!config.paused);
@@ -271,13 +271,13 @@ fn merging_deduplicates_paths_orders_by_rank_and_truncates() {
 #[test]
 fn hits_indexed_before_a_policy_change_are_not_shown() {
     let fixture = SearchFixture::new("winsearch-policy");
-    let secret = fixture.file("private/plan.txt", b"x");
+    let excluded_file = fixture.file("private/plan.txt", b"x");
     let scratch = fixture.file("scratch.tmp", b"x");
     let hidden = fixture.file(".hidden/notes.txt", b"x");
     let big = fixture.file("big.bin", &[0u8; 64]);
     let kept = fixture.file("docs/ok.txt", b"x");
     let restricted = vec![granted(fixture.root(), &["private", "*.tmp"], false, 32)];
-    for path in [&secret, &scratch, &hidden, &big] {
+    for path in [&excluded_file, &scratch, &hidden, &big] {
         assert!(
             map_result(&restricted, &hit(path, "e1", Some("proof")), &no_local).is_none(),
             "{path:?}"
@@ -286,7 +286,7 @@ fn hits_indexed_before_a_policy_change_are_not_shown() {
     assert!(map_result(&restricted, &hit(&kept, "e1", Some("proof")), &no_local).is_some());
     // The same entries are admitted once the stricter policy is relaxed.
     let relaxed = vec![granted(fixture.root(), &[], true, u64::MAX)];
-    for path in [&secret, &scratch, &hidden, &big] {
+    for path in [&excluded_file, &scratch, &hidden, &big] {
         assert!(
             map_result(&relaxed, &hit(path, "e1", Some("proof")), &no_local).is_some(),
             "{path:?}"
