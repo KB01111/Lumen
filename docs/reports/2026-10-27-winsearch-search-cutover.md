@@ -26,7 +26,9 @@ Date: 2026-10-27. Engine pin: WinSearch `85a915d460b1fa751bbe86f289ff77c18c032c2
   the engine pauses with the local index.
 - **Identity bridge.** When the local index also holds a hit's file, the result keeps that
   index's `indexed:` id, content hash, revision and pin state, so pinning, history, previews
-  and provenance stay real. Engine-only files use `winsearch:<id>` with an opaque digest of
+  and provenance stay real. The local hash and revision are reused only while the row's
+  recorded size and modification time still match the file; otherwise the id and pin are kept
+  and the provenance comes from the engine. Engine-only files use `winsearch:<id>` with an opaque digest of
   the engine's source-revision proof as their hash and revision 1; they cannot be pinned yet.
 - **Readiness.** The engine answers only when it has indexed files, is not failed and has an
   empty queue; while it is still catching up the complete local index answers instead.

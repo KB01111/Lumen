@@ -328,11 +328,14 @@ fn files_known_to_the_local_index_keep_their_real_identity_pin_and_hash() {
     let other = fixture.file("docs/engine-only.txt", b"y");
     let roots = vec![open_root(fixture.root())];
     let canonical = std::fs::canonicalize(&path).unwrap();
+    let record = crate::search::metadata::get_file_metadata_impl(fixture.root(), &path).unwrap();
     let identity = LocalIdentity {
         stable_id: "indexed:abc".into(),
         content_hash: "c".repeat(64),
         index_revision: 7,
         pinned: true,
+        size_bytes: Some(record.size_bytes),
+        modified_ms: record.modified_ms,
     };
     let lookup = |candidate: &std::path::Path| (candidate == canonical).then(|| identity.clone());
     let known = map_result(&roots, &hit(&path, "e1", Some("proof")), &lookup).unwrap();
@@ -353,4 +356,26 @@ fn query_triggered_starts_are_single_flight_with_backoff() {
     assert!(!engine.begin_warm_up(), "a start is already running");
     engine.end_warm_up();
     assert!(!engine.begin_warm_up(), "the last attempt was moments ago");
+}
+
+#[test]
+fn a_stale_local_row_keeps_its_id_and_pin_but_not_its_hash_or_revision() {
+    let fixture = SearchFixture::new("winsearch-stale-identity");
+    let path = fixture.file("notes.md", b"edited after the local crawl");
+    let roots = vec![open_root(fixture.root())];
+    let canonical = std::fs::canonicalize(&path).unwrap();
+    let stale = LocalIdentity {
+        stable_id: "indexed:old".into(),
+        content_hash: "a".repeat(64),
+        index_revision: 7,
+        pinned: true,
+        size_bytes: Some(1),
+        modified_ms: Some(1),
+    };
+    let lookup = |candidate: &std::path::Path| (candidate == canonical).then(|| stale.clone());
+    let mapped = map_result(&roots, &hit(&path, "e9", Some("proof")), &lookup).unwrap();
+    assert_eq!(mapped.hit.stable_id, "indexed:old");
+    assert!(mapped.pinned);
+    assert_ne!(mapped.hit.content_hash, "a".repeat(64));
+    assert_eq!(mapped.hit.index_revision, 1);
 }

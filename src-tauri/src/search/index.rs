@@ -398,6 +398,10 @@ pub(super) struct LocalIdentity {
     pub content_hash: String,
     pub index_revision: u64,
     pub pinned: bool,
+    /// Size and modification time recorded when the local row was indexed; they show whether
+    /// its hash and revision still describe the file on disk.
+    pub size_bytes: Option<u64>,
+    pub modified_ms: Option<u64>,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, Serialize)]
@@ -990,8 +994,11 @@ impl IndexDatabase {
         connection
             .query_row(
                 "SELECT files.stable_id, files.content_hash, files.index_revision,
-                        EXISTS(SELECT 1 FROM pins WHERE pins.file_id = files.id)
-                 FROM files WHERE files.path = ?1",
+                        EXISTS(SELECT 1 FROM pins WHERE pins.file_id = files.id),
+                        json_extract(file_inventory.metadata, '$.sizeBytes'),
+                        json_extract(file_inventory.metadata, '$.modifiedMs')
+                 FROM files LEFT JOIN file_inventory ON file_inventory.file_id = files.id
+                 WHERE files.path = ?1",
                 [path.to_string_lossy().into_owned()],
                 |row| {
                     Ok(LocalIdentity {
@@ -1000,6 +1007,12 @@ impl IndexDatabase {
                         index_revision: u64::try_from(row.get::<_, i64>(2)?)
                             .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(2, i64::MAX))?,
                         pinned: row.get::<_, i64>(3)? != 0,
+                        size_bytes: row
+                            .get::<_, Option<i64>>(4)?
+                            .and_then(|value| u64::try_from(value).ok()),
+                        modified_ms: row
+                            .get::<_, Option<i64>>(5)?
+                            .and_then(|value| u64::try_from(value).ok()),
                     })
                 },
             )

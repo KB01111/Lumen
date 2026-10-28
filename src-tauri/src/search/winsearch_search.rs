@@ -104,7 +104,8 @@ fn hex(bytes: &[u8]) -> String {
 /// Maps one engine hit onto the existing hit contract, re-confining it to the granted roots and
 /// re-applying each root's current exclusion, hidden-file and size policy, so entries the engine
 /// indexed before a policy change are never shown. Files Lumen's own index also holds keep that
-/// index's id, content hash, revision and pin state, so pinning, history and provenance stay real.
+/// index's id and pin state, and its content hash and revision while those still match the file,
+/// so pinning, history and provenance stay real.
 pub(super) fn map_result(
     roots: &[GrantedRoot],
     hit: &SearchResult,
@@ -180,11 +181,11 @@ pub(super) fn map_result(
             path: PathBuf::from(&metadata.path),
             name: metadata.name.clone(),
             // Engine-only entries carry an opaque digest of the engine's source-revision proof.
-            content_hash: local.as_ref().map_or_else(
+            content_hash: fresh.map_or_else(
                 || hex(&Sha256::digest(revision.as_bytes())),
                 |identity| identity.content_hash.clone(),
             ),
-            index_revision: local.as_ref().map_or(1, |identity| identity.index_revision),
+            index_revision: fresh.map_or(1, |identity| identity.index_revision),
             extraction_kind: "winsearch".into(),
             snippet,
             page,
