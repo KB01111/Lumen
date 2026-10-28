@@ -2026,7 +2026,10 @@ mod tests {
                 &document(path.clone(), "report", "hash-report", "quarterly report"),
             )
             .unwrap();
-        let stable_id = database.stable_id_for_path(&path).unwrap().unwrap();
+        // The index stores a normalised path (Windows temp directories use short names), so look
+        // the file up by the stored form, exactly as the engine mapper's canonical path does.
+        let stable_id = "report".to_owned();
+        let (_, stored) = database.file_location(&stable_id).unwrap().unwrap();
         database.set_pinned(&stable_id, true).unwrap();
         let set_inventory = |metadata: &str| {
             let connection = database.connection.lock().unwrap();
@@ -2038,13 +2041,13 @@ mod tests {
                 .unwrap();
         };
 
-        let identity = database.local_identity_for_path(&path).unwrap().unwrap();
+        let identity = database.local_identity_for_path(&stored).unwrap().unwrap();
         assert_eq!(identity.stable_id, stable_id);
         assert!(identity.pinned);
         assert_eq!(identity.content_hash, "hash-report");
 
         set_inventory(r#"{"sizeBytes":12,"modifiedMs":1786000000000}"#);
-        let valid = database.local_identity_for_path(&path).unwrap().unwrap();
+        let valid = database.local_identity_for_path(&stored).unwrap().unwrap();
         assert_eq!(
             (valid.size_bytes, valid.modified_ms),
             (Some(12), Some(1786000000000))
@@ -2054,7 +2057,7 @@ mod tests {
         // freshness fields, never the file's id, pin or hash.
         for broken in [r#"{"sizeBytes":"unknown","modifiedMs":1.5}"#, "not json"] {
             set_inventory(broken);
-            let degraded = database.local_identity_for_path(&path).unwrap().unwrap();
+            let degraded = database.local_identity_for_path(&stored).unwrap().unwrap();
             assert_eq!(degraded.stable_id, stable_id, "{broken}");
             assert!(degraded.pinned, "{broken}");
             assert_eq!(degraded.content_hash, "hash-report", "{broken}");
@@ -2066,7 +2069,7 @@ mod tests {
         }
         assert!(
             database
-                .local_identity_for_path(&path.with_extension("missing"))
+                .local_identity_for_path(&stored.with_extension("missing"))
                 .unwrap()
                 .is_none()
         );
