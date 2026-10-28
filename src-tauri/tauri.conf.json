@@ -41,7 +41,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "nsis",
+    "targets": ["nsis", "msi"],
     "externalBin": ["binaries/agentgateway", "binaries/cliproxy-sidecar", "binaries/lumen-enrichment", "binaries/lumen-rivet-engine", "binaries/lumen-computer-use"],
     "resources": {
       "resources/rivet-engine/THIRD-PARTY-NOTICES.txt": "rivet-engine/THIRD-PARTY-NOTICES.txt",
@@ -51,6 +51,12 @@
       "binaries/computer-use-runtime/": "computer-use-runtime/",
       "resources/improvement/": "improvement-runtime/",
       "../packaging/windows/Assets/": "Assets/"
+    },
+    "windows": {
+      "wix": {
+        "upgradeCode": "A0D9518E-9572-4D92-BDDF-67A62A7EBF49",
+        "language": "en-US"
+      }
     },
     "icon": [
       "icons/32x32.png",

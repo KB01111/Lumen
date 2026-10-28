@@ -218,3 +218,77 @@ fn engine_native_owned_profiles_authenticate_and_stop_independently() {
         b.shutdown();
     });
 }
+
+#[test]
+#[ignore = "Requires the real pinned staged WinSearch payload; run explicitly after staging"]
+fn engine_native_search_streams_admitted_folder_and_maps_confined_hits() {
+    use crate::search::{indexing::IndexRootRequest, winsearch_search};
+
+    let fixture = SearchFixture::new("engine-native-search");
+    let token = "lumennativesearchtoken";
+    let file = fixture.file(
+        &format!("docs/{token}-notes.txt"),
+        format!("the {token} sentence lives in this admitted file").as_bytes(),
+    );
+    fixture.outside_file(&format!("{token}-outside.txt"), token.as_bytes());
+    let engine = EngineRuntime::new(
+        Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf(),
+        fixture.root().join("engine-data"),
+    );
+    tauri::async_runtime::block_on(async {
+        let roots = vec![IndexRootRequest {
+            path: fixture.root().to_string_lossy().into_owned(),
+            cloud_enrichment: false,
+            exclusions: Vec::new(),
+            include_hidden: false,
+            max_file_size_mb: 16,
+        }];
+        engine.configure_roots(&roots, true).await.unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+        loop {
+            let status = engine.status().await.unwrap();
+            if engine_ready(&status) && status.queue_depth == 0 {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the admitted folder was not indexed: {status:?}"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+        let query = winsearch_search::engine_query(token, "all", &[], 20, false).unwrap();
+        let mut stream = engine.search_stream(query).await.unwrap();
+        let mut mapped = Vec::new();
+        while let Some(batch) = stream.next().await.unwrap() {
+            let roots = engine.configured_roots();
+            mapped.extend(
+                batch
+                    .batch
+                    .iter()
+                    .filter_map(|hit| winsearch_search::map_result(&roots, hit)),
+            );
+            if batch.done {
+                break;
+            }
+        }
+        assert!(
+            mapped
+                .iter()
+                .any(|hit| hit.hit.name == file.file_name().unwrap().to_string_lossy()),
+            "the admitted file was not returned: {mapped:?}"
+        );
+        assert!(
+            mapped.iter().all(|hit| !hit.hit.name.contains("outside")),
+            "an ungranted folder leaked into results"
+        );
+        assert!(
+            mapped
+                .iter()
+                .all(|hit| hit.hit.stable_id.starts_with("winsearch:e"))
+        );
+        // Revoking every grant must pause the engine and leave nothing searchable by the host mapper.
+        engine.configure_roots(&[], true).await.unwrap();
+        assert!(engine.configured_roots().is_empty());
+        engine.shutdown();
+    });
+}

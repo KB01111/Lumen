@@ -13,6 +13,7 @@ mod root_policy;
 mod traversal;
 mod types;
 pub(crate) mod winsearch_engine;
+pub(crate) mod winsearch_search;
 
 use std::path::Path;
 

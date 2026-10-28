@@ -547,6 +547,11 @@ fn spawn_gated(
     Err(unavailable())
 }
 
+/// The engine answers only once it has indexed something and is not failed.
+pub(super) fn engine_ready(status: &ws_client::protocol::EngineStatus) -> bool {
+    status.state != ws_client::protocol::EngineRunState::Error && status.files_indexed > 0
+}
+
 pub(crate) struct EngineRuntime {
     resources: PathBuf,
     data: PathBuf,
@@ -554,6 +559,33 @@ pub(crate) struct EngineRuntime {
     process: Mutex<Option<Arc<Process>>>,
     closed: AtomicBool,
     startup: tokio::sync::Mutex<()>,
+    /// Last folder policy sent by the host; a restarted engine comes back deferred, so it is re-sent.
+    config: Mutex<Option<ws_client::protocol::IndexingConfig>>,
+    /// Granted roots exactly as configured, for confining engine results.
+    roots: Mutex<Vec<PathBuf>>,
+}
+
+/// Engine results must not delay typing: a search never waits for a cold start.
+const STATUS_DEADLINE: std::time::Duration = std::time::Duration::from_millis(750);
+
+pub(super) fn indexing_config(
+    roots: &[super::indexing::IndexRootRequest],
+    background_normal: bool,
+) -> ws_client::protocol::IndexingConfig {
+    ws_client::protocol::IndexingConfig {
+        roots: roots.iter().map(|root| root.path.clone()).collect(),
+        root_policies: roots
+            .iter()
+            .map(|root| ws_client::protocol::RootPolicy {
+                root: root.path.clone(),
+                exclusions: root.exclusions.clone(),
+                include_hidden: root.include_hidden,
+                max_file_size_bytes: root.max_file_size_mb.saturating_mul(1024 * 1024),
+            })
+            .collect(),
+        paused: roots.is_empty() || !background_normal,
+        ..Default::default()
+    }
 }
 
 impl EngineRuntime {
@@ -565,6 +597,8 @@ impl EngineRuntime {
             process: Mutex::new(None),
             closed: AtomicBool::new(false),
             startup: tokio::sync::Mutex::new(()),
+            config: Mutex::new(None),
+            roots: Mutex::new(Vec::new()),
         }
     }
 
@@ -625,6 +659,11 @@ impl EngineRuntime {
             process.kill();
             return Err(unavailable());
         }
+        let cached = self.config.lock().ok().and_then(|config| config.clone());
+        if let Some(config) = cached {
+            // A rejected policy leaves the engine deferred; the local index keeps serving.
+            let _ = process.client.set_indexing_config(config).await;
+        }
         if self.closed.load(Ordering::SeqCst) {
             process.kill();
             return Err(unavailable());
@@ -635,6 +674,73 @@ impl EngineRuntime {
     pub(crate) async fn status(&self) -> Result<ws_client::protocol::EngineStatus, SearchFailure> {
         let process = self.ensure_process().await?;
         process.client.status().await.map_err(|_| unavailable())
+    }
+
+    /// Records the host's folder grants synchronously so result confinement is never stale.
+    pub(crate) fn remember_roots(
+        &self,
+        roots: &[super::indexing::IndexRootRequest],
+        background_normal: bool,
+    ) -> Result<ws_client::protocol::IndexingConfig, SearchFailure> {
+        let config = indexing_config(roots, background_normal);
+        *self.config.lock().map_err(|_| unavailable())? = Some(config.clone());
+        *self.roots.lock().map_err(|_| unavailable())? =
+            roots.iter().map(|root| PathBuf::from(&root.path)).collect();
+        Ok(config)
+    }
+
+    /// Records the host's folder grants and forwards them to the engine.
+    pub(crate) async fn configure_roots(
+        &self,
+        roots: &[super::indexing::IndexRootRequest],
+        background_normal: bool,
+    ) -> Result<(), SearchFailure> {
+        let config = self.remember_roots(roots, background_normal)?;
+        let process = self.ensure_process().await?;
+        // Overlapping calls all send the newest policy, so a late send cannot revert it.
+        let latest = self
+            .config
+            .lock()
+            .map_err(|_| unavailable())?
+            .clone()
+            .unwrap_or(config);
+        process
+            .client
+            .set_indexing_config(latest)
+            .await
+            .map(|_| ())
+            .map_err(|_| unavailable())
+    }
+
+    pub(super) fn configured_roots(&self) -> Vec<PathBuf> {
+        self.roots
+            .lock()
+            .map(|roots| roots.clone())
+            .unwrap_or_default()
+    }
+
+    pub(super) fn is_live(&self) -> bool {
+        matches!(self.live(), Ok(Some(_)))
+    }
+
+    /// Opens an exact/semantic search on the already running engine.
+    pub(super) async fn search_stream(
+        &self,
+        query: ws_client::protocol::SearchQuery,
+    ) -> Result<ws_client::SearchStream, SearchFailure> {
+        let process = self.live()?.ok_or_else(unavailable)?;
+        let status = tokio::time::timeout(STATUS_DEADLINE, process.client.status())
+            .await
+            .map_err(|_| unavailable())?
+            .map_err(|_| unavailable())?;
+        if !engine_ready(&status) {
+            return Err(unavailable());
+        }
+        process
+            .client
+            .search(query)
+            .await
+            .map_err(|_| unavailable())
     }
 
     pub(crate) fn shutdown(&self) {

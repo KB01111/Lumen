@@ -45,8 +45,12 @@ independently for each snapshot, checks its current enablement, validates before
 merging and closes callbacks after settlement. Empty Recent queries are admitted
 only while the launcher has search intent. See the
 [streaming-consumer checkpoint](../reports/2026-10-20-winsearch-stream-consumer.md).
-The normal native adapter still uses its existing promise response; WinSearch
-query/configuration forwarding and the single-index cutover remain pending.
+In the native build the adapter streams launcher searches from the owned WinSearch
+engine through `search_winsearch` (a Tauri `Channel` of accumulated snapshots) and
+falls back to the existing `search_hybrid` command whenever the engine is unavailable,
+not yet indexed, returns no results, or the request is Recent, Related or Code. The
+single-index cutover remains pending; see the
+[search cutover report](../reports/2026-10-27-winsearch-search-cutover.md).
 
 Normal queries use one native metadata/content inventory. Files without extractable text and folders remain searchable with their stored kind, extension, size, and modification time. Scope and extension/kind filters apply before the result limit. React preserves the native order and bounded rank instead of appending a separately ranked traversal. A revoked root is checked again when pending results arrive.
 
@@ -141,12 +145,14 @@ Future index optimizations must preserve request IDs, abort behavior, stable IDs
 The application manages a lazy `WinSearch` engine runtime in
 `src-tauri/src/search/winsearch_engine.rs`. The typed native
 `get_winsearch_engine_status` command starts that owned process and returns its
-status. Normal `SearchService` queries still use the existing SQLite adapter;
-search streaming, current folder-policy forwarding, identity migration,
-previews/actions/answers and the single-index cutover remain pending.
+status. Folder grants are forwarded to the engine from `synchronize_index_roots`
+and re-sent after every engine restart, and launcher queries stream from it
+(`search/winsearch_search.rs`) with the SQLite adapter as the fallback. Identity
+migration, pins/history/Recent/Related on engine identities, answers and the
+single-index cutover remain pending.
 
-The pinned client and payload now use WinSearch source `d4f1448` and its verified
-optimized CPU runtime. The actual two-profile owned test requires database
+The pinned client and payload use WinSearch source `85a915d` (merged into the
+engine's `main` through its PR #4) and its verified CPU/NPU runtime. The actual two-profile owned test requires database
 identity, per-folder policy and bounded search-total capabilities, distinct
 profile IDs and the existing PID/Stop checks. See the
 [release-pin evidence](../reports/2026-10-20-winsearch-release-pin.md) for exact
@@ -170,9 +176,9 @@ allowlist, an independent per-user instance identity and the application-private
 overrides are excluded. Each typed pipe connection checks the actual server PID
 before Hello against the retained child handle's PID.
 
-The engine starts with deferred root admission. This status lane never admits
-folders or downloads a model, so the existing adapter remains the active crawler
-while integration is incomplete. Startup hashing and process creation run on the
+The engine starts with deferred root admission. Only the host's current folder
+grants release it (`EngineRuntime::configure_roots`); the status lane never admits
+folders or downloads a model. Both crawlers run until the single-index cutover. Startup hashing and process creation run on the
 blocking pool. Shutdown closes admission and terminates the owned job without
 waiting on pipe/control operations; application exit does this before joining
 the existing index worker. Actual settings hydration, root policy, result-stream

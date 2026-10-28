@@ -59,6 +59,8 @@ function createDefaultSearchService() {
     return new DevelopmentSearchService();
   }
   return new DevelopmentFileSearchService({
+    // The native build prefers the WinSearch engine and keeps the local index as its fallback.
+    winSearch: isNativeRuntime() ? {} : undefined,
     isReady: () => useSettingsStore.getState().hydrated,
     getRoots: () => {
       const settingsRoots = useSettingsStore

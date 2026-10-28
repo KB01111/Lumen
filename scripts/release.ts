@@ -362,7 +362,8 @@ async function main() {
       await mkdir(work,{recursive:true});
       const config = join(work,'tauri.release.json');
       await writeFile(config,JSON.stringify({build:{beforeBundleCommand:'bun scripts/release.ts verify-staged'},bundle:{windows:{signCommand:{cmd:'powershell.exe',args:['-NoProfile','-File',join(root,'scripts/sign-release.ps1'),'-Action','Sign','-Path','%1']}}}}));
-      run(['bun','run','tauri','build','--config',config],false,{LUMEN_RELEASE_BUILD:'1'});
+      // Signed releases ship the verified NSIS installer only; the unsigned MSI is built and published only by unsigned release runs.
+      run(['bun','run','tauri','build','--bundles','nsis','--config',config],false,{LUMEN_RELEASE_BUILD:'1'});
       await verifyRelease(); break;
     }
     default: throw new Error('Expected release command: version/preflight/before-build/build/verify/verify-staged/compile-binding');

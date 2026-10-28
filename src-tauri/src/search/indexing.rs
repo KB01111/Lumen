@@ -222,7 +222,7 @@ pub struct HybridSearchResponse {
 }
 
 impl HybridSearchResponse {
-    fn lexical(items: Vec<HybridHit>) -> Self {
+    pub(super) fn lexical(items: Vec<HybridHit>) -> Self {
         Self {
             items,
             semantic: SemanticRetrievalStatus::disabled(),
@@ -964,16 +964,26 @@ impl IndexRuntime {
         self.embedding_worker_running.store(false, Ordering::SeqCst);
     }
 
-    fn begin_search(&self, request_id: u64) {
+    pub(super) fn begin_search(&self, request_id: u64) {
         self.latest_search_request
             .fetch_max(request_id, Ordering::SeqCst);
     }
 
-    fn search_is_current(&self, request_id: u64) -> bool {
+    /// Marks `request_id` stale without starting a newer search.
+    pub(super) fn cancel_search(&self, request_id: u64) {
+        self.latest_search_request
+            .fetch_max(request_id.saturating_add(1), Ordering::SeqCst);
+    }
+
+    pub(super) fn search_is_current(&self, request_id: u64) -> bool {
         self.latest_search_request.load(Ordering::SeqCst) == request_id
     }
 
-    fn record_user_query(&self, query: &str, successful: bool) -> Result<(), SearchFailure> {
+    pub(super) fn record_user_query(
+        &self,
+        query: &str,
+        successful: bool,
+    ) -> Result<(), SearchFailure> {
         self.database
             .record_user_query(query, successful)
             .map_err(|error| search_failure("record search history", error))
@@ -2034,13 +2044,22 @@ pub fn get_index_status(state: State<'_, IndexRuntime>) -> IndexStatus {
 #[tauri::command]
 pub async fn synchronize_index_roots(
     state: State<'_, IndexRuntime>,
+    app: tauri::AppHandle,
     activity: State<'_, crate::activity::ActivityRuntime>,
     roots: Vec<IndexRootRequest>,
 ) -> Result<IndexStatus, SearchFailure> {
-    state.configure_roots(
-        roots,
-        activity.snapshot().background_policy == crate::activity::BackgroundPolicy::Normal,
-    )
+    let background_normal =
+        activity.snapshot().background_policy == crate::activity::BackgroundPolicy::Normal;
+    let status = state.configure_roots(roots.clone(), background_normal)?;
+    // Grants are recorded now so engine results are confined immediately; the engine call is
+    // best-effort and may need a cold start, so it never delays admission.
+    let engine = app.state::<super::winsearch_engine::EngineRuntime>();
+    let _ = engine.remember_roots(&roots, background_normal);
+    tauri::async_runtime::spawn(async move {
+        let engine = app.state::<super::winsearch_engine::EngineRuntime>();
+        let _ = engine.configure_roots(&roots, background_normal).await;
+    });
+    Ok(status)
 }
 
 #[tauri::command]
