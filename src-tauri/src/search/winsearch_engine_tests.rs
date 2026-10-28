@@ -233,7 +233,8 @@ fn engine_native_search_streams_admitted_folder_and_maps_confined_hits() {
     fixture.outside_file(&format!("{token}-outside.txt"), token.as_bytes());
     let engine = EngineRuntime::new(
         Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf(),
-        fixture.root().join("engine-data"),
+        // Outside the admitted folder, so the engine never indexes its own data.
+        fixture.root().parent().unwrap().join("engine-data"),
     );
     tauri::async_runtime::block_on(async {
         let roots = vec![IndexRootRequest {
@@ -256,26 +257,50 @@ fn engine_native_search_streams_admitted_folder_and_maps_confined_hits() {
             );
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         }
-        let query = winsearch_search::engine_query(token, "all", &[], 20, false).unwrap();
-        let mut stream = engine.search_stream(query).await.unwrap();
-        let mut mapped = Vec::new();
-        while let Some(batch) = stream.next().await.unwrap() {
-            let roots = engine.configured_roots();
-            mapped.extend(
-                batch
-                    .batch
-                    .iter()
-                    .filter_map(|hit| winsearch_search::map_result(&roots, hit, &|_| None)),
-            );
-            if batch.done {
-                break;
+        let expected = file.file_name().unwrap().to_string_lossy().into_owned();
+        // The crawler can still be queueing the folder when the status first looks idle, so search
+        // again until the admitted file shows up; a timeout reports what the engine returned.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        let (mapped, raw) = loop {
+            let query = winsearch_search::engine_query(token, "all", &[], 20, false).unwrap();
+            let mut stream = engine.search_stream(query).await.unwrap();
+            let mut mapped = Vec::new();
+            let mut raw = Vec::new();
+            while let Some(batch) = stream.next().await.unwrap() {
+                let roots = engine.configured_roots();
+                for hit in &batch.batch {
+                    raw.push(format!(
+                        "{:?} {:?} bound={} revision={}",
+                        hit.kind,
+                        hit.path,
+                        hit.entry_reference
+                            .as_ref()
+                            .is_some_and(|value| value.is_bound()),
+                        hit.entry_reference
+                            .as_ref()
+                            .is_some_and(|value| value.source_revision.is_some()),
+                    ));
+                }
+                mapped.extend(
+                    batch
+                        .batch
+                        .iter()
+                        .filter_map(|hit| winsearch_search::map_result(&roots, hit, &|_| None)),
+                );
+                if batch.done {
+                    break;
+                }
             }
-        }
+            if mapped.iter().any(|hit| hit.hit.name == expected)
+                || std::time::Instant::now() >= deadline
+            {
+                break (mapped, raw);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        };
         assert!(
-            mapped
-                .iter()
-                .any(|hit| hit.hit.name == file.file_name().unwrap().to_string_lossy()),
-            "the admitted file was not returned: {mapped:?}"
+            mapped.iter().any(|hit| hit.hit.name == expected),
+            "the admitted file was not returned: mapped {mapped:?}; raw engine hits {raw:?}"
         );
         assert!(
             mapped.iter().all(|hit| !hit.hit.name.contains("outside")),
