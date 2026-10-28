@@ -70,6 +70,13 @@ describe('DevelopmentFileSearchService with the WinSearch engine', () => {
     expect(commands()).toEqual(expect.arrayContaining(['search_winsearch', 'search_hybrid']));
   });
 
+  it('answers Related for an engine-only result with no results instead of a local lookup error', async () => {
+    const {service, commands} = setup(command => command === 'search_related' ? Promise.reject({code: 'not-found'}) : undefined);
+    const result = await service.search({...request, scope: 'related', relatedTo: 'winsearch:e5'});
+    expect(result.total).toBe(0);
+    expect(commands()).not.toContain('search_related');
+  });
+
   it('falls back when every engine hit is outside the roots granted now', async () => {
     const stray = {...hit('winsearch', 'Old.md'), rootPath: 'D:\\Revoked', path: 'D:\\Revoked\\Old.md'};
     const {service, commands} = setup(command => command === 'search_winsearch' ? response(stray)

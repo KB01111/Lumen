@@ -230,6 +230,12 @@ fn engine_is_ready_only_after_it_has_indexed_without_failing() {
     assert!(!winsearch_engine::engine_ready(&status));
     status.files_indexed = 3;
     assert!(winsearch_engine::engine_ready(&status));
+    status.queue_depth = 2;
+    assert!(
+        !winsearch_engine::engine_ready(&status),
+        "a backlog means a partial inventory"
+    );
+    status.queue_depth = 0;
     status.state = EngineRunState::Error;
     assert!(!winsearch_engine::engine_ready(&status));
 }
@@ -338,4 +344,13 @@ fn files_known_to_the_local_index_keep_their_real_identity_pin_and_hash() {
     assert_eq!(engine_only.hit.stable_id, "winsearch:e2");
     assert_eq!(engine_only.hit.index_revision, 1);
     assert!(!engine_only.pinned);
+}
+
+#[test]
+fn query_triggered_starts_are_single_flight_with_backoff() {
+    let engine = EngineRuntime::new(std::path::PathBuf::new(), std::path::PathBuf::new());
+    assert!(engine.begin_warm_up());
+    assert!(!engine.begin_warm_up(), "a start is already running");
+    engine.end_warm_up();
+    assert!(!engine.begin_warm_up(), "the last attempt was moments ago");
 }

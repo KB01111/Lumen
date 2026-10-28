@@ -303,7 +303,8 @@ export class DevelopmentFileSearchService implements SearchService {
       this.publishStatus(this.createStatus());
       return {requestId: request.requestId, groups: [], elapsedMs: performance.now() - startedAt, total: 0};
     }
-    if (request.scope === 'related' && !request.relatedTo) {
+    // Related is answered by the local index, which does not know engine-only identities.
+    if (request.scope === 'related' && (!request.relatedTo || request.relatedTo.startsWith('winsearch:'))) {
       return {requestId: request.requestId, groups: [], elapsedMs: performance.now() - startedAt, total: 0};
     }
     const preferences = this.getSearchPreferences();

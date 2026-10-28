@@ -28,6 +28,9 @@ Date: 2026-10-27. Engine pin: WinSearch `85a915d460b1fa751bbe86f289ff77c18c032c2
   index's `indexed:` id, content hash, revision and pin state, so pinning, history, previews
   and provenance stay real. Engine-only files use `winsearch:<id>` with an opaque digest of
   the engine's source-revision proof as their hash and revision 1; they cannot be pinned yet.
+- **Readiness.** The engine answers only when it has indexed files, is not failed and has an
+  empty queue; while it is still catching up the complete local index answers instead.
+  Query-triggered engine starts are single-flight with a five second backoff.
 - **Bounded streams.** Opening and draining one engine search is capped at 8 seconds, after
   which the frontend falls back to the local index. A failed policy send stops the engine
   (fail-closed), and the next start re-sends the newest cached policy; background sends only
@@ -60,6 +63,8 @@ Date: 2026-10-27. Engine pin: WinSearch `85a915d460b1fa751bbe86f289ff77c18c032c2
 
 - Both crawlers still run while the engine is healthy. Pins, history, Recent, Related,
   `indexed:` identities and answer-context admission remain on the local index.
+- Related for an engine-only result (a `winsearch:` id) returns no results because Related is
+  answered by the local index.
 - Engine-only results (files the local index does not hold) cannot be pinned, and engine
   results are not reranked locally or pinned-first.
 - No installed-app, controlled-performance or signed-package acceptance is claimed.

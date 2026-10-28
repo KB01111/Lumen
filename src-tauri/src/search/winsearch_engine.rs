@@ -547,9 +547,12 @@ fn spawn_gated(
     Err(unavailable())
 }
 
-/// The engine answers only once it has indexed something and is not failed.
+/// The engine answers only once it has indexed something, is not failed and has no backlog: a
+/// partial inventory would otherwise replace the complete local result set.
 pub(super) fn engine_ready(status: &ws_client::protocol::EngineStatus) -> bool {
-    status.state != ws_client::protocol::EngineRunState::Error && status.files_indexed > 0
+    status.state != ws_client::protocol::EngineRunState::Error
+        && status.files_indexed > 0
+        && status.queue_depth == 0
 }
 
 pub(crate) struct EngineRuntime {
@@ -567,7 +570,18 @@ pub(crate) struct EngineRuntime {
     background_normal: AtomicBool,
     /// Serializes configuration sends so the newest policy is always the last one delivered.
     lane: tokio::sync::Mutex<()>,
+    /// Single-flight guard (with a short backoff) for background engine starts triggered by queries.
+    warm_up: Mutex<WarmUp>,
 }
+
+#[derive(Default)]
+struct WarmUp {
+    in_flight: bool,
+    last_attempt: Option<std::time::Instant>,
+}
+
+/// Minimum spacing between query-triggered start attempts while the engine stays down.
+const WARM_UP_BACKOFF: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// A folder grant and the policy its results must still satisfy when they are shown.
 #[derive(Clone, Debug)]
@@ -612,6 +626,7 @@ impl EngineRuntime {
             roots: Mutex::new(Vec::new()),
             background_normal: AtomicBool::new(true),
             lane: tokio::sync::Mutex::new(()),
+            warm_up: Mutex::new(WarmUp::default()),
         }
     }
 
@@ -773,6 +788,29 @@ impl EngineRuntime {
             .lock()
             .map(|roots| roots.clone())
             .unwrap_or_default()
+    }
+
+    /// Claims the right to start the engine in the background; false while a start is running or
+    /// the last attempt was moments ago, so typing never piles up start attempts.
+    pub(super) fn begin_warm_up(&self) -> bool {
+        let Ok(mut state) = self.warm_up.lock() else {
+            return false;
+        };
+        let recent = state
+            .last_attempt
+            .is_some_and(|at| at.elapsed() < WARM_UP_BACKOFF);
+        if state.in_flight || recent {
+            return false;
+        }
+        state.in_flight = true;
+        state.last_attempt = Some(std::time::Instant::now());
+        true
+    }
+
+    pub(super) fn end_warm_up(&self) {
+        if let Ok(mut state) = self.warm_up.lock() {
+            state.in_flight = false;
+        }
     }
 
     pub(super) fn is_live(&self) -> bool {

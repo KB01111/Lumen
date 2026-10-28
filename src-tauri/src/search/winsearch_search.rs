@@ -287,9 +287,13 @@ pub async fn search_winsearch(
     runtime.begin_search(request_id);
     if !engine.is_live() {
         // Never wait for a cold start while the user types; the next query finds it running.
-        tauri::async_runtime::spawn(async move {
-            let _ = app.state::<EngineRuntime>().status().await;
-        });
+        if engine.begin_warm_up() {
+            tauri::async_runtime::spawn(async move {
+                let engine = app.state::<EngineRuntime>();
+                let _ = engine.status().await;
+                engine.end_warm_up();
+            });
+        }
         return Err(unavailable());
     }
     let roots = engine.configured_roots();
