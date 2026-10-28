@@ -310,20 +310,20 @@ fn background_pause_is_owned_by_the_engine_and_survives_later_admissions() {
     );
     assert!(engine.cached_config().is_none());
     // A folder admitted after a pause starts paused: the admission cannot undo the pause.
-    engine.remember_roots(&[root()]).unwrap();
+    engine.remember_roots(&[root()], &[root()]).unwrap();
     assert!(engine.cached_config().unwrap().paused);
     assert!(!engine.set_background_normal(false), "already paused");
     assert!(engine.set_background_normal(true));
     assert!(!engine.cached_config().unwrap().paused);
     // A later admission keeps the current activity state instead of restoring an older one.
-    engine.remember_roots(&[root()]).unwrap();
+    engine.remember_roots(&[root()], &[root()]).unwrap();
     assert!(!engine.cached_config().unwrap().paused);
     assert!(engine.set_background_normal(false));
-    engine.remember_roots(&[root()]).unwrap();
+    engine.remember_roots(&[root()], &[root()]).unwrap();
     assert!(engine.cached_config().unwrap().paused);
     // Revoking every grant keeps the engine paused whatever the activity policy says.
     assert!(engine.set_background_normal(true));
-    engine.remember_roots(&[]).unwrap();
+    engine.remember_roots(&[], &[]).unwrap();
     assert!(engine.cached_config().unwrap().paused);
     assert!(engine.configured_roots().is_empty());
 }
@@ -385,4 +385,27 @@ fn a_stale_local_row_keeps_its_id_and_pin_but_not_its_hash_or_revision() {
     assert!(mapped.pinned);
     assert_ne!(mapped.hit.content_hash, "a".repeat(64));
     assert_eq!(mapped.hit.index_revision, 1);
+}
+
+#[test]
+fn grants_follow_the_admitted_canonical_roots_not_the_requested_spelling() {
+    let engine = EngineRuntime::new(PathBuf::from("resources"), PathBuf::from("data"));
+    let request = |path: &str| IndexRootRequest {
+        path: path.into(),
+        cloud_enrichment: false,
+        exclusions: Vec::new(),
+        include_hidden: false,
+        max_file_size_mb: 1,
+    };
+    engine
+        .remember_roots(&[request("C:\\Alias\\Docs")], &[request("C:\\Real\\Docs")])
+        .unwrap();
+    // Results are confined to the admitted path, so a retargeted alias cannot widen them.
+    let granted = engine.configured_roots();
+    assert_eq!(granted.len(), 1);
+    assert_eq!(granted[0].path, PathBuf::from("C:\\Real\\Docs"));
+    assert_eq!(
+        engine.cached_config().unwrap().roots,
+        ["C:\\Alias\\Docs".to_owned()]
+    );
 }

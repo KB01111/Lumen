@@ -1091,16 +1091,17 @@ impl IndexRuntime {
         roots: Vec<IndexRootRequest>,
         content_enabled: bool,
     ) -> Result<IndexStatus, SearchFailure> {
-        self.configure_roots_with(roots, content_enabled, |_| {})
+        self.configure_roots_with(roots, content_enabled, |_, _| {})
     }
 
-    /// Admits `roots`, calling `published` with the requested roots while the commit lock is still
-    /// held, so anything that mirrors the admission (the engine's grants) sees commits in order.
+    /// Admits `roots`, calling `published` with the requested roots and the canonical roots that
+    /// were admitted (same order) while the commit lock is still held, so anything that mirrors the
+    /// admission (the engine's grants) sees commits in order and confines to the admitted paths.
     pub(crate) fn configure_roots_with(
         &self,
         roots: Vec<IndexRootRequest>,
         content_enabled: bool,
-        published: impl FnOnce(&[IndexRootRequest]),
+        published: impl FnOnce(&[IndexRootRequest], &[IndexRootRequest]),
     ) -> Result<IndexStatus, SearchFailure> {
         let requested = roots.clone();
         let mut canonical = Vec::with_capacity(roots.len());
@@ -1172,8 +1173,9 @@ impl IndexRuntime {
             self.work.reconcile.store(true, Ordering::SeqCst);
             self.work.configured.store(true, Ordering::SeqCst);
         }
+        let admitted = configured.clone();
         drop(configured);
-        published(&requested);
+        published(&requested, &admitted);
         self.work
             .content_enabled
             .store(content_enabled, Ordering::SeqCst);
@@ -2075,9 +2077,9 @@ pub async fn synchronize_index_roots(
     // Grants are recorded in the engine inside the local commit, so engine results are confined
     // immediately and overlapping admissions publish in commit order. The engine keeps its own
     // background-policy flag, which only activity transitions change.
-    let status = state.configure_roots_with(roots, background_normal, |granted| {
+    let status = state.configure_roots_with(roots, background_normal, |requested, admitted| {
         let engine = app.state::<super::winsearch_engine::EngineRuntime>();
-        let _ = engine.remember_roots(granted);
+        let _ = engine.remember_roots(requested, admitted);
     })?;
     // Sending to the engine is best-effort and may need a cold start, so it never delays admission.
     tauri::async_runtime::spawn(async move {
@@ -2456,15 +2458,23 @@ mod tests {
         };
         let mut published = Vec::new();
         runtime
-            .configure_roots_with(vec![request()], true, |granted| {
+            .configure_roots_with(vec![request()], true, |requested, admitted| {
                 // Another admission cannot commit between this one and its publication.
                 assert!(runtime.synchronization.try_lock().is_err());
-                published.push(granted.len());
+                assert_eq!(requested.len(), admitted.len());
+                // Grants carry the canonical admitted path, not the requested spelling.
+                assert_eq!(
+                    Path::new(&admitted[0].path),
+                    std::fs::canonicalize(fixture.root()).unwrap()
+                );
+                published.push(admitted.len());
             })
             .unwrap();
         assert_eq!(published, [1]);
         runtime
-            .configure_roots_with(Vec::new(), true, |granted| published.push(granted.len()))
+            .configure_roots_with(Vec::new(), true, |_, admitted| {
+                published.push(admitted.len())
+            })
             .unwrap();
         assert_eq!(published, [1, 0]);
         // A rejected admission publishes nothing.
@@ -2477,7 +2487,7 @@ mod tests {
             .into_owned();
         assert!(
             runtime
-                .configure_roots_with(vec![bad], true, |_| rejected = true)
+                .configure_roots_with(vec![bad], true, |_, _| rejected = true)
                 .is_err()
         );
         assert!(!rejected);

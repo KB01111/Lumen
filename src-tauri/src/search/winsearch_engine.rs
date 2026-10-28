@@ -709,13 +709,16 @@ impl EngineRuntime {
     /// by an older admission.
     pub(crate) fn remember_roots(
         &self,
-        roots: &[super::indexing::IndexRootRequest],
+        requested: &[super::indexing::IndexRootRequest],
+        admitted: &[super::indexing::IndexRootRequest],
     ) -> Result<(), SearchFailure> {
         let mut slot = self.config.lock().map_err(|_| unavailable())?;
         let normal = self.background_normal.load(Ordering::SeqCst);
-        let config = indexing_config(roots, normal);
-        // A root whose policy cannot be enforced locally is never served from the engine.
-        let granted = roots
+        let config = indexing_config(requested, normal);
+        // Results are confined to the canonical roots the local index admitted, so a root
+        // alias that is retargeted later cannot widen what the engine may serve. A root whose
+        // policy cannot be enforced locally is never served from the engine.
+        let granted = admitted
             .iter()
             .filter_map(|root| {
                 let bytes = root.max_file_size_mb.checked_mul(1024 * 1024)?;
@@ -781,7 +784,7 @@ impl EngineRuntime {
         &self,
         roots: &[super::indexing::IndexRootRequest],
     ) -> Result<(), SearchFailure> {
-        self.remember_roots(roots)?;
+        self.remember_roots(roots, roots)?;
         self.push_config().await
     }
 
