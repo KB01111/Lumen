@@ -651,6 +651,11 @@ impl EngineRuntime {
         if let Some(process) = self.live()? {
             return Ok(process);
         }
+        // The lane orders every policy send. Holding it from before the process is published until
+        // its first send is done keeps a concurrent push from being overwritten by an older
+        // snapshot, and from reaching a process that is not ready. `push_config` therefore starts
+        // the process before it takes the lane.
+        let _lane = self.lane.lock().await;
         let packaged = self.resources.join("binaries/winsearch");
         let root = match fs::symlink_metadata(&packaged) {
             Err(error)
@@ -762,8 +767,8 @@ impl EngineRuntime {
 
     /// Sends the newest cached policy to the (possibly restarted) engine, in order.
     pub(crate) async fn push_config(&self) -> Result<(), SearchFailure> {
-        let _lane = self.lane.lock().await;
         let process = self.ensure_process().await?;
+        let _lane = self.lane.lock().await;
         let latest = self.config.lock().map_err(|_| unavailable())?.clone();
         let Some(latest) = latest else {
             return Ok(());

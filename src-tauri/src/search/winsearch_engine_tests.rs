@@ -263,10 +263,19 @@ fn engine_native_search_streams_admitted_folder_and_maps_confined_hits() {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
         let (mapped, raw) = loop {
             let query = winsearch_search::engine_query(token, "all", &[], 20, false).unwrap();
-            let mut stream = engine.search_stream(query).await.unwrap();
+            // The engine reports not-ready while the crawler still has a backlog, so a failed
+            // open is retried until the deadline instead of failing the test.
+            let Ok(mut stream) = engine.search_stream(query).await else {
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "the engine never became ready for search"
+                );
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                continue;
+            };
             let mut mapped = Vec::new();
             let mut raw = Vec::new();
-            while let Some(batch) = stream.next().await.unwrap() {
+            while let Ok(Some(batch)) = stream.next().await {
                 let roots = engine.configured_roots();
                 for hit in &batch.batch {
                     raw.push(format!(
@@ -314,6 +323,25 @@ fn engine_native_search_streams_admitted_folder_and_maps_confined_hits() {
         // Revoking every grant must pause the engine and leave nothing searchable by the host mapper.
         engine.configure_roots(&[]).await.unwrap();
         assert!(engine.configured_roots().is_empty());
+        engine.shutdown();
+    });
+}
+
+#[test]
+#[ignore = "May start the real pinned engine; run explicitly after staging"]
+fn engine_native_start_and_push_release_the_policy_lane() {
+    let fixture = SearchFixture::new("winsearch-lane-released");
+    let engine = EngineRuntime::new(
+        fixture.root().join("missing-resources"),
+        fixture.root().join("engine-data"),
+    );
+    tauri::async_runtime::block_on(async {
+        // Whether the engine can start here or not, neither call may keep the lane that orders
+        // policy sends, or the startup lock, once it returns.
+        let _ = engine.push_config().await;
+        let _ = engine.status().await;
+        assert!(engine.lane.try_lock().is_ok());
+        assert!(engine.startup.try_lock().is_ok());
         engine.shutdown();
     });
 }
