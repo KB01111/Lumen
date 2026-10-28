@@ -704,15 +704,16 @@ impl EngineRuntime {
         process.client.status().await.map_err(|_| unavailable())
     }
 
-    /// Records the host's folder grants synchronously so result confinement is never stale.
+    /// Records the host's folder grants so result confinement is never stale. The background flag
+    /// is read under the same lock `set_background_normal` takes, so a newer pause is never undone
+    /// by an older admission.
     pub(crate) fn remember_roots(
         &self,
         roots: &[super::indexing::IndexRootRequest],
-        background_normal: bool,
     ) -> Result<(), SearchFailure> {
-        self.background_normal
-            .store(background_normal, Ordering::SeqCst);
-        let config = indexing_config(roots, background_normal);
+        let mut slot = self.config.lock().map_err(|_| unavailable())?;
+        let normal = self.background_normal.load(Ordering::SeqCst);
+        let config = indexing_config(roots, normal);
         // A root whose policy cannot be enforced locally is never served from the engine.
         let granted = roots
             .iter()
@@ -730,20 +731,20 @@ impl EngineRuntime {
                 })
             })
             .collect();
-        *self.config.lock().map_err(|_| unavailable())? = Some(config);
         *self.roots.lock().map_err(|_| unavailable())? = granted;
+        *slot = Some(config);
         Ok(())
     }
 
     /// Applies a background-policy change (pause, game, battery) to the cached engine policy.
     /// Returns whether the engine's configuration changed and must be re-sent.
     pub(crate) fn set_background_normal(&self, normal: bool) -> bool {
-        if self.background_normal.swap(normal, Ordering::SeqCst) == normal {
-            return false;
-        }
         let Ok(mut slot) = self.config.lock() else {
             return false;
         };
+        if self.background_normal.swap(normal, Ordering::SeqCst) == normal {
+            return false;
+        }
         let Some(config) = slot.as_mut() else {
             return false;
         };
@@ -779,9 +780,8 @@ impl EngineRuntime {
     pub(crate) async fn configure_roots(
         &self,
         roots: &[super::indexing::IndexRootRequest],
-        background_normal: bool,
     ) -> Result<(), SearchFailure> {
-        self.remember_roots(roots, background_normal)?;
+        self.remember_roots(roots)?;
         self.push_config().await
     }
 

@@ -376,10 +376,14 @@ jobs:
             printf -- '- `%s`: per-user installer\n- `%s`: per-machine MSI (installs to Program Files, needs administrator rights)\n\n' "$(basename "${nsis[0]}")" "$(basename "${msi[0]}")"
             printf 'Both installers bundle the pinned, hash-verified WinSearch engine. Built from commit `%s`.\n' "$GITHUB_SHA"
           } > release-notes.md
-          if [[ "$EVENT_NAME" != "push" ]] && gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
-            printf 'Tag %s already exists; a manual release must create a new tag from the build commit\n' "$RELEASE_TAG" >&2
-            exit 1
+          if [[ "$EVENT_NAME" != "push" ]]; then
+            # Create the tag at the build commit in one request that fails if it already exists, so a
+            # manual release can never attach these installers to a tag pointing at other source.
+            if ! gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+                -f ref="refs/tags/$RELEASE_TAG" -f sha="$GITHUB_SHA" > /dev/null; then
+              printf 'Could not create tag %s at %s: it may already exist (delete it first to retry)\n' "$RELEASE_TAG" "$GITHUB_SHA" >&2
+              exit 1
+            fi
           fi
-          args=(--repo "$GITHUB_REPOSITORY" --prerelease --title "Lumen $RELEASE_TAG (unsigned)" --notes-file release-notes.md)
-          if [[ "$EVENT_NAME" == "push" ]]; then args+=(--verify-tag); else args+=(--target "$GITHUB_SHA"); fi
+          args=(--repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Lumen $RELEASE_TAG (unsigned)" --notes-file release-notes.md)
           gh release create "$RELEASE_TAG" "${nsis[0]}" "${msi[0]}" "${sums[0]}" "${args[@]}"

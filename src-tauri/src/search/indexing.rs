@@ -1085,11 +1085,24 @@ impl IndexRuntime {
         Ok(deleted)
     }
 
+    #[cfg(test)]
     pub(crate) fn configure_roots(
         &self,
         roots: Vec<IndexRootRequest>,
         content_enabled: bool,
     ) -> Result<IndexStatus, SearchFailure> {
+        self.configure_roots_with(roots, content_enabled, |_| {})
+    }
+
+    /// Admits `roots`, calling `published` with the requested roots while the commit lock is still
+    /// held, so anything that mirrors the admission (the engine's grants) sees commits in order.
+    pub(crate) fn configure_roots_with(
+        &self,
+        roots: Vec<IndexRootRequest>,
+        content_enabled: bool,
+        published: impl FnOnce(&[IndexRootRequest]),
+    ) -> Result<IndexStatus, SearchFailure> {
+        let requested = roots.clone();
         let mut canonical = Vec::with_capacity(roots.len());
         let mut policies = HashMap::new();
         for mut root in roots {
@@ -1160,6 +1173,7 @@ impl IndexRuntime {
             self.work.configured.store(true, Ordering::SeqCst);
         }
         drop(configured);
+        published(&requested);
         self.work
             .content_enabled
             .store(content_enabled, Ordering::SeqCst);
@@ -2058,11 +2072,14 @@ pub async fn synchronize_index_roots(
 ) -> Result<IndexStatus, SearchFailure> {
     let background_normal =
         activity.snapshot().background_policy == crate::activity::BackgroundPolicy::Normal;
-    let status = state.configure_roots(roots.clone(), background_normal)?;
-    // Grants are recorded now so engine results are confined immediately; the engine call is
-    // best-effort and may need a cold start, so it never delays admission.
-    let engine = app.state::<super::winsearch_engine::EngineRuntime>();
-    let _ = engine.remember_roots(&roots, background_normal);
+    // Grants are recorded in the engine inside the local commit, so engine results are confined
+    // immediately and overlapping admissions publish in commit order. The engine keeps its own
+    // background-policy flag, which only activity transitions change.
+    let status = state.configure_roots_with(roots, background_normal, |granted| {
+        let engine = app.state::<super::winsearch_engine::EngineRuntime>();
+        let _ = engine.remember_roots(granted);
+    })?;
+    // Sending to the engine is best-effort and may need a cold start, so it never delays admission.
     tauri::async_runtime::spawn(async move {
         let engine = app.state::<super::winsearch_engine::EngineRuntime>();
         let _ = engine.push_config().await;
@@ -2423,6 +2440,47 @@ mod tests {
             (samples[4] + samples[5]) / 2.0,
             samples[9]
         );
+    }
+
+    #[test]
+    fn engine_grants_are_published_inside_the_local_commit_lock() {
+        let fixture = SearchFixture::new("publish-under-commit-lock");
+        let database_path = fixture.root().parent().unwrap().join("index.sqlite");
+        let runtime = IndexRuntime::open(&database_path, Path::new("missing.dll"), false).unwrap();
+        let request = || IndexRootRequest {
+            path: fixture.root().to_string_lossy().into_owned(),
+            cloud_enrichment: false,
+            exclusions: vec![],
+            include_hidden: false,
+            max_file_size_mb: 1,
+        };
+        let mut published = Vec::new();
+        runtime
+            .configure_roots_with(vec![request()], true, |granted| {
+                // Another admission cannot commit between this one and its publication.
+                assert!(runtime.synchronization.try_lock().is_err());
+                published.push(granted.len());
+            })
+            .unwrap();
+        assert_eq!(published, [1]);
+        runtime
+            .configure_roots_with(Vec::new(), true, |granted| published.push(granted.len()))
+            .unwrap();
+        assert_eq!(published, [1, 0]);
+        // A rejected admission publishes nothing.
+        let mut rejected = false;
+        let mut bad = request();
+        bad.path = fixture
+            .root()
+            .join("missing-folder")
+            .to_string_lossy()
+            .into_owned();
+        assert!(
+            runtime
+                .configure_roots_with(vec![bad], true, |_| rejected = true)
+                .is_err()
+        );
+        assert!(!rejected);
     }
 
     #[test]

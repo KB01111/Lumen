@@ -295,9 +295,9 @@ fn hits_indexed_before_a_policy_change_are_not_shown() {
 }
 
 #[test]
-fn background_pause_reaches_the_cached_engine_policy_once_per_transition() {
+fn background_pause_is_owned_by_the_engine_and_survives_later_admissions() {
     let engine = EngineRuntime::new(std::path::PathBuf::new(), std::path::PathBuf::new());
-    let root = IndexRootRequest {
+    let root = || IndexRootRequest {
         path: "C:\\Docs".into(),
         cloud_enrichment: false,
         exclusions: Vec::new(),
@@ -309,18 +309,21 @@ fn background_pause_reaches_the_cached_engine_policy_once_per_transition() {
         "nothing is cached yet, so nothing needs re-sending"
     );
     assert!(engine.cached_config().is_none());
-    engine.remember_roots(&[root], true).unwrap();
-    assert!(!engine.cached_config().unwrap().paused);
-    assert!(engine.set_background_normal(false));
+    // A folder admitted after a pause starts paused: the admission cannot undo the pause.
+    engine.remember_roots(&[root()]).unwrap();
     assert!(engine.cached_config().unwrap().paused);
-    assert!(
-        !engine.set_background_normal(false),
-        "no change, nothing to re-send"
-    );
+    assert!(!engine.set_background_normal(false), "already paused");
     assert!(engine.set_background_normal(true));
     assert!(!engine.cached_config().unwrap().paused);
+    // A later admission keeps the current activity state instead of restoring an older one.
+    engine.remember_roots(&[root()]).unwrap();
+    assert!(!engine.cached_config().unwrap().paused);
+    assert!(engine.set_background_normal(false));
+    engine.remember_roots(&[root()]).unwrap();
+    assert!(engine.cached_config().unwrap().paused);
     // Revoking every grant keeps the engine paused whatever the activity policy says.
-    engine.remember_roots(&[], true).unwrap();
+    assert!(engine.set_background_normal(true));
+    engine.remember_roots(&[]).unwrap();
     assert!(engine.cached_config().unwrap().paused);
     assert!(engine.configured_roots().is_empty());
 }

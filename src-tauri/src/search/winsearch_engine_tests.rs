@@ -243,7 +243,7 @@ fn engine_native_search_streams_admitted_folder_and_maps_confined_hits() {
             include_hidden: false,
             max_file_size_mb: 16,
         }];
-        engine.configure_roots(&roots, true).await.unwrap();
+        engine.configure_roots(&roots).await.unwrap();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
         loop {
             let status = engine.status().await.unwrap();
@@ -287,7 +287,7 @@ fn engine_native_search_streams_admitted_folder_and_maps_confined_hits() {
                 .all(|hit| hit.hit.stable_id.starts_with("winsearch:e"))
         );
         // Revoking every grant must pause the engine and leave nothing searchable by the host mapper.
-        engine.configure_roots(&[], true).await.unwrap();
+        engine.configure_roots(&[]).await.unwrap();
         assert!(engine.configured_roots().is_empty());
         engine.shutdown();
     });
