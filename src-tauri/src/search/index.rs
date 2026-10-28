@@ -390,6 +390,20 @@ pub struct IndexedHit {
     pub rank: f64,
 }
 
+/// A file's identity in Lumen's own index, reused for engine hits so pins, history and
+/// provenance keep their real values.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct LocalIdentity {
+    pub stable_id: String,
+    pub content_hash: String,
+    pub index_revision: u64,
+    pub pinned: bool,
+    /// Size and modification time recorded when the local row was indexed; they show whether
+    /// its hash and revision still describe the file on disk.
+    pub size_bytes: Option<u64>,
+    pub modified_ms: Option<u64>,
+}
+
 #[derive(Clone, Debug, serde::Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnrichmentJobRecord {
@@ -964,6 +978,43 @@ impl IndexDatabase {
                             .get::<_, Option<i64>>(10)?
                             .and_then(|value| u64::try_from(value).ok()),
                         rank: 0.0,
+                    })
+                },
+            )
+            .optional()
+            .map_err(IndexError::from)
+    }
+
+    /// Identity of a locally indexed file by path, without hydrating its text.
+    pub(super) fn local_identity_for_path(
+        &self,
+        path: &Path,
+    ) -> IndexResult<Option<LocalIdentity>> {
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        connection
+            .query_row(
+                "SELECT files.stable_id, files.content_hash, files.index_revision,
+                        EXISTS(SELECT 1 FROM pins WHERE pins.file_id = files.id),
+                        CASE WHEN json_valid(file_inventory.metadata) AND json_type(file_inventory.metadata, '$.sizeBytes') = 'integer'
+                             THEN json_extract(file_inventory.metadata, '$.sizeBytes') END,
+                        CASE WHEN json_valid(file_inventory.metadata) AND json_type(file_inventory.metadata, '$.modifiedMs') = 'integer'
+                             THEN json_extract(file_inventory.metadata, '$.modifiedMs') END
+                 FROM files LEFT JOIN file_inventory ON file_inventory.file_id = files.id
+                 WHERE files.path = ?1",
+                [path.to_string_lossy().into_owned()],
+                |row| {
+                    Ok(LocalIdentity {
+                        stable_id: row.get(0)?,
+                        content_hash: row.get(1)?,
+                        index_revision: u64::try_from(row.get::<_, i64>(2)?)
+                            .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(2, i64::MAX))?,
+                        pinned: row.get::<_, i64>(3)? != 0,
+                        size_bytes: row
+                            .get::<_, Option<i64>>(4)?
+                            .and_then(|value| u64::try_from(value).ok()),
+                        modified_ms: row
+                            .get::<_, Option<i64>>(5)?
+                            .and_then(|value| u64::try_from(value).ok()),
                     })
                 },
             )
@@ -1962,6 +2013,66 @@ mod tests {
         let cleared = database.clear_history().unwrap();
         assert_eq!(cleared.entry_count, 0);
         assert!(!database.history_status().unwrap().enabled);
+    }
+
+    #[test]
+    fn local_identity_survives_malformed_inventory_metadata() {
+        let fixture = SearchFixture::new("local-identity");
+        let path = fixture.file("report.txt", b"quarterly report");
+        let database = IndexDatabase::open_memory().unwrap();
+        database
+            .upsert_document(
+                fixture.root(),
+                &document(path.clone(), "report", "hash-report", "quarterly report"),
+            )
+            .unwrap();
+        // The index stores a normalised path (Windows temp directories use short names), so look
+        // the file up by the stored form, exactly as the engine mapper's canonical path does.
+        let stable_id = "report".to_owned();
+        let (_, stored) = database.file_location(&stable_id).unwrap().unwrap();
+        database.set_pinned(&stable_id, true).unwrap();
+        let set_inventory = |metadata: &str| {
+            let connection = database.connection.lock().unwrap();
+            connection
+                .execute(
+                    "INSERT OR REPLACE INTO file_inventory(file_id, metadata) SELECT id, ?1 FROM files",
+                    [metadata],
+                )
+                .unwrap();
+        };
+
+        let identity = database.local_identity_for_path(&stored).unwrap().unwrap();
+        assert_eq!(identity.stable_id, stable_id);
+        assert!(identity.pinned);
+        assert_eq!(identity.content_hash, "hash-report");
+
+        set_inventory(r#"{"sizeBytes":12,"modifiedMs":1786000000000}"#);
+        let valid = database.local_identity_for_path(&stored).unwrap().unwrap();
+        assert_eq!(
+            (valid.size_bytes, valid.modified_ms),
+            (Some(12), Some(1786000000000))
+        );
+
+        // Valid JSON with wrongly typed fields and outright malformed JSON must only drop the
+        // freshness fields, never the file's id, pin or hash.
+        for broken in [r#"{"sizeBytes":"unknown","modifiedMs":1.5}"#, "not json"] {
+            set_inventory(broken);
+            let degraded = database.local_identity_for_path(&stored).unwrap().unwrap();
+            assert_eq!(degraded.stable_id, stable_id, "{broken}");
+            assert!(degraded.pinned, "{broken}");
+            assert_eq!(degraded.content_hash, "hash-report", "{broken}");
+            assert_eq!(
+                (degraded.size_bytes, degraded.modified_ms),
+                (None, None),
+                "{broken}"
+            );
+        }
+        assert!(
+            database
+                .local_identity_for_path(&stored.with_extension("missing"))
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]

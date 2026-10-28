@@ -235,9 +235,20 @@ pub fn run() {
             } else {
                 development_vector
             };
-            app.manage(search::winsearch_engine::EngineRuntime::new(
+            let winsearch = search::winsearch_engine::EngineRuntime::new(
                 app.path().resource_dir()?, data_directory.join("winsearch-engine"),
-            ));
+            );
+            // A persisted pause must reach the engine with the first admitted folders, not after them.
+            winsearch.set_background_normal(
+                app.state::<activity::ActivityRuntime>().snapshot().background_policy
+                    == activity::BackgroundPolicy::Normal,
+            );
+            app.manage(winsearch);
+            // Start the verified engine in the background so the first query can use it.
+            let warm_up = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = warm_up.state::<search::winsearch_engine::EngineRuntime>().status().await;
+            });
             app.manage(search::IndexRuntime::open(
                 &data_directory.join("lumen-index.sqlite3"),
                 &vector_extension,
@@ -371,6 +382,8 @@ pub fn run() {
             improvement::commands::end_improvement_workflow,
             search::list_files,
             search::winsearch_engine::get_winsearch_engine_status,
+            search::winsearch_search::search_winsearch,
+            search::winsearch_search::cancel_winsearch_search,
             search::search_filenames,
             search::get_file_metadata,
             search::get_basic_preview,

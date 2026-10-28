@@ -218,3 +218,130 @@ fn engine_native_owned_profiles_authenticate_and_stop_independently() {
         b.shutdown();
     });
 }
+
+#[test]
+#[ignore = "Requires the real pinned staged WinSearch payload; run explicitly after staging"]
+fn engine_native_search_streams_admitted_folder_and_maps_confined_hits() {
+    use crate::search::{indexing::IndexRootRequest, winsearch_search};
+
+    let fixture = SearchFixture::new("engine-native-search");
+    let token = "lumennativesearchtoken";
+    let file = fixture.file(
+        &format!("docs/{token}-notes.txt"),
+        format!("the {token} sentence lives in this admitted file").as_bytes(),
+    );
+    fixture.outside_file(&format!("{token}-outside.txt"), token.as_bytes());
+    let engine = EngineRuntime::new(
+        Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf(),
+        // Outside the admitted folder, so the engine never indexes its own data.
+        fixture.root().parent().unwrap().join("engine-data"),
+    );
+    tauri::async_runtime::block_on(async {
+        let roots = vec![IndexRootRequest {
+            path: fixture.root().to_string_lossy().into_owned(),
+            cloud_enrichment: false,
+            exclusions: Vec::new(),
+            include_hidden: false,
+            max_file_size_mb: 16,
+        }];
+        engine.configure_roots(&roots).await.unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+        loop {
+            let status = engine.status().await.unwrap();
+            if engine_ready(&status) && status.queue_depth == 0 {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the admitted folder was not indexed: {status:?}"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+        let expected = file.file_name().unwrap().to_string_lossy().into_owned();
+        // The crawler can still be queueing the folder when the status first looks idle, so search
+        // again until the admitted file shows up; a timeout reports what the engine returned.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        let (mapped, raw) = loop {
+            let query = winsearch_search::engine_query(token, "all", &[], 20, false).unwrap();
+            // The engine reports not-ready while the crawler still has a backlog, so a failed
+            // open is retried until the deadline instead of failing the test.
+            let Ok(mut stream) = engine.search_stream(query).await else {
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "the engine never became ready for search"
+                );
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                continue;
+            };
+            let mut mapped = Vec::new();
+            let mut raw = Vec::new();
+            while let Ok(Some(batch)) = stream.next().await {
+                let roots = engine.configured_roots();
+                for hit in &batch.batch {
+                    raw.push(format!(
+                        "{:?} {:?} bound={} revision={}",
+                        hit.kind,
+                        hit.path,
+                        hit.entry_reference
+                            .as_ref()
+                            .is_some_and(|value| value.is_bound()),
+                        hit.entry_reference
+                            .as_ref()
+                            .is_some_and(|value| value.source_revision.is_some()),
+                    ));
+                }
+                mapped.extend(
+                    batch
+                        .batch
+                        .iter()
+                        .filter_map(|hit| winsearch_search::map_result(&roots, hit, &|_| None)),
+                );
+                if batch.done {
+                    break;
+                }
+            }
+            if mapped.iter().any(|hit| hit.hit.name == expected)
+                || std::time::Instant::now() >= deadline
+            {
+                break (mapped, raw);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        };
+        assert!(
+            mapped.iter().any(|hit| hit.hit.name == expected),
+            "the admitted file was not returned: mapped {mapped:?}; raw engine hits {raw:?}"
+        );
+        assert!(
+            mapped.iter().all(|hit| !hit.hit.name.contains("outside")),
+            "an ungranted folder leaked into results"
+        );
+        assert!(
+            mapped
+                .iter()
+                .all(|hit| hit.hit.stable_id.starts_with("winsearch:e"))
+        );
+        // Revoking every grant must pause the engine and leave nothing searchable by the host mapper.
+        engine.configure_roots(&[]).await.unwrap();
+        assert!(engine.configured_roots().is_empty());
+        engine.shutdown();
+    });
+}
+
+#[test]
+#[ignore = "May start the real pinned engine; run explicitly after staging"]
+fn engine_native_start_and_push_release_the_policy_lane() {
+    let fixture = SearchFixture::new("winsearch-lane-released");
+    let engine = EngineRuntime::new(
+        fixture.root().join("missing-resources"),
+        fixture.root().join("engine-data"),
+    );
+    tauri::async_runtime::block_on(async {
+        // Whether the engine can start here or not, neither call may keep the lane that orders
+        // policy sends, or the startup lock, once it returns.
+        let _ = engine.push_config().await;
+        let _ = engine.status().await;
+        assert!(engine.lane.try_lock().is_ok());
+        assert!(engine.startup.try_lock().is_ok());
+        engine.shutdown();
+    });
+}

@@ -547,6 +547,14 @@ fn spawn_gated(
     Err(unavailable())
 }
 
+/// The engine answers only once it has indexed something, is not failed and has no backlog: a
+/// partial inventory would otherwise replace the complete local result set.
+pub(super) fn engine_ready(status: &ws_client::protocol::EngineStatus) -> bool {
+    status.state != ws_client::protocol::EngineRunState::Error
+        && status.files_indexed > 0
+        && status.queue_depth == 0
+}
+
 pub(crate) struct EngineRuntime {
     resources: PathBuf,
     data: PathBuf,
@@ -554,6 +562,55 @@ pub(crate) struct EngineRuntime {
     process: Mutex<Option<Arc<Process>>>,
     closed: AtomicBool,
     startup: tokio::sync::Mutex<()>,
+    /// Last folder policy sent by the host; a restarted engine comes back deferred, so it is re-sent.
+    config: Mutex<Option<ws_client::protocol::IndexingConfig>>,
+    /// Granted roots with their admission policy, for confining engine results.
+    roots: Mutex<Vec<GrantedRoot>>,
+    /// Whether background work is currently allowed (no pause, game or battery restriction).
+    background_normal: AtomicBool,
+    /// Serializes configuration sends so the newest policy is always the last one delivered.
+    lane: tokio::sync::Mutex<()>,
+    /// Single-flight guard (with a short backoff) for background engine starts triggered by queries.
+    warm_up: Mutex<WarmUp>,
+}
+
+#[derive(Default)]
+struct WarmUp {
+    in_flight: bool,
+    last_attempt: Option<std::time::Instant>,
+}
+
+/// Minimum spacing between query-triggered start attempts while the engine stays down.
+const WARM_UP_BACKOFF: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// A folder grant and the policy its results must still satisfy when they are shown.
+#[derive(Clone, Debug)]
+pub(super) struct GrantedRoot {
+    pub path: PathBuf,
+    pub policy: super::traversal::TraversalPolicy,
+}
+
+/// Engine results must not delay typing: a search never waits for a cold start.
+const STATUS_DEADLINE: std::time::Duration = std::time::Duration::from_millis(750);
+
+pub(super) fn indexing_config(
+    roots: &[super::indexing::IndexRootRequest],
+    background_normal: bool,
+) -> ws_client::protocol::IndexingConfig {
+    ws_client::protocol::IndexingConfig {
+        roots: roots.iter().map(|root| root.path.clone()).collect(),
+        root_policies: roots
+            .iter()
+            .map(|root| ws_client::protocol::RootPolicy {
+                root: root.path.clone(),
+                exclusions: root.exclusions.clone(),
+                include_hidden: root.include_hidden,
+                max_file_size_bytes: root.max_file_size_mb.saturating_mul(1024 * 1024),
+            })
+            .collect(),
+        paused: roots.is_empty() || !background_normal,
+        ..Default::default()
+    }
 }
 
 impl EngineRuntime {
@@ -565,6 +622,11 @@ impl EngineRuntime {
             process: Mutex::new(None),
             closed: AtomicBool::new(false),
             startup: tokio::sync::Mutex::new(()),
+            config: Mutex::new(None),
+            roots: Mutex::new(Vec::new()),
+            background_normal: AtomicBool::new(true),
+            lane: tokio::sync::Mutex::new(()),
+            warm_up: Mutex::new(WarmUp::default()),
         }
     }
 
@@ -589,6 +651,11 @@ impl EngineRuntime {
         if let Some(process) = self.live()? {
             return Ok(process);
         }
+        // The lane orders every policy send. Holding it from before the process is published until
+        // its first send is done keeps a concurrent push from being overwritten by an older
+        // snapshot, and from reaching a process that is not ready. `push_config` therefore starts
+        // the process before it takes the lane.
+        let _lane = self.lane.lock().await;
         let packaged = self.resources.join("binaries/winsearch");
         let root = match fs::symlink_metadata(&packaged) {
             Err(error)
@@ -625,6 +692,11 @@ impl EngineRuntime {
             process.kill();
             return Err(unavailable());
         }
+        let cached = self.config.lock().ok().and_then(|config| config.clone());
+        if let Some(config) = cached {
+            // A rejected policy leaves the engine deferred; the local index keeps serving.
+            let _ = process.client.set_indexing_config(config).await;
+        }
         if self.closed.load(Ordering::SeqCst) {
             process.kill();
             return Err(unavailable());
@@ -635,6 +707,144 @@ impl EngineRuntime {
     pub(crate) async fn status(&self) -> Result<ws_client::protocol::EngineStatus, SearchFailure> {
         let process = self.ensure_process().await?;
         process.client.status().await.map_err(|_| unavailable())
+    }
+
+    /// Records the host's folder grants so result confinement is never stale. The background flag
+    /// is read under the same lock `set_background_normal` takes, so a newer pause is never undone
+    /// by an older admission.
+    pub(crate) fn remember_roots(
+        &self,
+        requested: &[super::indexing::IndexRootRequest],
+        admitted: &[super::indexing::IndexRootRequest],
+    ) -> Result<(), SearchFailure> {
+        let mut slot = self.config.lock().map_err(|_| unavailable())?;
+        let normal = self.background_normal.load(Ordering::SeqCst);
+        let config = indexing_config(requested, normal);
+        // Results are confined to the canonical roots the local index admitted, so a root
+        // alias that is retargeted later cannot widen what the engine may serve. A root whose
+        // policy cannot be enforced locally is never served from the engine.
+        let granted = admitted
+            .iter()
+            .filter_map(|root| {
+                let bytes = root.max_file_size_mb.checked_mul(1024 * 1024)?;
+                let policy = super::traversal::TraversalPolicy::new(
+                    root.exclusions.clone(),
+                    root.include_hidden,
+                    bytes,
+                )
+                .ok()?;
+                Some(GrantedRoot {
+                    path: PathBuf::from(&root.path),
+                    policy,
+                })
+            })
+            .collect();
+        *self.roots.lock().map_err(|_| unavailable())? = granted;
+        *slot = Some(config);
+        Ok(())
+    }
+
+    /// Applies a background-policy change (pause, game, battery) to the cached engine policy.
+    /// Returns whether the engine's configuration changed and must be re-sent.
+    pub(crate) fn set_background_normal(&self, normal: bool) -> bool {
+        let Ok(mut slot) = self.config.lock() else {
+            return false;
+        };
+        if self.background_normal.swap(normal, Ordering::SeqCst) == normal {
+            return false;
+        }
+        let Some(config) = slot.as_mut() else {
+            return false;
+        };
+        config.paused = config.roots.is_empty() || !normal;
+        true
+    }
+
+    #[cfg(test)]
+    pub(super) fn cached_config(&self) -> Option<ws_client::protocol::IndexingConfig> {
+        self.config.lock().ok().and_then(|config| config.clone())
+    }
+
+    /// Sends the newest cached policy to the (possibly restarted) engine, in order.
+    pub(crate) async fn push_config(&self) -> Result<(), SearchFailure> {
+        let process = self.ensure_process().await?;
+        let _lane = self.lane.lock().await;
+        let latest = self.config.lock().map_err(|_| unavailable())?.clone();
+        let Some(latest) = latest else {
+            return Ok(());
+        };
+        if process.client.set_indexing_config(latest).await.is_err() {
+            // An engine left with stale grants could keep indexing revoked folders. Stopping it is
+            // fail-closed: the next start re-sends the newest cached policy.
+            process.kill();
+            return Err(unavailable());
+        }
+        Ok(())
+    }
+
+    /// Records the host's folder grants and forwards them to the engine (used by the native test;
+    /// the host records grants synchronously and pushes the cached policy separately).
+    #[cfg(test)]
+    pub(crate) async fn configure_roots(
+        &self,
+        roots: &[super::indexing::IndexRootRequest],
+    ) -> Result<(), SearchFailure> {
+        self.remember_roots(roots, roots)?;
+        self.push_config().await
+    }
+
+    pub(super) fn configured_roots(&self) -> Vec<GrantedRoot> {
+        self.roots
+            .lock()
+            .map(|roots| roots.clone())
+            .unwrap_or_default()
+    }
+
+    /// Claims the right to start the engine in the background; false while a start is running or
+    /// the last attempt was moments ago, so typing never piles up start attempts.
+    pub(super) fn begin_warm_up(&self) -> bool {
+        let Ok(mut state) = self.warm_up.lock() else {
+            return false;
+        };
+        let recent = state
+            .last_attempt
+            .is_some_and(|at| at.elapsed() < WARM_UP_BACKOFF);
+        if state.in_flight || recent {
+            return false;
+        }
+        state.in_flight = true;
+        state.last_attempt = Some(std::time::Instant::now());
+        true
+    }
+
+    pub(super) fn end_warm_up(&self) {
+        if let Ok(mut state) = self.warm_up.lock() {
+            state.in_flight = false;
+        }
+    }
+
+    pub(super) fn is_live(&self) -> bool {
+        matches!(self.live(), Ok(Some(_)))
+    }
+
+    /// Opens an exact/semantic search on the already running engine.
+    pub(super) async fn search_stream(
+        &self,
+        query: ws_client::protocol::SearchQuery,
+    ) -> Result<ws_client::SearchStream, SearchFailure> {
+        let process = self.live()?.ok_or_else(unavailable)?;
+        let status = tokio::time::timeout(STATUS_DEADLINE, process.client.status())
+            .await
+            .map_err(|_| unavailable())?
+            .map_err(|_| unavailable())?;
+        if !engine_ready(&status) {
+            return Err(unavailable());
+        }
+        process
+            .client
+            .search(query)
+            .await
+            .map_err(|_| unavailable())
     }
 
     pub(crate) fn shutdown(&self) {

@@ -1,4 +1,4 @@
-import {invoke as tauriInvoke} from '@tauri-apps/api/core';
+import {Channel, invoke as tauriInvoke} from '@tauri-apps/api/core';
 import {z} from 'zod';
 import {admitIndexRoots, indexStatusSchema, type IndexStatus} from '../ai/native-ai-service';
 
@@ -101,7 +101,14 @@ interface KnownFile {
   root: string;
 }
 
+/** Receives progressive snapshots streamed by the native WinSearch engine. */
+export interface WinSearchChannel {
+  onmessage: (message: unknown) => void;
+}
+
 export interface DevelopmentFileSearchServiceOptions {
+  /** Prefer the native WinSearch engine for launcher searches; the local index stays the fallback. */
+  winSearch?: {createChannel?: () => WinSearchChannel};
   isReady?(): boolean;
   getRoots(): readonly string[];
   getRootConfigurations?(): readonly {
@@ -245,7 +252,10 @@ export class DevelopmentFileSearchService implements SearchService {
   private statusPollRunning = false;
   private statusPollFailed = false;
 
-  constructor({getRoots, getRootConfigurations, getSearchPreferences = () => defaultSearchPreferences, isReady = () => true, invoke = defaultInvoke}: DevelopmentFileSearchServiceOptions) {
+  private readonly winSearch?: {createChannel: () => WinSearchChannel};
+
+  constructor({getRoots, getRootConfigurations, getSearchPreferences = () => defaultSearchPreferences, isReady = () => true, invoke = defaultInvoke, winSearch}: DevelopmentFileSearchServiceOptions) {
+    if (winSearch) this.winSearch = {createChannel: winSearch.createChannel ?? (() => new Channel<unknown>())};
     this.isReady = isReady;
     this.getRoots = getRoots;
     this.getRootConfigurations = getRootConfigurations;
@@ -253,7 +263,7 @@ export class DevelopmentFileSearchService implements SearchService {
     this.invoke = invoke;
   }
 
-  async search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResponse> {
+  async search(request: SearchRequest, signal?: AbortSignal, onUpdate?: (snapshot: SearchResponse) => void): Promise<SearchResponse> {
     throwIfAborted(signal);
     this.requireReady();
     let roots = uniqueRoots(this.getRoots());
@@ -293,7 +303,8 @@ export class DevelopmentFileSearchService implements SearchService {
       this.publishStatus(this.createStatus());
       return {requestId: request.requestId, groups: [], elapsedMs: performance.now() - startedAt, total: 0};
     }
-    if (request.scope === 'related' && !request.relatedTo) {
+    // Related is answered by the local index, which does not know engine-only identities.
+    if (request.scope === 'related' && (!request.relatedTo || request.relatedTo.startsWith('winsearch:'))) {
       return {requestId: request.requestId, groups: [], elapsedMs: performance.now() - startedAt, total: 0};
     }
     const preferences = this.getSearchPreferences();
@@ -306,7 +317,7 @@ export class DevelopmentFileSearchService implements SearchService {
       try {
         raw = await abortable(request.scope === 'related'
           ? this.invoke('search_related', {...args, stableId: request.relatedTo})
-          : this.invoke('search_hybrid', args), signal);
+          : this.searchIndexed(request, args, signal, startedAt, onUpdate), signal);
       } catch (error) {
         throwIfAborted(signal);
         if (request.scope === 'recent' || request.scope === 'related') throw commandFailure(error, 'Local index search failed.');
@@ -323,29 +334,7 @@ export class DevelopmentFileSearchService implements SearchService {
         : rustHybridResponseSchema.safeParse(raw);
       if (!parsed.success) throw {code: 'invalid-response', message: 'The local index returned an invalid response.', recoverable: true} satisfies SearchError;
       if (parsed.data.semantic.phase === 'degraded') degradationMessage = parsed.data.semantic.reason ?? undefined;
-      const seen = new Set<string>();
-      const currentRoots = uniqueRoots(this.getRoots());
-      mapped = parsed.data.items.filter(item => {
-        if (!currentRoots.some(root => normalizedPath(displayPath(root)) === normalizedPath(displayPath(item.rootPath)))) return false;
-        const path = normalizedPath(displayPath(item.path));
-        if (seen.has(path)) return false;
-        seen.add(path);
-        return true;
-      }).map(item => {
-        this.knownFiles.set(item.stableId, {root: item.rootPath, path: item.path});
-        return {
-          id: item.stableId, name: item.name, path: displayPath(item.path), kind: item.metadata.kind,
-          match: {source: item.matchSource, score: 1 - item.rank,
-            fragment: ['content', 'ocr', 'semantic', 'related'].includes(item.matchSource) ? item.snippet : undefined},
-          metadata: {extension: item.metadata.extension ?? undefined, sizeBytes: item.metadata.sizeBytes,
-            modifiedAt: item.metadata.modifiedMs == null ? undefined : new Date(item.metadata.modifiedMs).toISOString()},
-          pinned: item.pinned,
-          provenance: {extractionKind: item.extractionKind, fileHash: item.contentHash,
-            page: item.page ?? undefined, timeStartMs: item.timeStartMs ?? undefined,
-            timeEndMs: item.timeEndMs ?? undefined, embeddingModel: item.embeddingModel ?? undefined,
-            indexRevision: item.indexRevision}, availability: 'available',
-        } satisfies SearchResult;
-      });
+      mapped = this.mapIndexedHits(parsed.data.items);
     } else {
       const configurations = this.rootConfigurations(roots);
       const settled = await abortable(Promise.allSettled(configurations.map(root => this.invoke('search_filenames', {
@@ -402,6 +391,84 @@ export class DevelopmentFileSearchService implements SearchService {
     const visible = mapped.slice(0, request.limit);
     return {requestId: request.requestId, groups: visible.length ? [{id: 'local-files', label: 'Local files', items: visible}] : [],
       elapsedMs: Math.max(0, performance.now() - startedAt), total: mapped.length};
+  }
+
+  /** Searches the native WinSearch engine when enabled, otherwise (or on any engine problem) the local index. */
+  private async searchIndexed(request: SearchRequest, args: Record<string, unknown>, signal: AbortSignal | undefined, startedAt: number, onUpdate?: (snapshot: SearchResponse) => void): Promise<unknown> {
+    // The engine ranks on its own: honor tuned filename-priority/recency by keeping the local ranker.
+    const defaults = defaultSearchPreferences;
+    if (this.winSearch && request.scope !== 'recent'
+        && args.filenamePriority === defaults.filenamePriority && args.recency === defaults.recency) {
+      try {
+        const raw = await this.searchWinSearch(request, args, signal, startedAt, onUpdate);
+        if (raw !== undefined) return raw;
+      } catch {
+        throwIfAborted(signal);
+      }
+    }
+    // A cancelled request must not start the local fallback.
+    throwIfAborted(signal);
+    return this.invoke('search_hybrid', args);
+  }
+
+  /** Resolves undefined when the engine cannot answer, so the caller falls back to the local index. */
+  private async searchWinSearch(request: SearchRequest, args: Record<string, unknown>, signal: AbortSignal | undefined, startedAt: number, onUpdate?: (snapshot: SearchResponse) => void): Promise<unknown> {
+    const channel = this.winSearch!.createChannel();
+    let live = true;
+    channel.onmessage = message => {
+      if (!live || !onUpdate) return;
+      const partial = rustHybridResponseSchema.safeParse(message);
+      if (!partial.success) return;
+      const items = this.mapIndexedHits(partial.data.items).slice(0, request.limit);
+      if (items.length) {
+        onUpdate({requestId: request.requestId, groups: [{id: 'local-files', label: 'Local files', items}],
+          elapsedMs: Math.max(0, performance.now() - startedAt), total: items.length});
+      }
+    };
+    const cancel = () => { void Promise.resolve(this.invoke('cancel_winsearch_search', {requestId: request.requestId})).catch(() => undefined); };
+    signal?.addEventListener('abort', cancel, {once: true});
+    try {
+      // A listener added to an already aborted signal never fires: cancel and stop here.
+      if (signal?.aborted) cancel();
+      throwIfAborted(signal);
+      const raw = await this.invoke('search_winsearch', {
+        requestId: args.requestId, query: args.query, scope: args.scope, filters: args.filters,
+        limit: args.limit, semanticEnabled: args.semanticEnabled, onUpdate: channel,
+      });
+      const parsed = rustHybridResponseSchema.safeParse(raw);
+      // An engine that is still indexing may miss files the local index already has, and hits
+      // outside the roots granted now are dropped; in either case the local index answers.
+      return parsed.success && this.mapIndexedHits(parsed.data.items).length ? raw : undefined;
+    } finally {
+      live = false;
+      signal?.removeEventListener('abort', cancel);
+    }
+  }
+
+  private mapIndexedHits(hits: z.infer<typeof rustIndexedHitsSchema>): SearchResult[] {
+    const seen = new Set<string>();
+    const currentRoots = uniqueRoots(this.getRoots());
+    return hits.filter(item => {
+      if (!currentRoots.some(root => normalizedPath(displayPath(root)) === normalizedPath(displayPath(item.rootPath)))) return false;
+      const path = normalizedPath(displayPath(item.path));
+      if (seen.has(path)) return false;
+      seen.add(path);
+      return true;
+    }).map(item => {
+      this.knownFiles.set(item.stableId, {root: item.rootPath, path: item.path});
+      return {
+        id: item.stableId, name: item.name, path: displayPath(item.path), kind: item.metadata.kind,
+        match: {source: item.matchSource, score: 1 - item.rank,
+          fragment: ['content', 'ocr', 'semantic', 'related'].includes(item.matchSource) ? item.snippet : undefined},
+        metadata: {extension: item.metadata.extension ?? undefined, sizeBytes: item.metadata.sizeBytes,
+          modifiedAt: item.metadata.modifiedMs == null ? undefined : new Date(item.metadata.modifiedMs).toISOString()},
+        pinned: item.pinned,
+        provenance: {extractionKind: item.extractionKind, fileHash: item.contentHash,
+          page: item.page ?? undefined, timeStartMs: item.timeStartMs ?? undefined,
+          timeEndMs: item.timeEndMs ?? undefined, embeddingModel: item.embeddingModel ?? undefined,
+          indexRevision: item.indexRevision}, availability: 'available',
+      } satisfies SearchResult;
+    });
   }
 
   async getPreview(fileId: string, signal?: AbortSignal): Promise<FilePreview> {

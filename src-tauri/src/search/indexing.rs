@@ -222,7 +222,7 @@ pub struct HybridSearchResponse {
 }
 
 impl HybridSearchResponse {
-    fn lexical(items: Vec<HybridHit>) -> Self {
+    pub(super) fn lexical(items: Vec<HybridHit>) -> Self {
         Self {
             items,
             semantic: SemanticRetrievalStatus::disabled(),
@@ -482,6 +482,14 @@ impl IndexRuntime {
         self.database
             .file_location(stable_id)
             .map_err(|error| search_failure("resolve an indexed file", error))
+    }
+
+    pub(super) fn local_identity(&self, path: &Path) -> Option<super::index::LocalIdentity> {
+        self.database
+            .local_identity_for_path(path)
+            .ok()
+            .flatten()
+            .filter(|identity| !identity.content_hash.is_empty() && identity.index_revision > 0)
     }
 
     pub(crate) fn stable_id_for_path(&self, path: &Path) -> Result<Option<String>, SearchFailure> {
@@ -964,16 +972,26 @@ impl IndexRuntime {
         self.embedding_worker_running.store(false, Ordering::SeqCst);
     }
 
-    fn begin_search(&self, request_id: u64) {
+    pub(super) fn begin_search(&self, request_id: u64) {
         self.latest_search_request
             .fetch_max(request_id, Ordering::SeqCst);
     }
 
-    fn search_is_current(&self, request_id: u64) -> bool {
+    /// Marks `request_id` stale without starting a newer search.
+    pub(super) fn cancel_search(&self, request_id: u64) {
+        self.latest_search_request
+            .fetch_max(request_id.saturating_add(1), Ordering::SeqCst);
+    }
+
+    pub(super) fn search_is_current(&self, request_id: u64) -> bool {
         self.latest_search_request.load(Ordering::SeqCst) == request_id
     }
 
-    fn record_user_query(&self, query: &str, successful: bool) -> Result<(), SearchFailure> {
+    pub(super) fn record_user_query(
+        &self,
+        query: &str,
+        successful: bool,
+    ) -> Result<(), SearchFailure> {
         self.database
             .record_user_query(query, successful)
             .map_err(|error| search_failure("record search history", error))
@@ -1067,11 +1085,25 @@ impl IndexRuntime {
         Ok(deleted)
     }
 
+    #[cfg(test)]
     pub(crate) fn configure_roots(
         &self,
         roots: Vec<IndexRootRequest>,
         content_enabled: bool,
     ) -> Result<IndexStatus, SearchFailure> {
+        self.configure_roots_with(roots, content_enabled, |_, _| {})
+    }
+
+    /// Admits `roots`, calling `published` with the requested roots and the canonical roots that
+    /// were admitted (same order) while the commit lock is still held, so anything that mirrors the
+    /// admission (the engine's grants) sees commits in order and confines to the admitted paths.
+    pub(crate) fn configure_roots_with(
+        &self,
+        roots: Vec<IndexRootRequest>,
+        content_enabled: bool,
+        published: impl FnOnce(&[IndexRootRequest], &[IndexRootRequest]),
+    ) -> Result<IndexStatus, SearchFailure> {
+        let requested = roots.clone();
         let mut canonical = Vec::with_capacity(roots.len());
         let mut policies = HashMap::new();
         for mut root in roots {
@@ -1141,7 +1173,9 @@ impl IndexRuntime {
             self.work.reconcile.store(true, Ordering::SeqCst);
             self.work.configured.store(true, Ordering::SeqCst);
         }
+        let admitted = configured.clone();
         drop(configured);
+        published(&requested, &admitted);
         self.work
             .content_enabled
             .store(content_enabled, Ordering::SeqCst);
@@ -2034,13 +2068,25 @@ pub fn get_index_status(state: State<'_, IndexRuntime>) -> IndexStatus {
 #[tauri::command]
 pub async fn synchronize_index_roots(
     state: State<'_, IndexRuntime>,
+    app: tauri::AppHandle,
     activity: State<'_, crate::activity::ActivityRuntime>,
     roots: Vec<IndexRootRequest>,
 ) -> Result<IndexStatus, SearchFailure> {
-    state.configure_roots(
-        roots,
-        activity.snapshot().background_policy == crate::activity::BackgroundPolicy::Normal,
-    )
+    let background_normal =
+        activity.snapshot().background_policy == crate::activity::BackgroundPolicy::Normal;
+    // Grants are recorded in the engine inside the local commit, so engine results are confined
+    // immediately and overlapping admissions publish in commit order. The engine keeps its own
+    // background-policy flag, which only activity transitions change.
+    let status = state.configure_roots_with(roots, background_normal, |requested, admitted| {
+        let engine = app.state::<super::winsearch_engine::EngineRuntime>();
+        let _ = engine.remember_roots(requested, admitted);
+    })?;
+    // Sending to the engine is best-effort and may need a cold start, so it never delays admission.
+    tauri::async_runtime::spawn(async move {
+        let engine = app.state::<super::winsearch_engine::EngineRuntime>();
+        let _ = engine.push_config().await;
+    });
+    Ok(status)
 }
 
 #[tauri::command]
@@ -2396,6 +2442,55 @@ mod tests {
             (samples[4] + samples[5]) / 2.0,
             samples[9]
         );
+    }
+
+    #[test]
+    fn engine_grants_are_published_inside_the_local_commit_lock() {
+        let fixture = SearchFixture::new("publish-under-commit-lock");
+        let database_path = fixture.root().parent().unwrap().join("index.sqlite");
+        let runtime = IndexRuntime::open(&database_path, Path::new("missing.dll"), false).unwrap();
+        let request = || IndexRootRequest {
+            path: fixture.root().to_string_lossy().into_owned(),
+            cloud_enrichment: false,
+            exclusions: vec![],
+            include_hidden: false,
+            max_file_size_mb: 1,
+        };
+        let mut published = Vec::new();
+        runtime
+            .configure_roots_with(vec![request()], true, |requested, admitted| {
+                // Another admission cannot commit between this one and its publication.
+                assert!(runtime.synchronization.try_lock().is_err());
+                assert_eq!(requested.len(), admitted.len());
+                // Grants carry the canonical admitted path, not the requested spelling.
+                assert_eq!(
+                    Path::new(&admitted[0].path),
+                    std::fs::canonicalize(fixture.root()).unwrap()
+                );
+                published.push(admitted.len());
+            })
+            .unwrap();
+        assert_eq!(published, [1]);
+        runtime
+            .configure_roots_with(Vec::new(), true, |_, admitted| {
+                published.push(admitted.len())
+            })
+            .unwrap();
+        assert_eq!(published, [1, 0]);
+        // A rejected admission publishes nothing.
+        let mut rejected = false;
+        let mut bad = request();
+        bad.path = fixture
+            .root()
+            .join("missing-folder")
+            .to_string_lossy()
+            .into_owned();
+        assert!(
+            runtime
+                .configure_roots_with(vec![bad], true, |_, _| rejected = true)
+                .is_err()
+        );
+        assert!(!rejected);
     }
 
     #[test]

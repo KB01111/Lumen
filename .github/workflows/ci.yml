@@ -10,6 +10,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Publish an unsigned prerelease for this vX.Y.Z tag from main (leave empty for a plain build)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -21,8 +26,13 @@ concurrency:
 jobs:
   verify-package:
     name: Verify and package
-    runs-on: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.LUMEN_SIGNING_RUNNER || 'windows-2025' }}
+    # The privileged signing runner is selected only when the complete signing setup exists, so an
+    # unsigned release never builds tag code on it.
+    runs-on: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.LUMEN_SIGNING_RUNNER != '' && vars.LUMEN_SIGN_CERT_SHA1 != '' && vars.LUMEN_SIGN_CERT_SUBJECT != '' && vars.LUMEN_SIGN_CERT_STORE != '' && vars.LUMEN_SIGN_TIMESTAMP_URL != '' && vars.LUMEN_SIGNING_RUNNER || 'windows-2025' }}
     timeout-minutes: 120
+    outputs:
+      tag: ${{ steps.mode.outputs.tag }}
+      signed: ${{ steps.mode.outputs.signed }}
     env:
       CARGO_TERM_COLOR: always
       LUMEN_PYTHON: python
@@ -30,6 +40,36 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Detect release mode
+        id: mode
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.release_tag }}
+          SIGN_RUNNER: ${{ vars.LUMEN_SIGNING_RUNNER }}
+          SIGN_SHA1: ${{ vars.LUMEN_SIGN_CERT_SHA1 }}
+          SIGN_SUBJECT: ${{ vars.LUMEN_SIGN_CERT_SUBJECT }}
+          SIGN_STORE: ${{ vars.LUMEN_SIGN_CERT_STORE }}
+          SIGN_TIMESTAMP: ${{ vars.LUMEN_SIGN_TIMESTAMP_URL }}
+        run: |
+          # A release is a v* tag push or a manual run on main naming the tag. The signed path
+          # needs the signing runner and the complete signing identity, and only ever runs for
+          # pushed tags; every other release is an unsigned prerelease.
+          $tag = ''
+          if ($env:EVENT_NAME -eq 'push' -and $env:REF.StartsWith('refs/tags/v')) { $tag = $env:REF_NAME }
+          elseif ($env:EVENT_NAME -eq 'workflow_dispatch' -and $env:INPUT_TAG) {
+            if ($env:REF -ne 'refs/heads/main') { throw 'Manual releases can only run from main' }
+            $tag = $env:INPUT_TAG
+          }
+          if ($tag -and $tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw "Release tag must look like vX.Y.Z: $tag" }
+          $identity = $env:SIGN_RUNNER -and $env:SIGN_SHA1 -and $env:SIGN_SUBJECT -and $env:SIGN_STORE -and $env:SIGN_TIMESTAMP
+          $signed = [bool]($tag -and $env:EVENT_NAME -eq 'push' -and $identity)
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "signed=$($signed.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "tag='$tag' signed=$signed"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -58,12 +98,14 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Verify product versions
+        env:
+          RELEASE_TAG: ${{ steps.mode.outputs.tag }}
         run: bun scripts/release.ts version
 
       - name: Require existing release signing identity before release work
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        if: steps.mode.outputs.signed == 'true'
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ steps.mode.outputs.tag }}
           LUMEN_SIGN_CERT_SHA1: ${{ vars.LUMEN_SIGN_CERT_SHA1 }}
           LUMEN_SIGN_CERT_SUBJECT: ${{ vars.LUMEN_SIGN_CERT_SUBJECT }}
           LUMEN_SIGN_CERT_STORE: ${{ vars.LUMEN_SIGN_CERT_STORE }}
@@ -164,14 +206,14 @@ jobs:
         run: bun run test:answer-native
         timeout-minutes: 5
 
-      - name: Build installers
-        if: "!startsWith(github.ref, 'refs/tags/v')"
+      - name: Build installers (NSIS and MSI)
+        if: steps.mode.outputs.signed != 'true'
         run: bun run tauri build
 
       - name: Build and verify signed release payload
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        if: steps.mode.outputs.signed == 'true'
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ steps.mode.outputs.tag }}
           LUMEN_SIGN_CERT_SHA1: ${{ vars.LUMEN_SIGN_CERT_SHA1 }}
           LUMEN_SIGN_CERT_SUBJECT: ${{ vars.LUMEN_SIGN_CERT_SUBJECT }}
           LUMEN_SIGN_CERT_STORE: ${{ vars.LUMEN_SIGN_CERT_STORE }}
@@ -180,12 +222,62 @@ jobs:
 
       - name: Verify installer artifacts
         shell: pwsh
+        env:
+          SIGNED: ${{ steps.mode.outputs.signed }}
         run: |
           $nsis = @(Get-ChildItem src-tauri/target/release/bundle/nsis -Filter *-setup.exe -File)
           if ($nsis.Count -ne 1 -or $nsis[0].Length -eq 0) {
             throw "Expected one non-empty NSIS installer; found $($nsis.Count)"
           }
           $nsis | Select-Object FullName, Length
+          if ($env:SIGNED -ne 'true') {
+            $msi = @(Get-ChildItem src-tauri/target/release/bundle/msi -Filter *.msi -File)
+            if ($msi.Count -ne 1 -or $msi[0].Length -eq 0) {
+              throw "Expected one non-empty MSI installer; found $($msi.Count)"
+            }
+            $msi | Select-Object FullName, Length
+          }
+
+      - name: Smoke-test MSI install and uninstall
+        if: steps.mode.outputs.signed != 'true'
+        shell: pwsh
+        run: |
+          $msi = (Get-ChildItem src-tauri/target/release/bundle/msi -Filter *.msi -File)[0].FullName
+          $lock = Get-Content src-tauri/winsearch-payload.lock.json -Raw | ConvertFrom-Json
+          function Invoke-Msi([string[]]$Arguments, [string]$Log) {
+            $process = Start-Process msiexec.exe -ArgumentList $Arguments -Wait -PassThru
+            if ($process.ExitCode -ne 0) {
+              if (Test-Path $Log) { Get-Content $Log -Tail 120 }
+              throw "msiexec $($Arguments -join ' ') failed with exit code $($process.ExitCode)"
+            }
+          }
+          $installLog = Join-Path $env:RUNNER_TEMP 'msi-install.log'
+          Invoke-Msi @('/i', "`"$msi`"", '/qn', '/norestart', '/L*v', "`"$installLog`"") $installLog
+          $installRoot = Join-Path $env:ProgramFiles 'Lumen'
+          if (-not (Test-Path (Join-Path $installRoot 'lumen.exe'))) { throw "lumen.exe was not installed under $installRoot" }
+          $manifest = Join-Path $installRoot 'binaries/winsearch/payload.json'
+          if (-not (Test-Path $manifest)) { throw 'The WinSearch payload manifest was not installed' }
+          foreach ($name in 'winsearchd.exe', 'winsearch-embed.exe', 'winsearch-extract.exe') {
+            if (-not (Test-Path (Join-Path $installRoot "binaries/winsearch/$name"))) { throw "$name was not installed" }
+          }
+          $installedManifest = (Get-FileHash -Algorithm SHA256 $manifest).Hash.ToLowerInvariant()
+          if ($installedManifest -ne $lock.manifestSha256) {
+            throw "Installed WinSearch manifest $installedManifest does not match the pinned $($lock.manifestSha256)"
+          }
+          $uninstallLog = Join-Path $env:RUNNER_TEMP 'msi-uninstall.log'
+          Invoke-Msi @('/x', "`"$msi`"", '/qn', '/norestart', '/L*v', "`"$uninstallLog`"") $uninstallLog
+          if (Test-Path (Join-Path $installRoot 'lumen.exe')) { throw 'lumen.exe remained after uninstall' }
+
+      - name: Write release checksums
+        if: steps.mode.outputs.signed != 'true'
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem src-tauri/target/release/bundle/nsis -Filter *-setup.exe -File) +
+            @(Get-ChildItem src-tauri/target/release/bundle/msi -Filter *.msi -File)
+          $lines = $files | ForEach-Object { '{0}  {1}' -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant(), $_.Name }
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          [System.IO.File]::WriteAllText((Join-Path (Get-Location) 'release-assets/SHA256SUMS'), (($lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
+          Get-Content release-assets/SHA256SUMS
 
       - name: Upload installers
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -193,6 +285,8 @@ jobs:
           name: lumen-windows-x64-${{ github.sha }}
           path: |
             src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/msi/*.msi
+            release-assets/SHA256SUMS
             .build/release/verified.json
             .build/release/seal.json
             .build/release/provenance.json
@@ -211,7 +305,7 @@ jobs:
 
   release:
     name: Publish release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: needs.verify-package.outputs.tag != ''
     needs: verify-package
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -225,7 +319,8 @@ jobs:
           name: lumen-windows-x64-${{ github.sha }}
           path: installers
 
-      - name: Publish GitHub Release
+      - name: Publish signed GitHub Release
+        if: needs.verify-package.outputs.signed == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -247,3 +342,48 @@ jobs:
             --verify-tag \
             --generate-notes \
             --title "Lumen $GITHUB_REF_NAME"
+
+      - name: Publish unsigned prerelease
+        if: needs.verify-package.outputs.signed != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.verify-package.outputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          mapfile -t nsis < <(find installers -type f -name '*-setup.exe' -print)
+          mapfile -t msi < <(find installers -type f -name '*.msi' -print)
+          mapfile -t sums < <(find installers -type f -name 'SHA256SUMS' -print)
+          if [[ ${#nsis[@]} -ne 1 || ! -s "${nsis[0]}" || ${#msi[@]} -ne 1 || ! -s "${msi[0]}" || ${#sums[@]} -ne 1 ]]; then
+            printf 'Expected one NSIS installer, one MSI and one SHA256SUMS; found %s/%s/%s\n' "${#nsis[@]}" "${#msi[@]}" "${#sums[@]}" >&2
+            exit 1
+          fi
+          # The release assets must be exactly the bytes whose checksums were recorded by the build.
+          checked=0
+          while read -r sum name; do
+            [[ -n "$name" ]] || continue
+            file=$(find installers -type f -name "$name" -print)
+            [[ -n "$file" && "$(printf '%s\n' "$file" | wc -l)" -eq 1 ]]
+            printf '%s  %s\n' "$sum" "$file" | sha256sum --check --strict
+            checked=$((checked + 1))
+          done < "${sums[0]}"
+          [[ $checked -eq 2 ]]
+          {
+            printf '**Unsigned prerelease.** These installers are not code-signed, so Windows SmartScreen will warn before running them.\n\n'
+            printf 'Verify the downloads against `SHA256SUMS` before installing:\n\n```\n'
+            cat "${sums[0]}"
+            printf '```\n\n'
+            printf -- '- `%s`: per-user installer\n- `%s`: per-machine MSI (installs to Program Files, needs administrator rights)\n\n' "$(basename "${nsis[0]}")" "$(basename "${msi[0]}")"
+            printf 'Both installers bundle the pinned, hash-verified WinSearch engine. Built from commit `%s`.\n' "$GITHUB_SHA"
+          } > release-notes.md
+          if [[ "$EVENT_NAME" != "push" ]]; then
+            # Create the tag at the build commit in one request that fails if it already exists, so a
+            # manual release can never attach these installers to a tag pointing at other source.
+            if ! gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+                -f ref="refs/tags/$RELEASE_TAG" -f sha="$GITHUB_SHA" > /dev/null; then
+              printf 'Could not create tag %s at %s: it may already exist (delete it first to retry)\n' "$RELEASE_TAG" "$GITHUB_SHA" >&2
+              exit 1
+            fi
+          fi
+          args=(--repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Lumen $RELEASE_TAG (unsigned)" --notes-file release-notes.md)
+          gh release create "$RELEASE_TAG" "${nsis[0]}" "${msi[0]}" "${sums[0]}" "${args[@]}"

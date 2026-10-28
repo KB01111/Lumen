@@ -102,7 +102,9 @@ Generated evidence is checked in under `artifacts`:
 
 The 86-state browser gallery and six recordings are historical deterministic artifacts, not current native or release acceptance. The [launcher-native appearance report](docs/reports/2026-10-15-launcher-native-appearance.md) links the owned synthetic fixture captures and provenance; it does not establish ordinary-app, packaged, physical-display, or performance acceptance.
 
-The NSIS installer is generated under `src-tauri/target/release/bundle/nsis`. Build outputs are not committed.
+The per-user NSIS installer is generated under `src-tauri/target/release/bundle/nsis` and the per-machine MSI under `src-tauri/target/release/bundle/msi`. Build outputs are not committed.
+
+Releases are published by the `Publish release` job in CI for `v<version>` tags (or a manual run on `main` with the `release_tag` input). With the complete `LUMEN_SIGN_*` signing identity configured, a tag push publishes the signed NSIS installer only. Without it, CI publishes an **unsigned prerelease** carrying the NSIS installer, the MSI and `SHA256SUMS`, after smoke-installing and uninstalling the MSI and checking the installed WinSearch manifest against `src-tauri/winsearch-payload.lock.json`. The MSI's `upgradeCode` in `tauri.conf.json` must never change once an MSI has shipped.
 
 ## Architecture
 

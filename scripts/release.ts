@@ -17,6 +17,11 @@ const sealPath = join(work, 'seal.json');
 const target = 'x86_64-pc-windows-msvc';
 const hash = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex');
 
+/** CI passes an empty RELEASE_TAG for builds that are not releases; that means no tag was supplied. */
+export function releaseTag(env: Record<string, string | undefined>): string | undefined {
+  return env.RELEASE_TAG || undefined;
+}
+
 export function checkVersions(packageVersion:unknown, tauriVersion:unknown, cargo:string, tag?:string): string {
   const version = cargo.match(/^\[package\]\s*\n([\s\S]*?)(?=^\[|$(?![\s\S]))/m)?.[1].match(/^version\s*=\s*"([^"]+)"/m)?.[1];
   if (typeof packageVersion !== 'string' || !/^\d+\.\d+\.\d+$/.test(packageVersion)
@@ -164,7 +169,7 @@ async function payload(): Promise<Mapping> {
 async function versions() {
   return checkVersions(JSON.parse(await readFile(join(root,'package.json'),'utf8')).version,
     JSON.parse(await readFile(join(root,'src-tauri/tauri.conf.json'),'utf8')).version,
-    await readFile(join(root,'src-tauri/Cargo.toml'),'utf8'), process.env.RELEASE_TAG);
+    await readFile(join(root,'src-tauri/Cargo.toml'),'utf8'), releaseTag(process.env));
 }
 
 function owner(): Identity {
@@ -362,7 +367,8 @@ async function main() {
       await mkdir(work,{recursive:true});
       const config = join(work,'tauri.release.json');
       await writeFile(config,JSON.stringify({build:{beforeBundleCommand:'bun scripts/release.ts verify-staged'},bundle:{windows:{signCommand:{cmd:'powershell.exe',args:['-NoProfile','-File',join(root,'scripts/sign-release.ps1'),'-Action','Sign','-Path','%1']}}}}));
-      run(['bun','run','tauri','build','--config',config],false,{LUMEN_RELEASE_BUILD:'1'});
+      // Signed releases ship the verified NSIS installer only; the unsigned MSI is built and published only by unsigned release runs.
+      run(['bun','run','tauri','build','--bundles','nsis','--config',config],false,{LUMEN_RELEASE_BUILD:'1'});
       await verifyRelease(); break;
     }
     default: throw new Error('Expected release command: version/preflight/before-build/build/verify/verify-staged/compile-binding');
