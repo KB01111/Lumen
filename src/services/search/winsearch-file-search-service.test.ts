@@ -70,6 +70,23 @@ describe('DevelopmentFileSearchService with the WinSearch engine', () => {
     expect(commands()).toEqual(expect.arrayContaining(['search_winsearch', 'search_hybrid']));
   });
 
+  it('falls back when every engine hit is outside the roots granted now', async () => {
+    const stray = {...hit('winsearch', 'Old.md'), rootPath: 'D:\\Revoked', path: 'D:\\Revoked\\Old.md'};
+    const {service, commands} = setup(command => command === 'search_winsearch' ? response(stray)
+      : command === 'search_hybrid' ? response(hit('indexed', 'Local.md')) : undefined);
+    const result = await service.search(request);
+    expect(result.groups[0]?.items.map(item => item.id)).toEqual(['indexed:Local.md']);
+    expect(commands()).toContain('search_hybrid');
+  });
+
+  it('does not start an engine search for an already aborted signal', async () => {
+    const controller = new AbortController();
+    const {service, commands} = setup(() => undefined);
+    controller.abort();
+    await expect(service.search(request, controller.signal)).rejects.toBeDefined();
+    expect(commands()).not.toContain('search_winsearch');
+  });
+
   it.each(['recent', 'related'] as const)('keeps the %s scope on the local index', async scope => {
     const {service, commands} = setup(command => command === 'search_hybrid' ? response(hit('indexed', 'Local.md'))
       : command === 'search_related' ? [hit('indexed', 'Local.md')] : undefined);

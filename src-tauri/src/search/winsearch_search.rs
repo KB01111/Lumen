@@ -3,7 +3,11 @@
 //! The local index remains the fallback: any `engine-unavailable` failure tells the
 //! frontend to run the existing `search_hybrid` command instead.
 
-use std::{collections::HashSet, path::PathBuf, time::Duration};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use futures_util::future::{Either, select};
 use sha2::{Digest, Sha256};
@@ -26,6 +30,8 @@ use super::{
 const MAX_RESULTS: usize = 10_000;
 const SNIPPET_CHARS: usize = 1000;
 const STALE_POLL: Duration = Duration::from_millis(25);
+/// Upper bound for opening and draining one engine search; past it the local index answers.
+const STREAM_DEADLINE: Duration = Duration::from_secs(8);
 
 fn unavailable() -> SearchFailure {
     SearchFailure::new(
@@ -97,8 +103,13 @@ fn hex(bytes: &[u8]) -> String {
 
 /// Maps one engine hit onto the existing hit contract, re-confining it to the granted roots and
 /// re-applying each root's current exclusion, hidden-file and size policy, so entries the engine
-/// indexed before a policy change are never shown.
-pub(super) fn map_result(roots: &[GrantedRoot], hit: &SearchResult) -> Option<HybridHit> {
+/// indexed before a policy change are never shown. Files Lumen's own index also holds keep that
+/// index's id, content hash, revision and pin state, so pinning, history and provenance stay real.
+pub(super) fn map_result(
+    roots: &[GrantedRoot],
+    hit: &SearchResult,
+    local: &dyn Fn(&Path) -> Option<LocalIdentity>,
+) -> Option<HybridHit> {
     if matches!(
         hit.kind,
         ResultKind::Application
@@ -161,12 +172,19 @@ pub(super) fn map_result(roots: &[GrantedRoot], hit: &SearchResult) -> Option<Hy
     };
     Some(HybridHit {
         hit: IndexedHit {
-            stable_id: format!("winsearch:{}", reference.result_id),
+            stable_id: local.as_ref().map_or_else(
+                || format!("winsearch:{}", reference.result_id),
+                |identity| identity.stable_id.clone(),
+            ),
             root_path: root.clone(),
             path: PathBuf::from(&metadata.path),
             name: metadata.name.clone(),
-            content_hash: hex(&Sha256::digest(revision.as_bytes())),
-            index_revision: 1,
+            // Engine-only entries carry an opaque digest of the engine's source-revision proof.
+            content_hash: local.as_ref().map_or_else(
+                || hex(&Sha256::digest(revision.as_bytes())),
+                |identity| identity.content_hash.clone(),
+            ),
+            index_revision: local.as_ref().map_or(1, |identity| identity.index_revision),
             extraction_kind: "winsearch".into(),
             snippet,
             page,
@@ -178,7 +196,7 @@ pub(super) fn map_result(roots: &[GrantedRoot], hit: &SearchResult) -> Option<Hy
         match_source: match_source.into(),
         semantic_score: None,
         embedding_model: None,
-        pinned: false,
+        pinned: local.is_some_and(|identity| identity.pinned),
     })
 }
 
@@ -278,29 +296,39 @@ pub async fn search_winsearch(
     if roots.is_empty() {
         return Err(unavailable());
     }
-    let mut stream = engine.search_stream(engine_query).await?;
+    let deadline = tokio::time::Instant::now() + STREAM_DEADLINE;
+    let mut stream = tokio::time::timeout_at(deadline, engine.search_stream(engine_query))
+        .await
+        .map_err(|_| unavailable())??;
     let mut items: Vec<HybridHit> = Vec::new();
     let mut seen = HashSet::new();
     loop {
         let pending = Box::pin(stream.next());
         let stale = Box::pin(wait_until_stale(runtime.clone(), request_id));
-        let received = match select(pending, stale).await {
-            Either::Left((received, _)) => received,
-            Either::Right((_, pending)) => {
+        let received = match tokio::time::timeout_at(deadline, select(pending, stale)).await {
+            Ok(Either::Left((received, _))) => received,
+            Ok(Either::Right((_, pending))) => {
                 drop(pending);
                 let _ = stream.cancel().await;
                 return Ok(HybridSearchResponse::lexical(Vec::new()));
+            }
+            Err(_) => {
+                // A stalled stream must not hold the launcher: the frontend falls back locally.
+                let _ = stream.cancel().await;
+                return Err(unavailable());
             }
         };
         let Some(batch) = received.map_err(|_| unavailable())? else {
             return Err(unavailable());
         };
         let worker_roots = roots.clone();
+        let worker_index = runtime.clone();
         let results = batch.batch;
         let mapped = tauri::async_runtime::spawn_blocking(move || {
+            let lookup = |path: &Path| worker_index.local_identity(path);
             results
                 .iter()
-                .filter_map(|hit| map_result(&worker_roots, hit))
+                .filter_map(|hit| map_result(&worker_roots, hit, &lookup))
                 .collect::<Vec<_>>()
         })
         .await

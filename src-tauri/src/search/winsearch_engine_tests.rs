@@ -265,7 +265,7 @@ fn engine_native_search_streams_admitted_folder_and_maps_confined_hits() {
                 batch
                     .batch
                     .iter()
-                    .filter_map(|hit| winsearch_search::map_result(&roots, hit)),
+                    .filter_map(|hit| winsearch_search::map_result(&roots, hit, &|_| None)),
             );
             if batch.done {
                 break;

@@ -484,6 +484,14 @@ impl IndexRuntime {
             .map_err(|error| search_failure("resolve an indexed file", error))
     }
 
+    pub(super) fn local_identity(&self, path: &Path) -> Option<super::index::LocalIdentity> {
+        self.database
+            .local_identity_for_path(path)
+            .ok()
+            .flatten()
+            .filter(|identity| !identity.content_hash.is_empty() && identity.index_revision > 0)
+    }
+
     pub(crate) fn stable_id_for_path(&self, path: &Path) -> Result<Option<String>, SearchFailure> {
         self.database
             .stable_id_for_path(path)
@@ -2057,7 +2065,7 @@ pub async fn synchronize_index_roots(
     let _ = engine.remember_roots(&roots, background_normal);
     tauri::async_runtime::spawn(async move {
         let engine = app.state::<super::winsearch_engine::EngineRuntime>();
-        let _ = engine.configure_roots(&roots, background_normal).await;
+        let _ = engine.push_config().await;
     });
     Ok(status)
 }

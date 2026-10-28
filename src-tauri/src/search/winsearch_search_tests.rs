@@ -30,6 +30,10 @@ fn open_root(path: &std::path::Path) -> GrantedRoot {
     granted(path, &[], false, u64::MAX)
 }
 
+fn no_local(_: &std::path::Path) -> Option<LocalIdentity> {
+    None
+}
+
 fn filter(id: &str, value: &str) -> SearchFilterRequest {
     serde_json::from_value(serde_json::json!({"id": id, "value": value})).unwrap()
 }
@@ -107,7 +111,7 @@ fn mapped_hits_keep_the_existing_contract() {
     let roots = vec![open_root(fixture.root())];
     let mut result = hit(&path, "e42", Some("proof"));
     result.location = Some(MatchLocation::Page { page: 3 });
-    let mapped = map_result(&roots, &result).expect("confined hit");
+    let mapped = map_result(&roots, &result, &no_local).expect("confined hit");
     assert_eq!(mapped.hit.stable_id, "winsearch:e42");
     assert_eq!(mapped.hit.root_path, roots[0].path);
     assert_eq!(mapped.hit.name, "plan.md");
@@ -126,13 +130,13 @@ fn mapped_hits_are_dropped_outside_grants_or_without_bound_proof() {
     let inside = fixture.file("a.txt", b"a");
     let outside = fixture.outside_file("b.txt", b"b");
     let roots = vec![open_root(fixture.root())];
-    assert!(map_result(&roots, &hit(&outside, "e1", Some("proof"))).is_none());
-    assert!(map_result(&roots, &hit(&inside, "e1", None)).is_none());
-    assert!(map_result(&roots, &hit(&inside, "not-an-id", Some("proof"))).is_none());
-    assert!(map_result(&[], &hit(&inside, "e1", Some("proof"))).is_none());
+    assert!(map_result(&roots, &hit(&outside, "e1", Some("proof")), &no_local).is_none());
+    assert!(map_result(&roots, &hit(&inside, "e1", None), &no_local).is_none());
+    assert!(map_result(&roots, &hit(&inside, "not-an-id", Some("proof")), &no_local).is_none());
+    assert!(map_result(&[], &hit(&inside, "e1", Some("proof")), &no_local).is_none());
     let mut app = hit(&inside, "e1", Some("proof"));
     app.kind = ResultKind::Application;
-    assert!(map_result(&roots, &app).is_none());
+    assert!(map_result(&roots, &app, &no_local).is_none());
     let mut missing = hit(&inside, "e1", Some("proof"));
     missing.path = Some(
         fixture
@@ -141,7 +145,7 @@ fn mapped_hits_are_dropped_outside_grants_or_without_bound_proof() {
             .to_string_lossy()
             .into_owned(),
     );
-    assert!(map_result(&roots, &missing).is_none());
+    assert!(map_result(&roots, &missing, &no_local).is_none());
 }
 
 #[test]
@@ -160,7 +164,7 @@ fn mapped_hits_use_moments_timestamps_and_bounded_snippets() {
         end_seconds: 2.0,
     });
     result.score = f64::NAN;
-    let mapped = map_result(&roots, &result).unwrap();
+    let mapped = map_result(&roots, &result, &no_local).unwrap();
     assert_eq!(mapped.hit.snippet.chars().count(), 1000);
     assert_eq!(mapped.hit.time_start_ms, Some(1500));
     assert_eq!(mapped.hit.time_end_ms, Some(2000));
@@ -169,7 +173,7 @@ fn mapped_hits_use_moments_timestamps_and_bounded_snippets() {
     result.excerpt = None;
     result.matching_moments.clear();
     assert_eq!(
-        map_result(&roots, &result).unwrap().match_source,
+        map_result(&roots, &result, &no_local).unwrap().match_source,
         "filename"
     );
 }
@@ -238,7 +242,7 @@ fn merging_deduplicates_paths_orders_by_rank_and_truncates() {
         let path = fixture.file(name, b"x");
         let mut result = hit(&path, "e1", Some("proof"));
         result.score = score;
-        map_result(&roots, &result).unwrap()
+        map_result(&roots, &result, &no_local).unwrap()
     };
     let mut items = Vec::new();
     let mut seen = HashSet::new();
@@ -269,16 +273,16 @@ fn hits_indexed_before_a_policy_change_are_not_shown() {
     let restricted = vec![granted(fixture.root(), &["private", "*.tmp"], false, 32)];
     for path in [&secret, &scratch, &hidden, &big] {
         assert!(
-            map_result(&restricted, &hit(path, "e1", Some("proof"))).is_none(),
+            map_result(&restricted, &hit(path, "e1", Some("proof")), &no_local).is_none(),
             "{path:?}"
         );
     }
-    assert!(map_result(&restricted, &hit(&kept, "e1", Some("proof"))).is_some());
+    assert!(map_result(&restricted, &hit(&kept, "e1", Some("proof")), &no_local).is_some());
     // The same entries are admitted once the stricter policy is relaxed.
     let relaxed = vec![granted(fixture.root(), &[], true, u64::MAX)];
     for path in [&secret, &scratch, &hidden, &big] {
         assert!(
-            map_result(&relaxed, &hit(path, "e1", Some("proof"))).is_some(),
+            map_result(&relaxed, &hit(path, "e1", Some("proof")), &no_local).is_some(),
             "{path:?}"
         );
     }
@@ -309,4 +313,29 @@ fn background_pause_reaches_the_cached_engine_policy_once_per_transition() {
     engine.remember_roots(&[], true).unwrap();
     assert!(engine.cached_config().unwrap().paused);
     assert!(engine.configured_roots().is_empty());
+}
+
+#[test]
+fn files_known_to_the_local_index_keep_their_real_identity_pin_and_hash() {
+    let fixture = SearchFixture::new("winsearch-local-identity");
+    let path = fixture.file("docs/pinned.txt", b"x");
+    let other = fixture.file("docs/engine-only.txt", b"y");
+    let roots = vec![open_root(fixture.root())];
+    let canonical = std::fs::canonicalize(&path).unwrap();
+    let identity = LocalIdentity {
+        stable_id: "indexed:abc".into(),
+        content_hash: "c".repeat(64),
+        index_revision: 7,
+        pinned: true,
+    };
+    let lookup = |candidate: &std::path::Path| (candidate == canonical).then(|| identity.clone());
+    let known = map_result(&roots, &hit(&path, "e1", Some("proof")), &lookup).unwrap();
+    assert_eq!(known.hit.stable_id, "indexed:abc");
+    assert_eq!(known.hit.content_hash, "c".repeat(64));
+    assert_eq!(known.hit.index_revision, 7);
+    assert!(known.pinned);
+    let engine_only = map_result(&roots, &hit(&other, "e2", Some("proof")), &lookup).unwrap();
+    assert_eq!(engine_only.hit.stable_id, "winsearch:e2");
+    assert_eq!(engine_only.hit.index_revision, 1);
+    assert!(!engine_only.pinned);
 }

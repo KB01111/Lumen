@@ -425,13 +425,17 @@ export class DevelopmentFileSearchService implements SearchService {
     const cancel = () => { void Promise.resolve(this.invoke('cancel_winsearch_search', {requestId: request.requestId})).catch(() => undefined); };
     signal?.addEventListener('abort', cancel, {once: true});
     try {
+      // A listener added to an already aborted signal never fires: cancel and stop here.
+      if (signal?.aborted) cancel();
+      throwIfAborted(signal);
       const raw = await this.invoke('search_winsearch', {
         requestId: args.requestId, query: args.query, scope: args.scope, filters: args.filters,
         limit: args.limit, semanticEnabled: args.semanticEnabled, onUpdate: channel,
       });
       const parsed = rustHybridResponseSchema.safeParse(raw);
-      // An engine that is still indexing may miss files the local index already has.
-      return parsed.success && parsed.data.items.length ? raw : undefined;
+      // An engine that is still indexing may miss files the local index already has, and hits
+      // outside the roots granted now are dropped; in either case the local index answers.
+      return parsed.success && this.mapIndexedHits(parsed.data.items).length ? raw : undefined;
     } finally {
       live = false;
       signal?.removeEventListener('abort', cancel);

@@ -24,6 +24,14 @@ Date: 2026-10-27. Engine pin: WinSearch `85a915d460b1fa751bbe86f289ff77c18c032c2
   fullscreen, battery) is applied to the cached engine policy and re-sent through one
   ordered configuration lane (`EngineRuntime::set_background_normal` / `push_config`), so
   the engine pauses with the local index.
+- **Identity bridge.** When the local index also holds a hit's file, the result keeps that
+  index's `indexed:` id, content hash, revision and pin state, so pinning, history, previews
+  and provenance stay real. Engine-only files use `winsearch:<id>` with an opaque digest of
+  the engine's source-revision proof as their hash and revision 1; they cannot be pinned yet.
+- **Bounded streams.** Opening and draining one engine search is capped at 8 seconds, after
+  which the frontend falls back to the local index. A failed policy send stops the engine
+  (fail-closed), and the next start re-sends the newest cached policy; background sends only
+  push the cached policy and never re-record an older folder snapshot.
 - **Mapping.** Every hit is re-confined to a granted root and must carry a bound
   `EntryReference`; it is mapped onto the existing `HybridHit` contract with
   `stableId = winsearch:<result id>`, so the Zod schema, previews and actions are
@@ -52,6 +60,6 @@ Date: 2026-10-27. Engine pin: WinSearch `85a915d460b1fa751bbe86f289ff77c18c032c2
 
 - Both crawlers still run while the engine is healthy. Pins, history, Recent, Related,
   `indexed:` identities and answer-context admission remain on the local index.
-- Pinning an engine result is a no-op until engine identities are migrated, and engine
-  results are not reranked locally or pinned-first; both apply only to local results.
+- Engine-only results (files the local index does not hold) cannot be pinned, and engine
+  results are not reranked locally or pinned-first.
 - No installed-app, controlled-performance or signed-package acceptance is claimed.

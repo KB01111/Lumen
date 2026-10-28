@@ -749,12 +749,13 @@ impl EngineRuntime {
         let Some(latest) = latest else {
             return Ok(());
         };
-        process
-            .client
-            .set_indexing_config(latest)
-            .await
-            .map(|_| ())
-            .map_err(|_| unavailable())
+        if process.client.set_indexing_config(latest).await.is_err() {
+            // An engine left with stale grants could keep indexing revoked folders. Stopping it is
+            // fail-closed: the next start re-sends the newest cached policy.
+            process.kill();
+            return Err(unavailable());
+        }
+        Ok(())
     }
 
     /// Records the host's folder grants and forwards them to the engine.

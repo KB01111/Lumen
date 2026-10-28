@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {ENGINE_COMMIT, TARGET, REQUIRED_FILES, verifyPayload} from './lib/winsearch-payload.mjs';
-import {assertCompiledBinding, assertIdentityMetadata, assertInventory, assertSignature, assertSigningMutation, checkVersions, inventory, isPortableExecutable, preparePayload, validateArchivePaths, verifyWinsearchRelease, vendors} from './release';
+import {assertCompiledBinding, assertIdentityMetadata, assertInventory, assertSignature, assertSigningMutation, checkVersions, inventory, releaseTag, isPortableExecutable, preparePayload, validateArchivePaths, verifyWinsearchRelease, vendors} from './release';
 
 describe('release trust boundaries', () => {
   it('admits only the inspected retained Microsoft identities for the pinned WinSearch CRT files', async () => {
@@ -98,6 +98,10 @@ describe('release trust boundaries', () => {
     expect(() => checkVersions('0.1.0', '0.1.0', '[package]\nversion = "0.2.0"')).toThrow(/version/i);
     expect(() => checkVersions('0.1.0', '0.2.0', '[package]\nversion = "0.1.0"')).toThrow(/version/i);
     expect(() => checkVersions('0.1.0', '0.1.0', '[package]\nversion = "0.1.0"', 'v0.2.0')).toThrow(/tag/i);
+    // CI exports an empty RELEASE_TAG for builds that are not releases.
+    expect(releaseTag({RELEASE_TAG: ''})).toBeUndefined();
+    expect(releaseTag({})).toBeUndefined();
+    expect(releaseTag({RELEASE_TAG: 'v0.1.0'})).toBe('v0.1.0');
   });
 
   it('requires the optional artifact to identify the Lumen package as well as its version and publisher', () => {

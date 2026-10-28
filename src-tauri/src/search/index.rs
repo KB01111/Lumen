@@ -390,6 +390,16 @@ pub struct IndexedHit {
     pub rank: f64,
 }
 
+/// A file's identity in Lumen's own index, reused for engine hits so pins, history and
+/// provenance keep their real values.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct LocalIdentity {
+    pub stable_id: String,
+    pub content_hash: String,
+    pub index_revision: u64,
+    pub pinned: bool,
+}
+
 #[derive(Clone, Debug, serde::Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnrichmentJobRecord {
@@ -964,6 +974,32 @@ impl IndexDatabase {
                             .get::<_, Option<i64>>(10)?
                             .and_then(|value| u64::try_from(value).ok()),
                         rank: 0.0,
+                    })
+                },
+            )
+            .optional()
+            .map_err(IndexError::from)
+    }
+
+    /// Identity of a locally indexed file by path, without hydrating its text.
+    pub(super) fn local_identity_for_path(
+        &self,
+        path: &Path,
+    ) -> IndexResult<Option<LocalIdentity>> {
+        let connection = self.connection.lock().map_err(|_| IndexError::Poisoned)?;
+        connection
+            .query_row(
+                "SELECT files.stable_id, files.content_hash, files.index_revision,
+                        EXISTS(SELECT 1 FROM pins WHERE pins.file_id = files.id)
+                 FROM files WHERE files.path = ?1",
+                [path.to_string_lossy().into_owned()],
+                |row| {
+                    Ok(LocalIdentity {
+                        stable_id: row.get(0)?,
+                        content_hash: row.get(1)?,
+                        index_revision: u64::try_from(row.get::<_, i64>(2)?)
+                            .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(2, i64::MAX))?,
+                        pinned: row.get::<_, i64>(3)? != 0,
                     })
                 },
             )

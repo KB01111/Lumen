@@ -26,7 +26,9 @@ concurrency:
 jobs:
   verify-package:
     name: Verify and package
-    runs-on: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.LUMEN_SIGNING_RUNNER || 'windows-2025' }}
+    # The privileged signing runner is selected only when the complete signing setup exists, so an
+    # unsigned release never builds tag code on it.
+    runs-on: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.LUMEN_SIGNING_RUNNER != '' && vars.LUMEN_SIGN_CERT_SHA1 != '' && vars.LUMEN_SIGN_CERT_SUBJECT != '' && vars.LUMEN_SIGN_CERT_STORE != '' && vars.LUMEN_SIGN_TIMESTAMP_URL != '' && vars.LUMEN_SIGNING_RUNNER || 'windows-2025' }}
     timeout-minutes: 120
     outputs:
       tag: ${{ steps.mode.outputs.tag }}
@@ -47,14 +49,15 @@ jobs:
           REF: ${{ github.ref }}
           REF_NAME: ${{ github.ref_name }}
           INPUT_TAG: ${{ inputs.release_tag }}
+          SIGN_RUNNER: ${{ vars.LUMEN_SIGNING_RUNNER }}
           SIGN_SHA1: ${{ vars.LUMEN_SIGN_CERT_SHA1 }}
           SIGN_SUBJECT: ${{ vars.LUMEN_SIGN_CERT_SUBJECT }}
           SIGN_STORE: ${{ vars.LUMEN_SIGN_CERT_STORE }}
           SIGN_TIMESTAMP: ${{ vars.LUMEN_SIGN_TIMESTAMP_URL }}
         run: |
           # A release is a v* tag push or a manual run on main naming the tag. The signed path
-          # needs the complete signing identity and only ever runs for pushed tags; every other
-          # release is an unsigned prerelease.
+          # needs the signing runner and the complete signing identity, and only ever runs for
+          # pushed tags; every other release is an unsigned prerelease.
           $tag = ''
           if ($env:EVENT_NAME -eq 'push' -and $env:REF.StartsWith('refs/tags/v')) { $tag = $env:REF_NAME }
           elseif ($env:EVENT_NAME -eq 'workflow_dispatch' -and $env:INPUT_TAG) {
@@ -62,7 +65,7 @@ jobs:
             $tag = $env:INPUT_TAG
           }
           if ($tag -and $tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw "Release tag must look like vX.Y.Z: $tag" }
-          $identity = $env:SIGN_SHA1 -and $env:SIGN_SUBJECT -and $env:SIGN_STORE -and $env:SIGN_TIMESTAMP
+          $identity = $env:SIGN_RUNNER -and $env:SIGN_SHA1 -and $env:SIGN_SUBJECT -and $env:SIGN_STORE -and $env:SIGN_TIMESTAMP
           $signed = [bool]($tag -and $env:EVENT_NAME -eq 'push' -and $identity)
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "signed=$($signed.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -373,6 +376,10 @@ jobs:
             printf -- '- `%s`: per-user installer\n- `%s`: per-machine MSI (installs to Program Files, needs administrator rights)\n\n' "$(basename "${nsis[0]}")" "$(basename "${msi[0]}")"
             printf 'Both installers bundle the pinned, hash-verified WinSearch engine. Built from commit `%s`.\n' "$GITHUB_SHA"
           } > release-notes.md
+          if [[ "$EVENT_NAME" != "push" ]] && gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            printf 'Tag %s already exists; a manual release must create a new tag from the build commit\n' "$RELEASE_TAG" >&2
+            exit 1
+          fi
           args=(--repo "$GITHUB_REPOSITORY" --prerelease --title "Lumen $RELEASE_TAG (unsigned)" --notes-file release-notes.md)
           if [[ "$EVENT_NAME" == "push" ]]; then args+=(--verify-tag); else args+=(--target "$GITHUB_SHA"); fi
           gh release create "$RELEASE_TAG" "${nsis[0]}" "${msi[0]}" "${sums[0]}" "${args[@]}"
