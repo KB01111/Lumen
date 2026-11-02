@@ -1,0 +1,353 @@
+{
+  "generatedAt": "2026-11-02",
+  "lockfile": "bun.lock",
+  "packages": [
+    {
+      "advisories": [
+        {
+          "severity": "moderate",
+          "title": "qs: Denial of Service via Attacker Controlled isBuffer",
+          "url": "https://github.com/advisories/GHSA-4mjr-xmp4-gh2g"
+        },
+        {
+          "severity": "moderate",
+          "title": "qs : qs.stringify with arrayFormat 'comma' throws an uncaught TypeError on array elements carrying a non-callable own toString (DoS)",
+          "url": "https://github.com/advisories/GHSA-6pq8-jhm2-2vcw"
+        },
+        {
+          "severity": "moderate",
+          "title": "qs array-limit bypass via bracket-key comma parsing",
+          "url": "https://github.com/advisories/GHSA-x5fp-wj9c-mxmx"
+        }
+      ],
+      "direct": false,
+      "package": "qs",
+      "paths": [
+        "rivetkit \u203a @rivet-dev/agent-os-core \u203a @secure-exec/nodejs \u203a node-stdlib-browser \u203a url \u203a qs"
+      ],
+      "range": ">=6.14.2 <=6.15.3"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "moderate",
+          "title": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+          "url": "https://github.com/advisories/GHSA-f23m-r3pf-42rh"
+        },
+        {
+          "severity": "high",
+          "title": "lodash vulnerable to Code Injection via `_.template` imports key names",
+          "url": "https://github.com/advisories/GHSA-r5fr-rjxr-66jc"
+        },
+        {
+          "severity": "moderate",
+          "title": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+          "url": "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg"
+        }
+      ],
+      "direct": false,
+      "package": "lodash",
+      "paths": [
+        "@openai/apps-sdk-ui \u203a lodash"
+      ],
+      "range": ">=4.0.0 <=4.17.22"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "high",
+          "title": "Drizzle ORM has SQL injection via improperly escaped SQL identifiers",
+          "url": "https://github.com/advisories/GHSA-gpj5-g38j-94v9"
+        }
+      ],
+      "direct": false,
+      "package": "drizzle-orm",
+      "paths": [
+        "rivetkit \u203a drizzle-orm"
+      ],
+      "range": "<0.45.2"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "high",
+          "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+          "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+        },
+        {
+          "severity": "moderate",
+          "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+          "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr"
+        },
+        {
+          "severity": "high",
+          "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+          "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7"
+        }
+      ],
+      "direct": false,
+      "package": "brace-expansion",
+      "paths": [
+        "eslint \u203a @eslint/config-array \u203a minimatch \u203a brace-expansion",
+        "typescript-eslint \u203a @typescript-eslint/utils \u203a @typescript-eslint/typescript-estree \u203a minimatch \u203a brace-expansion"
+      ],
+      "range": ">=4.0.0 <5.0.11"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "high",
+          "title": "source-map-js allows event-loop denial of service through indexed source-map section offsets",
+          "url": "https://github.com/advisories/GHSA-68fv-2mgg-jv7q"
+        }
+      ],
+      "direct": false,
+      "package": "source-map-js",
+      "paths": [
+        "@tailwindcss/vite \u203a @tailwindcss/node \u203a source-map-js",
+        "jsdom \u203a @csstools/css-syntax-patches-for-csstree \u203a css-tree \u203a source-map-js",
+        "vite \u203a postcss \u203a source-map-js"
+      ],
+      "range": ">=1.0.0 <1.2.2"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "moderate",
+          "title": "minimatch has potential denial of service via globparts amplification",
+          "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249"
+        }
+      ],
+      "direct": false,
+      "package": "minimatch",
+      "paths": [
+        "eslint \u203a @eslint/config-array \u203a minimatch",
+        "typescript-eslint \u203a @typescript-eslint/utils \u203a @typescript-eslint/typescript-estree \u203a minimatch"
+      ],
+      "range": "<11.0.1"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "low",
+          "title": "undici vulnerable to response truncation via oversized chunked responses in the dump interceptor",
+          "url": "https://github.com/advisories/GHSA-2gqq-gqf2-x968"
+        },
+        {
+          "severity": "moderate",
+          "title": "undici vulnerable to cross-user cookie disclosure via Set-Cookie caching in shared caches",
+          "url": "https://github.com/advisories/GHSA-2jfj-6hjv-fm6j"
+        },
+        {
+          "severity": "high",
+          "title": "undici vulnerable to TLS certificate validation bypass via dropped tls options in Agent",
+          "url": "https://github.com/advisories/GHSA-2m5v-pch6-74hx"
+        },
+        {
+          "severity": "moderate",
+          "title": "undici vulnerable to Denial of Service via unhandled error in WebSocket permessage-deflate decompression",
+          "url": "https://github.com/advisories/GHSA-3wwx-pv8p-q78v"
+        },
+        {
+          "severity": "moderate",
+          "title": "undici vulnerable to Denial of Service via unbounded decompression of compressed responses",
+          "url": "https://github.com/advisories/GHSA-3xpg-4rpp-hhhm"
+        },
+        {
+          "severity": "moderate",
+          "title": "undici vulnerable to Denial of Service via unbounded memory in the EventSource parser",
+          "url": "https://github.com/advisories/GHSA-4qv8-2p9j-2685"
+        },
+        {
+          "severity": "high",
+          "title": "undici vulnerable to cache poisoning and cross-user disclosure via cross-origin redirects",
+          "url": "https://github.com/advisories/GHSA-4w7w-5xrc-9h26"
+        },
+        {
+          "severity": "moderate",
+          "title": "undici vulnerable to Denial of Service via unhandled exception in the decompress interceptor",
+          "url": "https://github.com/advisories/GHSA-55wc-3pg8-jfw6"
+        },
+        {
+          "severity": "low",
+          "title": "undici vulnerable to caching and replay of unsafe HTTP method responses",
+          "url": "https://github.com/advisories/GHSA-8436-99hf-9mmv"
+        },
+        {
+          "severity": "moderate",
+          "title": "undici WebSocket client vulnerable to Denial of Service via unbounded automatic PONG buffering",
+          "url": "https://github.com/advisories/GHSA-9fm3-97px-rjf6"
+        },
+        {
+          "severity": "moderate",
+          "title": "undici vulnerable to Subresource Integrity bypass via non-lowercase algorithm tokens",
+          "url": "https://github.com/advisories/GHSA-f72v-6w45-q472"
+        },
+        {
+          "severity": "moderate",
+          "title": "undici vulnerable to Denial of Service via orphaned RetryHandler response body",
+          "url": "https://github.com/advisories/GHSA-pmjh-fq2x-6v4x"
+        },
+        {
+          "severity": "high",
+          "title": "undici vulnerable to Denial of Service via TLS 1.2 certificate-changing renegotiation",
+          "url": "https://github.com/advisories/GHSA-qrxm-fqhp-jwvm"
+        },
+        {
+          "severity": "low",
+          "title": "undici vulnerable to downstream response splitting via retry interceptor",
+          "url": "https://github.com/advisories/GHSA-r53p-7pc4-xj5r"
+        },
+        {
+          "severity": "high",
+          "title": "undici vulnerable to Denial of Service via unrequested WebSocket subprotocol",
+          "url": "https://github.com/advisories/GHSA-rfgv-xxqx-mfg5"
+        },
+        {
+          "severity": "moderate",
+          "title": "undici vulnerable to Denial of Service via WebSocketStream unclean close",
+          "url": "https://github.com/advisories/GHSA-rx4f-c7p8-82vq"
+        },
+        {
+          "severity": "high",
+          "title": "undici vulnerable to TLS certificate validation bypass via dropped connect options in BalancedPool",
+          "url": "https://github.com/advisories/GHSA-w293-vg96-wgc3"
+        },
+        {
+          "severity": "high",
+          "title": "undici vulnerable to Denial of Service via unhandled error on excessive content-encodings",
+          "url": "https://github.com/advisories/GHSA-xjj6-f33q-929c"
+        }
+      ],
+      "direct": false,
+      "package": "undici",
+      "paths": [
+        "jsdom \u203a undici"
+      ],
+      "range": ">=8.1.0 <8.10.2"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "low",
+          "title": "KaTeX: Existing prototype pollution can bypass trust restrictions",
+          "url": "https://github.com/advisories/GHSA-238p-pmpm-9mq7"
+        }
+      ],
+      "direct": false,
+      "package": "katex",
+      "paths": [
+        "@openai/apps-sdk-ui \u203a remark-math \u203a micromark-extension-math \u203a katex"
+      ],
+      "range": ">=0.11.0 <0.18.2"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "moderate",
+          "title": "Hono: `serveStatic` decodes the request path a second time, leading to bypass of middleware on static paths",
+          "url": "https://github.com/advisories/GHSA-5r4p-p66f-jhc7"
+        },
+        {
+          "severity": "moderate",
+          "title": "Hono: Query parser reads parameters after the URL fragment, causing cache-key and proxy interpretation differentials",
+          "url": "https://github.com/advisories/GHSA-crvj-82cr-hjcx"
+        },
+        {
+          "severity": "moderate",
+          "title": "Hono: Unbounded dot-notation nesting in `parseBody()` can cause memory exhaustion",
+          "url": "https://github.com/advisories/GHSA-g6gw-c38x-mqfc"
+        },
+        {
+          "severity": "moderate",
+          "title": "Hono: Incomplete fix for CVE-2026-39408: `toSSG()` still writes files outside the output directory",
+          "url": "https://github.com/advisories/GHSA-gqvv-2mrq-wpjv"
+        },
+        {
+          "severity": "moderate",
+          "title": "hono/jsx renders plain strings unescaped in boundary components, leading to XSS",
+          "url": "https://github.com/advisories/GHSA-hxh3-vqpv-xpqv"
+        }
+      ],
+      "direct": false,
+      "package": "hono",
+      "paths": [
+        "rivetkit \u203a @hono/zod-openapi \u203a hono"
+      ],
+      "range": "<4.13.5"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "moderate",
+          "title": "pbkdf2 rehashes long passwords on every iteration, enabling denial of service",
+          "url": "https://github.com/advisories/GHSA-477h-4r7f-fvrx"
+        }
+      ],
+      "direct": false,
+      "package": "pbkdf2",
+      "paths": [
+        "rivetkit \u203a @rivet-dev/agent-os-core \u203a @secure-exec/nodejs \u203a node-stdlib-browser \u203a crypto-browserify \u203a pbkdf2"
+      ],
+      "range": "<=3.1.6"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "low",
+          "title": "esbuild allows arbitrary file read when running the development server on Windows",
+          "url": "https://github.com/advisories/GHSA-g7r4-m6w7-qqqr"
+        }
+      ],
+      "direct": false,
+      "package": "esbuild",
+      "paths": [
+        "vite \u203a esbuild",
+        "rivetkit \u203a @rivet-dev/agent-os-core \u203a @secure-exec/nodejs \u203a esbuild"
+      ],
+      "range": ">=0.27.3 <0.28.1"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "high",
+          "title": "Zod can exhaust memory while validating oversized constrained collections",
+          "url": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5"
+        }
+      ],
+      "direct": true,
+      "package": "zod",
+      "paths": [
+        "(direct dependency)",
+        "rivetkit \u203a @hono/zod-openapi \u203a @asteasolutions/zod-to-openapi \u203a zod"
+      ],
+      "range": "<4.6.6"
+    },
+    {
+      "advisories": [
+        {
+          "severity": "low",
+          "title": "Elliptic Uses a Cryptographic Primitive with a Risky Implementation",
+          "url": "https://github.com/advisories/GHSA-848j-6mx2-7j84"
+        }
+      ],
+      "direct": false,
+      "package": "elliptic",
+      "paths": [
+        "rivetkit \u203a @rivet-dev/agent-os-core \u203a @secure-exec/nodejs \u203a node-stdlib-browser \u203a crypto-browserify \u203a create-ecdh \u203a elliptic",
+        "To update all dependencies to the latest compatible versions:",
+        "bun update",
+        "To update all dependencies to the latest versions (including breaking changes):",
+        "bun update --latest"
+      ],
+      "range": "<=6.6.1"
+    }
+  ],
+  "summary": {
+    "high": 12,
+    "low": 6,
+    "moderate": 22,
+    "total": 40
+  },
+  "tool": "bun audit (Bun 1.3.14)"
+}

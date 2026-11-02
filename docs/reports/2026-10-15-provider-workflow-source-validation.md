@@ -1,5 +1,8 @@
 # Provider workflow source validation — 2026-10-15
 
+
+> **Historical (2026-10-15 checkpoint, source `8a337eb`).** Superseded by the [2026-11-02 current status report](2026-11-02-current-status.md); where this document conflicts with that report or the hosted `Verify and package` pipeline, the newer report is authoritative. Retained as evidence of the earlier failed checkpoint.
+
 Task 7 remains **partially verified**. This change fixes reproduced startup and OAuth cancellation defects with owned fixtures; it does not establish live provider or actual tool-client acceptance.
 
 The source baseline was `589c057cdd9824755cc88bfb60731bcc67b39c65` on `codex/production-readiness`. The only pre-existing untracked file was the production-readiness plan; it is excluded from this change.

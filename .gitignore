@@ -1,6 +1,7 @@
 .worktrees/
 .codex-local/
 .superpowers/
+.openhands/
 
 # Package manager and build output
 node_modules/

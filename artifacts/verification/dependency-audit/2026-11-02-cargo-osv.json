@@ -1,0 +1,319 @@
+{
+  "advisories": [
+    {
+      "aliases": [],
+      "id": "GHSA-wrw7-89jp-8q8g",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "glib",
+      "summary": "",
+      "version": "0.18.5"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2024-0429",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "glib",
+      "summary": "",
+      "version": "0.18.5"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2024-0370",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "proc-macro-error",
+      "summary": "",
+      "version": "1.0.4"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0338",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "quinn-proto",
+      "summary": "",
+      "version": "0.11.16"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0339",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "quinn-proto",
+      "summary": "",
+      "version": "0.11.16"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0340",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "quinn-proto",
+      "summary": "",
+      "version": "0.11.16"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0341",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "quinn-proto",
+      "summary": "",
+      "version": "0.11.16"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0342",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "quinn-proto",
+      "summary": "",
+      "version": "0.11.16"
+    },
+    {
+      "aliases": [],
+      "id": "GHSA-c8m5-c952-6cm4",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "rustls",
+      "summary": "",
+      "version": "0.23.45"
+    },
+    {
+      "aliases": [],
+      "id": "GHSA-h2v8-394m-p7vv",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "rustls",
+      "summary": "",
+      "version": "0.23.45"
+    },
+    {
+      "aliases": [],
+      "id": "GHSA-vp88-798v-h67f",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "rustls",
+      "summary": "",
+      "version": "0.23.45"
+    },
+    {
+      "aliases": [],
+      "id": "GHSA-w44r-93j7-qv28",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "rustls",
+      "summary": "",
+      "version": "0.23.45"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0346",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "rustls",
+      "summary": "",
+      "version": "0.23.45"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0347",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "rustls",
+      "summary": "",
+      "version": "0.23.45"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0348",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "rustls",
+      "summary": "",
+      "version": "0.23.45"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0349",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "rustls",
+      "summary": "",
+      "version": "0.23.45"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0382",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "rustls-webpki",
+      "summary": "",
+      "version": "0.103.15"
+    },
+    {
+      "aliases": [],
+      "id": "GHSA-5wjr-9356-4wc8",
+      "lockfile": "lumen-agent-core/Cargo.lock",
+      "name": "tokio",
+      "summary": "",
+      "version": "1.54.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0384",
+      "lockfile": "lumen-agent-core/Cargo.lock",
+      "name": "tokio",
+      "summary": "",
+      "version": "1.54.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0386",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "tokio",
+      "summary": "",
+      "version": "1.53.1"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0192",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "ttf-parser",
+      "summary": "",
+      "version": "0.25.1"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2025-0081",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "unic-char-property",
+      "summary": "",
+      "version": "0.9.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2025-0075",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "unic-char-range",
+      "summary": "",
+      "version": "0.9.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2025-0080",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "unic-common",
+      "summary": "",
+      "version": "0.9.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2025-0100",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "unic-ucd-ident",
+      "summary": "",
+      "version": "0.9.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2025-0098",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "unic-ucd-version",
+      "summary": "",
+      "version": "0.9.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0383",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "webpki-root-certs",
+      "summary": "",
+      "version": "1.0.9"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0381",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "webpki-roots",
+      "summary": "",
+      "version": "1.0.9"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0371",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zbus_names",
+      "summary": "",
+      "version": "4.3.4"
+    },
+    {
+      "aliases": [],
+      "id": "GHSA-8hxf-qr8p-62x4",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zip",
+      "summary": "",
+      "version": "8.6.0"
+    },
+    {
+      "aliases": [],
+      "id": "GHSA-9hj8-73fh-9963",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zip",
+      "summary": "",
+      "version": "8.6.0"
+    },
+    {
+      "aliases": [],
+      "id": "GHSA-hjqx-j4rw-g7xv",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zip",
+      "summary": "",
+      "version": "8.6.0"
+    },
+    {
+      "aliases": [],
+      "id": "GHSA-m665-v7pm-7grj",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zip",
+      "summary": "",
+      "version": "8.6.0"
+    },
+    {
+      "aliases": [],
+      "id": "GHSA-q7v9-x93c-xqv3",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zip",
+      "summary": "",
+      "version": "8.6.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0367",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zip",
+      "summary": "",
+      "version": "8.6.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0368",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zip",
+      "summary": "",
+      "version": "8.6.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0369",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zip",
+      "summary": "",
+      "version": "8.6.0"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0370",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zvariant",
+      "summary": "",
+      "version": "5.13.1"
+    },
+    {
+      "aliases": [],
+      "id": "RUSTSEC-2026-0372",
+      "lockfile": "src-tauri/Cargo.lock",
+      "name": "zvariant_derive",
+      "summary": "",
+      "version": "5.13.1"
+    }
+  ],
+  "generatedAt": "2026-11-02",
+  "note": "Includes advisories for Linux/BSD-only target dependencies that a Windows MSVC build does not compile.",
+  "source": "OSV.dev querybatch over resolved Cargo.lock versions"
+}

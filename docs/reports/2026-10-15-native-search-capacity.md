@@ -1,5 +1,8 @@
 # Native search capacity and recovery evidence
 
+
+> **Historical (2026-10-15 checkpoint, source `8a337eb`).** Superseded by the [2026-11-02 current status report](2026-11-02-current-status.md); where this document conflicts with that report or the hosted `Verify and package` pipeline, the newer report is authoritative. Retained as evidence of the earlier failed checkpoint.
+
 Task 13 is **not accepted**. The final source passed native correctness verification and one complete 1,000-file functional workload. Full 50,000-file and 250,000 accepted-record workloads are **PENDING_HOST_RESOURCES**. The 1,000-file timings below are resource-bound observations, not isolated performance acceptance. Installed UI, release/package performance and general production capacity remain unverified.
 
 The checked-in [sanitized evidence](../../artifacts/search-capacity/2026-10-15-native-capacity.json) preserves phase events, all five 30-sample query families, source/runner and native binary hashes, continuous host observations, sampled owned-native resources, exit receipt and post-run memory pressure. Absolute corpus/executable/user paths are removed. Local raw logs and owned corpora remain preserved; no cleanup or unrelated process action was performed.

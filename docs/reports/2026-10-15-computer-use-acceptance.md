@@ -1,5 +1,8 @@
 # Computer Use acceptance: local evidence and installed runbook
 
+
+> **Historical (2026-10-15 checkpoint, source `8a337eb`).** Superseded by the [2026-11-02 current status report](2026-11-02-current-status.md); where this document conflicts with that report or the hosted `Verify and package` pipeline, the newer report is authoritative. Retained as evidence of the earlier failed checkpoint.
+
 Date: 2026-10-15. Tested source: `00bb9b902e773245be8df1badb3da2508022e8f0` on `codex/production-readiness`. At the start, no tracked files were dirty; an unrelated untracked production-readiness plan was present and excluded. This pass changes documentation and refreshes the existing content-free Stop timing artifact. It changes no product behavior, assertions, deadlines, grants or budgets.
 
 **Installed-app, live Gemini/OpenAI tasks, native selected-window execution and physical Ctrl+Alt+Esc acceptance remain pending.** Local fixture successes below do not close those gates. No ordinary Lumen startup or native provider health command was invoked. Fixed provider credential slots were neither read nor changed, and no provider inference was requested. Docker remains deferred and was not operated.

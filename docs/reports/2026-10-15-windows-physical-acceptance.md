@@ -1,5 +1,8 @@
 # Windows physical accessibility and lifecycle acceptance
 
+
+> **Historical (2026-10-15 checkpoint, source `8a337eb`).** Superseded by the [2026-11-02 current status report](2026-11-02-current-status.md); where this document conflicts with that report or the hosted `Verify and package` pipeline, the newer report is authoritative. Retained as evidence of the earlier failed checkpoint.
+
 Prepared 2026-10-15 against `aea03d81fb2d5cbf18a60ee76b4170626abb060b` on `codex/production-readiness`. No tracked changes existed at inspection; an unrelated untracked production-readiness plan was excluded. This is a source review and future owner-operated runbook, not installed or physical execution evidence. No product behavior changed.
 
 **All physical cases below remain pending.** The current ordinary profile contains user data. An owner-provided isolated Windows account/VM, signed traceable installer, synthetic-only app/index state and owner-operated desktop were unavailable. A VM must expose the actual keyboard, audio, IME, sleep and distinct monitor scales required by the case; emulated displays cannot close physical hardware gates. No ordinary app/bootstrap/health, credentials/index inspection, OS preference/input/focus changes, installer smoke, live provider or Docker operation was performed.
