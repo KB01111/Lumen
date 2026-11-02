@@ -1,5 +1,8 @@
 # Final Windows gate checkpoint — 2026-10-15
 
+
+> **Historical (2026-10-15 checkpoint, source `8a337eb`).** Superseded by the [2026-11-02 current status report](2026-11-02-current-status.md); where this document conflicts with that report or the hosted `Verify and package` pipeline, the newer report is authoritative. Retained as evidence of the earlier failed checkpoint.
+
 This checkpoint is **not full Task 14 or production acceptance**. The full Edge gate failed, and the freshly staged compiled enrichment worker crashed during its recovery qualification. The independent native and fixture gates below passed. The unsigned release build completed successfully with exit code 0; its artifacts were not executed, signed, or installed.
 
 Product source: `8a337eb960e1aa2274c60c7f7f64b1e2e79336be`. No product source, assertions, deadlines, retry counts, admission rules or performance budgets changed in Task14c. Later dirty patches contain only the regenerated native Stop and native answer evidence. Earlier Task14b frontend qualification remains separately reviewed evidence: typecheck, zero-warning lint, 751 Vitest tests, 14 Node tests, 21 Bun tests and two archive Python tests.

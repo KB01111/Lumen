@@ -3,6 +3,11 @@ import http from 'node:http';
 import {test} from 'node:test';
 import {withLumenDevServer} from './lumen-dev-server.mjs';
 
+// Owned startup verifies the listening process with Get-NetTCPConnection, so these
+// cases only have meaning on Windows. `withLumenDevServer` itself refuses owned mode
+// elsewhere; skipping keeps a POSIX checkout from reporting a false failure.
+const ownedStartupTest = process.platform === 'win32' ? test : test.skip;
+
 async function serverFixture(handler) {
   const server = http.createServer(handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -10,7 +15,7 @@ async function serverFixture(handler) {
   return {url, close: () => new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); })};
 }
 
-test('owned mode refuses a server that became ready after native preflight', async () => {
+ownedStartupTest('owned mode refuses a server that became ready after native preflight', async () => {
   let ready = false;
   const server = await serverFixture((_request, response) => { response.statusCode = ready ? 200 : 503; response.end('competing checkout'); });
   try {
@@ -23,7 +28,7 @@ test('owned mode refuses a server that became ready after native preflight', asy
   } finally { await server.close(); }
 });
 
-test('owned mode never accepts competing readiness while its Vite child fails to bind', async () => {
+ownedStartupTest('owned mode never accepts competing readiness while its Vite child fails to bind', async () => {
   let requests = 0;
   const server = await serverFixture((_request, response) => {
     response.statusCode = requests++ === 0 ? 503 : 200;
@@ -45,7 +50,7 @@ test('existing callers retain intentional server reuse', async () => {
   } finally { await server.close(); }
 });
 
-test('owned mode enters the callback after its own Vite startup and cleans it up', async () => {
+ownedStartupTest('owned mode enters the callback after its own Vite startup and cleans it up', async () => {
   const reservation = await serverFixture((_request, response) => response.end());
   const url = reservation.url;
   await reservation.close();

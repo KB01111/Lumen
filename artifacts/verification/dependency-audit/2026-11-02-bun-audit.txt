@@ -1,0 +1,94 @@
+[0m[1mbun audit [0m[2mv1.3.14 (0d9b296a)[0m
+qs  >=6.14.2 <=6.15.3
+  rivetkit › @rivet-dev/agent-os-core › @secure-exec/nodejs › node-stdlib-browser › url › qs
+  moderate: qs array-limit bypass via bracket-key comma parsing - https://github.com/advisories/GHSA-x5fp-wj9c-mxmx
+  moderate: qs: Denial of Service via Attacker Controlled isBuffer - https://github.com/advisories/GHSA-4mjr-xmp4-gh2g
+  moderate: qs : qs.stringify with arrayFormat 'comma' throws an uncaught TypeError on array elements carrying a non-callable own toString (DoS) - https://github.com/advisories/GHSA-6pq8-jhm2-2vcw
+
+lodash  >=4.0.0 <=4.17.22
+  @openai/apps-sdk-ui › lodash
+  moderate: Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions - https://github.com/advisories/GHSA-xxjr-mmjv-4gpg
+  high: lodash vulnerable to Code Injection via `_.template` imports key names - https://github.com/advisories/GHSA-r5fr-rjxr-66jc
+  moderate: lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit` - https://github.com/advisories/GHSA-f23m-r3pf-42rh
+
+drizzle-orm  <0.45.2
+  rivetkit › drizzle-orm
+  high: Drizzle ORM has SQL injection via improperly escaped SQL identifiers - https://github.com/advisories/GHSA-gpj5-g38j-94v9
+
+brace-expansion  >=4.0.0 <5.0.11
+  eslint › @eslint/config-array › minimatch › brace-expansion
+  typescript-eslint › @typescript-eslint/utils › @typescript-eslint/typescript-estree › minimatch › brace-expansion
+  high: brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion - https://github.com/advisories/GHSA-qhr7-859c-m2p7
+  high: brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion - https://github.com/advisories/GHSA-6j4f-fj2g-mc7p
+  moderate: brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service - https://github.com/advisories/GHSA-q2hr-2g5m-vwhr
+
+source-map-js  >=1.0.0 <1.2.2
+  @tailwindcss/vite › @tailwindcss/node › source-map-js
+  jsdom › @csstools/css-syntax-patches-for-csstree › css-tree › source-map-js
+  vite › postcss › source-map-js
+  high: source-map-js allows event-loop denial of service through indexed source-map section offsets - https://github.com/advisories/GHSA-68fv-2mgg-jv7q
+
+minimatch  <11.0.1
+  eslint › @eslint/config-array › minimatch
+  typescript-eslint › @typescript-eslint/utils › @typescript-eslint/typescript-estree › minimatch
+  moderate: minimatch has potential denial of service via globparts amplification - https://github.com/advisories/GHSA-g3hv-75wg-m249
+
+undici  >=8.1.0 <8.10.2
+  jsdom › undici
+  moderate: undici vulnerable to Denial of Service via unhandled error in WebSocket permessage-deflate decompression - https://github.com/advisories/GHSA-3wwx-pv8p-q78v
+  moderate: undici vulnerable to Denial of Service via orphaned RetryHandler response body - https://github.com/advisories/GHSA-pmjh-fq2x-6v4x
+  low: undici vulnerable to downstream response splitting via retry interceptor - https://github.com/advisories/GHSA-r53p-7pc4-xj5r
+  high: undici vulnerable to Denial of Service via unrequested WebSocket subprotocol - https://github.com/advisories/GHSA-rfgv-xxqx-mfg5
+  moderate: undici vulnerable to Denial of Service via unbounded decompression of compressed responses - https://github.com/advisories/GHSA-3xpg-4rpp-hhhm
+  moderate: undici vulnerable to cross-user cookie disclosure via Set-Cookie caching in shared caches - https://github.com/advisories/GHSA-2jfj-6hjv-fm6j
+  low: undici vulnerable to response truncation via oversized chunked responses in the dump interceptor - https://github.com/advisories/GHSA-2gqq-gqf2-x968
+  high: undici vulnerable to TLS certificate validation bypass via dropped connect options in BalancedPool - https://github.com/advisories/GHSA-w293-vg96-wgc3
+  low: undici vulnerable to caching and replay of unsafe HTTP method responses - https://github.com/advisories/GHSA-8436-99hf-9mmv
+  moderate: undici vulnerable to Denial of Service via WebSocketStream unclean close - https://github.com/advisories/GHSA-rx4f-c7p8-82vq
+  moderate: undici vulnerable to Denial of Service via unbounded memory in the EventSource parser - https://github.com/advisories/GHSA-4qv8-2p9j-2685
+  moderate: undici vulnerable to Subresource Integrity bypass via non-lowercase algorithm tokens - https://github.com/advisories/GHSA-f72v-6w45-q472
+  high: undici vulnerable to Denial of Service via unhandled error on excessive content-encodings - https://github.com/advisories/GHSA-xjj6-f33q-929c
+  high: undici vulnerable to cache poisoning and cross-user disclosure via cross-origin redirects - https://github.com/advisories/GHSA-4w7w-5xrc-9h26
+  high: undici vulnerable to TLS certificate validation bypass via dropped tls options in Agent - https://github.com/advisories/GHSA-2m5v-pch6-74hx
+  high: undici vulnerable to Denial of Service via TLS 1.2 certificate-changing renegotiation - https://github.com/advisories/GHSA-qrxm-fqhp-jwvm
+  moderate: undici WebSocket client vulnerable to Denial of Service via unbounded automatic PONG buffering - https://github.com/advisories/GHSA-9fm3-97px-rjf6
+  moderate: undici vulnerable to Denial of Service via unhandled exception in the decompress interceptor - https://github.com/advisories/GHSA-55wc-3pg8-jfw6
+
+katex  >=0.11.0 <0.18.2
+  @openai/apps-sdk-ui › remark-math › micromark-extension-math › katex
+  low: KaTeX: Existing prototype pollution can bypass trust restrictions - https://github.com/advisories/GHSA-238p-pmpm-9mq7
+
+hono  <4.13.5
+  rivetkit › @hono/zod-openapi › hono
+  moderate: Hono: Incomplete fix for CVE-2026-39408: `toSSG()` still writes files outside the output directory - https://github.com/advisories/GHSA-gqvv-2mrq-wpjv
+  moderate: Hono: Unbounded dot-notation nesting in `parseBody()` can cause memory exhaustion - https://github.com/advisories/GHSA-g6gw-c38x-mqfc
+  moderate: Hono: Query parser reads parameters after the URL fragment, causing cache-key and proxy interpretation differentials - https://github.com/advisories/GHSA-crvj-82cr-hjcx
+  moderate: hono/jsx renders plain strings unescaped in boundary components, leading to XSS - https://github.com/advisories/GHSA-hxh3-vqpv-xpqv
+  moderate: Hono: `serveStatic` decodes the request path a second time, leading to bypass of middleware on static paths - https://github.com/advisories/GHSA-5r4p-p66f-jhc7
+
+pbkdf2  <=3.1.6
+  rivetkit › @rivet-dev/agent-os-core › @secure-exec/nodejs › node-stdlib-browser › crypto-browserify › pbkdf2
+  moderate: pbkdf2 rehashes long passwords on every iteration, enabling denial of service - https://github.com/advisories/GHSA-477h-4r7f-fvrx
+
+esbuild  >=0.27.3 <0.28.1
+  vite › esbuild
+  rivetkit › @rivet-dev/agent-os-core › @secure-exec/nodejs › esbuild
+  low: esbuild allows arbitrary file read when running the development server on Windows - https://github.com/advisories/GHSA-g7r4-m6w7-qqqr
+
+zod  <4.6.6
+  (direct dependency)
+  rivetkit › @hono/zod-openapi › @asteasolutions/zod-to-openapi › zod
+  high: Zod can exhaust memory while validating oversized constrained collections - https://github.com/advisories/GHSA-mrhx-c7xc-m3w5
+
+elliptic  <=6.6.1
+  rivetkit › @rivet-dev/agent-os-core › @secure-exec/nodejs › node-stdlib-browser › crypto-browserify › create-ecdh › elliptic
+  low: Elliptic Uses a Cryptographic Primitive with a Risky Implementation - https://github.com/advisories/GHSA-848j-6mx2-7j84
+
+40 vulnerabilities (12 high, 22 moderate, 6 low)
+
+To update all dependencies to the latest compatible versions:
+  bun update
+
+To update all dependencies to the latest versions (including breaking changes):
+  bun update --latest
+

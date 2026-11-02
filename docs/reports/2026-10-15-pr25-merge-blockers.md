@@ -38,7 +38,7 @@ Fresh local verification of this patch:
 | Native answer bridge and tooling | **14 passed**. |
 | Focused Edge search, shell and Computer Use keyboard cases | **12 passed**, including opening/details/folder actions, narrow layouts, intent switching, safety focus order and 10,000-result selection. |
 | Unchanged Edge performance suite | **1 passed / 1 failed / 2 not run**. Ordinary React render p95 improved to **7.7 ms**, still above **<3 ms**. Earlier input and selection assertions passed in this run; that does not replace the failing hosted qualification. |
-| Regenerated evidence | **86 gallery states and six recordings** reference `8d68e41`. The [browser profile](../../../artifacts/performance/profile-summary.json) exits **1** with ordinary React render p95 **8.6 ms vs <3 ms**; `passed` and strict-240-Hz acceptance remain **false**. All other cadence-aware profile checks passed in that observation. Source was marked dirty because the report and generated evidence were being refreshed; the product source matches `8d68e41`. |
+| Regenerated evidence | **86 gallery states and six recordings** reference `8d68e41`. The [browser profile](../../artifacts/performance/profile-summary.json) exits **1** with ordinary React render p95 **8.6 ms vs <3 ms**; `passed` and strict-240-Hz acceptance remain **false**. All other cadence-aware profile checks passed in that observation. Source was marked dirty because the report and generated evidence were being refreshed; the product source matches `8d68e41`. |
 
 Broader workspace retention, collection retention, React Aria hook replacement and selection-observer experiments were removed. No dependency, timing threshold, assertion, retry policy or CI configuration change is retained.
 

@@ -56,7 +56,7 @@
     "rivetkit": "2.3.10",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3",
+    "zod": "^4.6.7",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -76,8 +76,8 @@
     "tailwindcss": "^4",
     "typescript": "6.0.3",
     "typescript-eslint": "^8.65.0",
-    "vite": "^8.2.0",
-    "vitest": "^4.1.10",
+    "vite": "^8.3.5",
+    "vitest": "^4.1.12",
     "yaml": "^2.9.0"
   },
   "patchedDependencies": {

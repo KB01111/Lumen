@@ -33,7 +33,10 @@ async function cleanFixture(directory: string) {
   await rm(directory, {recursive: true, force: true});
 }
 
-describe("stage-clipproxy", () => {
+// This stages the Windows x64 sidecar: the archive is unpacked with `tar`, which cannot
+// read a zip on POSIX hosts, and the staged artifact is a .exe. Keep it on the platform it
+// targets so a non-Windows checkout does not report a false failure.
+describe.skipIf(process.platform !== 'win32')("stage-clipproxy", () => {
   it('bounds a stalled body after headers and preserves the previous verified output', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'lumen-proxy-stage-'));
     const output = join(directory, 'proxy.exe');

@@ -22,7 +22,9 @@ async function cleanFixture(directory: string) {
   await rm(canonical, {recursive: true, force: true});
 }
 
-describe('computer-use staging without optional uv', () => {
+// The staged executor is a Windows x64 PyInstaller build: the fixture uses the venv's
+// Scripts/python.exe and the SystemRoot/APPDATA layout. It cannot be exercised on POSIX.
+describe.skipIf(process.platform !== 'win32')('computer-use staging without optional uv', () => {
   it.each([false, true])('creates Python 3.11 and uses pip with configured Python=%s', async configured => {
     const directory = await mkdtemp(join(tmpdir(), 'lumen-worker-stage-'));
     try {

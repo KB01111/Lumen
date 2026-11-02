@@ -1,5 +1,8 @@
 # Performance continuation, 2026-10-15
 
+
+> **Historical (2026-10-15 checkpoint, source `8a337eb`).** Superseded by the [2026-11-02 current status report](2026-11-02-current-status.md); where this document conflicts with that report or the hosted `Verify and package` pipeline, the newer report is authoritative. Retained as evidence of the earlier failed checkpoint.
+
 **Task 4 remains failed/pending.** This continuation fixes ownership of the native profiling window service and completes a valid corrected native UI fixture capture. It does not achieve the ordinary React or strict 240 Hz budgets. Both attempted frontend optimizations were rejected and restored.
 
 The source base is `27c9742d50b5859e9a07819ccbd870f3c733573c`. The retained change affects only the native fixture module, its test and its driver. Ordinary product UI, Rust, measurement workloads, sample admission, StrictMode, assertions, deadlines and budgets are unchanged. The root-owned plan and ignored working reports are excluded from the commit.
