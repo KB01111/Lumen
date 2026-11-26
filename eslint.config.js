@@ -9,6 +9,7 @@ export default tseslint.config(
       'node_modules',
       'src-tauri/target',
       'lumen-agent-core/target',
+      'target',
       'src-tauri/binaries',
       'workers/**/.venv',
       'workers/**/.build',
