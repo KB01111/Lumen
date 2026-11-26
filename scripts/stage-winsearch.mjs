@@ -6,9 +6,9 @@ import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {ENGINE_COMMIT, TARGET, assertNoLinks, digest, inventory, verifyPayload} from './lib/winsearch-payload.mjs';
 
-const vendorArchive = resolve(dirname(fileURLToPath(import.meta.url)), '../vendor/winsearch/winsearch-85a915d.tar.gz');
-const archiveSha256 = '12da6a062df72b85f51398e8af7c25275d27cdee8cf62de6a7d4698744b14075';
-const archiveSize = 82821082;
+const vendorArchive = resolve(dirname(fileURLToPath(import.meta.url)), '../vendor/winsearch/winsearch-accd707.tar.gz');
+const archiveSha256 = 'f1f6a7a63d5d7d2f700464fd722157b3d459f3199205ede7a1cd45b9f9edbc4c';
+const archiveSize = 82903388;
 
 async function exists(path) {
   try { await lstat(path); return true; }

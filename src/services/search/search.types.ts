@@ -87,6 +87,12 @@ export const searchResultSchema = z.object({
   metadata: searchMetadataSchema,
   provenance: searchProvenanceSchema.optional(),
   pinned: z.boolean().optional(),
+  location: z.discriminatedUnion('kind', [
+    z.object({kind:z.literal('page'),page:z.number().int().positive()}),
+    z.object({kind:z.literal('timestamp'),seconds:z.number().nonnegative(),end_seconds:z.number().nonnegative()}),
+    z.object({kind:z.literal('line'),line:z.number().int().positive()}),
+    z.object({kind:z.literal('notebook'),cell_ordinal:z.number().int().positive(),line:z.number().int().positive(),end_line:z.number().int().positive()}),
+  ]).optional(),
   availability: searchAvailabilitySchema.optional().default('available'),
   target: z.object({kind: z.literal('app-content'), itemId: z.string().min(1).max(80), settingsPage: z.enum(windowsAiSettingsPages)}).optional(),
 }).refine((result) => result.kind === 'app-content' ? result.target !== undefined : result.target === undefined, {message: 'Only app content results may carry a settings target.'});

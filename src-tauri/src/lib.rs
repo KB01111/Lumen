@@ -382,8 +382,13 @@ pub fn run() {
             improvement::commands::end_improvement_workflow,
             search::list_files,
             search::winsearch_engine::get_winsearch_engine_status,
+            // Launcher search stays on main's single engine search path; the opt-in adapter
+            // below reuses it instead of registering a second search command.
             search::winsearch_search::search_winsearch,
             search::winsearch_search::cancel_winsearch_search,
+            search::winsearch_engine::configure_winsearch_engine,
+            search::winsearch_engine::subscribe_winsearch_engine,
+            search::winsearch_engine::unsubscribe_winsearch_engine,
             search::search_filenames,
             search::get_file_metadata,
             search::get_basic_preview,
