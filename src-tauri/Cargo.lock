@@ -4763,7 +4763,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -6226,7 +6226,7 @@ dependencies = [
 [[package]]
 name = "ws-client"
 version = "0.1.0"
-source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=85a915d460b1fa751bbe86f289ff77c18c032c25#85a915d460b1fa751bbe86f289ff77c18c032c25"
+source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=accd7071fc5822e14df68877d0834ab2b83ae72c#accd7071fc5822e14df68877d0834ab2b83ae72c"
 dependencies = [
  "serde_json",
  "thiserror 2.0.19",
@@ -6237,7 +6237,7 @@ dependencies = [
 [[package]]
 name = "ws-modelmgr"
 version = "0.1.0"
-source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=85a915d460b1fa751bbe86f289ff77c18c032c25#85a915d460b1fa751bbe86f289ff77c18c032c25"
+source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=accd7071fc5822e14df68877d0834ab2b83ae72c#accd7071fc5822e14df68877d0834ab2b83ae72c"
 dependencies = [
  "hex",
  "serde",
@@ -6251,7 +6251,7 @@ dependencies = [
 [[package]]
 name = "ws-protocol"
 version = "0.1.0"
-source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=85a915d460b1fa751bbe86f289ff77c18c032c25#85a915d460b1fa751bbe86f289ff77c18c032c25"
+source = "git+https://github.com/KB01111/WinSearch-lumen-engine.git?rev=accd7071fc5822e14df68877d0834ab2b83ae72c#accd7071fc5822e14df68877d0834ab2b83ae72c"
 dependencies = [
  "serde",
  "serde_json",

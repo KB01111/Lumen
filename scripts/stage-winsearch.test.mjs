@@ -248,7 +248,7 @@ test('extracts the exact verified archive bytes even if its source path changes 
   const lock = JSON.parse(await readFile(new URL('../src-tauri/winsearch-payload.lock.json',import.meta.url),'utf8'));
   const workspace = await workspaceFixture(lock.manifestSha256);
   const archive = join(workspace,'input.tar.gz');
-  await fs.copyFile(new URL('../vendor/winsearch/winsearch-85a915d.tar.gz',import.meta.url),archive);
+  await fs.copyFile(new URL('../vendor/winsearch/winsearch-accd707.tar.gz',import.meta.url),archive);
   const originalRead = fs.readFile;
   const replacement = mock.method(fs,'readFile',async (path,...args) => {
     const bytes = await originalRead(path,...args);

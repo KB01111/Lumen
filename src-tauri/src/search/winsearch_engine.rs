@@ -1,8 +1,9 @@
 use super::SearchFailure;
+use super::engine_adapter::{self, EnginePolicy, EngineSearchStatus};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::{self, File, OpenOptions},
     io::Read,
     num::NonZeroU32,
@@ -14,7 +15,7 @@ use std::{
     },
 };
 
-const ENGINE_COMMIT: &str = "85a915d460b1fa751bbe86f289ff77c18c032c25";
+const ENGINE_COMMIT: &str = "accd7071fc5822e14df68877d0834ab2b83ae72c";
 
 fn unavailable() -> SearchFailure {
     SearchFailure::new(
@@ -564,6 +565,8 @@ pub(crate) struct EngineRuntime {
     startup: tokio::sync::Mutex<()>,
     /// Last folder policy sent by the host; a restarted engine comes back deferred, so it is re-sent.
     config: Mutex<Option<ws_client::protocol::IndexingConfig>>,
+    /// Last semantic/backend policy from the opt-in adapter, re-sent to a restarted engine.
+    engine_config: Mutex<Option<ws_client::protocol::EngineConfig>>,
     /// Granted roots with their admission policy, for confining engine results.
     roots: Mutex<Vec<GrantedRoot>>,
     /// Whether background work is currently allowed (no pause, game or battery restriction).
@@ -572,6 +575,10 @@ pub(crate) struct EngineRuntime {
     lane: tokio::sync::Mutex<()>,
     /// Single-flight guard (with a short backoff) for background engine starts triggered by queries.
     warm_up: Mutex<WarmUp>,
+    /// Opt-in adapter status streams, cancelled by id.
+    subscriptions: Mutex<HashMap<u64, tokio_util::sync::CancellationToken>>,
+    /// Last hydrated adapter policy applied, so repeated searches skip canonicalization.
+    applied_policy: Mutex<Option<EnginePolicy>>,
 }
 
 #[derive(Default)]
@@ -623,10 +630,13 @@ impl EngineRuntime {
             closed: AtomicBool::new(false),
             startup: tokio::sync::Mutex::new(()),
             config: Mutex::new(None),
+            engine_config: Mutex::new(None),
             roots: Mutex::new(Vec::new()),
             background_normal: AtomicBool::new(true),
             lane: tokio::sync::Mutex::new(()),
             warm_up: Mutex::new(WarmUp::default()),
+            subscriptions: Mutex::new(HashMap::new()),
+            applied_policy: Mutex::new(None),
         }
     }
 
@@ -696,6 +706,14 @@ impl EngineRuntime {
         if let Some(config) = cached {
             // A rejected policy leaves the engine deferred; the local index keeps serving.
             let _ = process.client.set_indexing_config(config).await;
+        }
+        let engine = self
+            .engine_config
+            .lock()
+            .ok()
+            .and_then(|config| config.clone());
+        if let Some(config) = engine {
+            let _ = process.client.set_config(config).await;
         }
         if self.closed.load(Ordering::SeqCst) {
             process.kill();
@@ -849,10 +867,110 @@ impl EngineRuntime {
 
     pub(crate) fn shutdown(&self) {
         self.closed.store(true, Ordering::SeqCst);
+        if let Ok(mut subscriptions) = self.subscriptions.lock() {
+            for token in subscriptions.values() {
+                token.cancel();
+            }
+            subscriptions.clear();
+        }
         if let Ok(slot) = self.process.lock()
             && let Some(process) = slot.as_ref()
         {
             process.kill();
+        }
+    }
+
+    /// Applies the opt-in adapter's hydrated policy through the host's existing engine lane:
+    /// the same canonical grants, confinement roots and cached configuration main's launcher
+    /// search uses. Semantic/backend preferences are cached and re-sent after an engine restart.
+    pub(crate) async fn configure(&self, policy: EnginePolicy) -> Result<(), SearchFailure> {
+        // The adapter configures before every search; an unchanged hydrated policy is a no-op.
+        if self
+            .applied_policy
+            .lock()
+            .map_err(|_| unavailable())?
+            .as_ref()
+            == Some(&policy)
+        {
+            return Ok(());
+        }
+        let roots = policy.granted_roots()?;
+        let indexing = policy.indexing_config()?;
+        let engine = policy.engine_config()?;
+        self.remember_roots(&roots, &roots)?;
+        *self.config.lock().map_err(|_| unavailable())? = Some(indexing);
+        self.push_config().await?;
+        let process = self.ensure_process().await?;
+        let _lane = self.lane.lock().await;
+        let applied = process
+            .client
+            .set_config(engine.clone())
+            .await
+            .map_err(|_| unavailable())?;
+        if applied != engine {
+            return Err(unavailable());
+        }
+        *self.engine_config.lock().map_err(|_| unavailable())? = Some(engine);
+        *self.applied_policy.lock().map_err(|_| unavailable())? = Some(policy);
+        Ok(())
+    }
+
+    pub(crate) fn unsubscribe(&self, subscription_id: u64) {
+        if let Ok(mut subscriptions) = self.subscriptions.lock()
+            && let Some(token) = subscriptions.remove(&subscription_id)
+        {
+            token.cancel();
+        }
+    }
+
+    pub(crate) async fn subscribe(
+        &self,
+        subscription_id: u64,
+        on_status: impl Fn(EngineSearchStatus) -> Result<(), SearchFailure>,
+    ) -> Result<(), SearchFailure> {
+        let token = tokio_util::sync::CancellationToken::new();
+        {
+            let mut subscriptions = self.subscriptions.lock().map_err(|_| unavailable())?;
+            if subscriptions.len() >= 8 || subscriptions.contains_key(&subscription_id) {
+                return Err(unavailable());
+            }
+            subscriptions.insert(subscription_id, token.clone());
+        }
+        let result = self.subscription_loop(&token, &on_status).await;
+        if let Ok(mut subscriptions) = self.subscriptions.lock() {
+            subscriptions.remove(&subscription_id);
+        }
+        result
+    }
+
+    /// Streams the same engine status the launcher reads, without starting a second search path.
+    async fn subscription_loop(
+        &self,
+        token: &tokio_util::sync::CancellationToken,
+        on_status: &impl Fn(EngineSearchStatus) -> Result<(), SearchFailure>,
+    ) -> Result<(), SearchFailure> {
+        loop {
+            let status = tokio::select! {
+                biased;
+                _ = token.cancelled() => return Ok(()),
+                status = tokio::time::timeout(STATUS_DEADLINE, self.status()) => {
+                    match status {
+                        Ok(status) => status?,
+                        Err(_) => return Err(unavailable()),
+                    }
+                }
+            };
+            let mut mapped = engine_adapter::map_status(&status, 0);
+            if self.configured_roots().is_empty() {
+                mapped.phase = "paused";
+                mapped.message = "Waiting for current folder grants.".into();
+            }
+            on_status(mapped)?;
+            tokio::select! {
+                biased;
+                _ = token.cancelled() => return Ok(()),
+                _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {}
+            }
         }
     }
 }
@@ -868,6 +986,35 @@ pub(crate) async fn get_winsearch_engine_status(
     runtime: tauri::State<'_, EngineRuntime>,
 ) -> Result<ws_client::protocol::EngineStatus, SearchFailure> {
     runtime.status().await
+}
+
+#[tauri::command]
+pub(crate) async fn configure_winsearch_engine(
+    runtime: tauri::State<'_, EngineRuntime>,
+    policy: EnginePolicy,
+) -> Result<(), SearchFailure> {
+    runtime.configure(policy).await
+}
+
+#[tauri::command]
+pub(crate) async fn subscribe_winsearch_engine(
+    runtime: tauri::State<'_, EngineRuntime>,
+    subscription_id: u64,
+    on_status: tauri::ipc::Channel<EngineSearchStatus>,
+) -> Result<(), SearchFailure> {
+    runtime
+        .subscribe(subscription_id, |status| {
+            on_status.send(status).map_err(|_| unavailable())
+        })
+        .await
+}
+
+#[tauri::command]
+pub(crate) fn unsubscribe_winsearch_engine(
+    runtime: tauri::State<'_, EngineRuntime>,
+    subscription_id: u64,
+) {
+    runtime.unsubscribe(subscription_id);
 }
 
 #[cfg(test)]

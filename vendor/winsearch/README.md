@@ -1,22 +1,27 @@
 # Pinned WinSearch runtime
 
-`winsearch-85a915d.tar.gz` contains the model-free Windows x64 NPU/CPU
+`winsearch-accd707.tar.gz` contains the model-free Windows x64 NPU/CPU
 package from WinSearch runtime source
-`85a915d460b1fa751bbe86f289ff77c18c032c25`.
-It is the exact payload covered by
-[`2026-10-20-winsearch-npu-handoff.md`](../../docs/reports/2026-10-20-winsearch-npu-handoff.md),
+`accd7071fc5822e14df68877d0834ab2b83ae72c`.
+It is the unsigned integration candidate recorded in
+[`2026-10-22-winsearch-adapter.md`](../../docs/reports/2026-10-22-winsearch-adapter.md),
 compressed without changing any package bytes. This follows the existing
-vendored Rivet dependency approach and allows fresh CI checkouts to package
-the same independently pinned runtime without a mutable download or an
-expiring CI artifact.
+vendored Rivet dependency approach. The archive is hash-pinned below; this
+commit does not add the 79 MB archive to the tracked tree, so staging requires
+the pinned bytes from the release pipeline or an explicit `--source` copy.
 
-- Archive: 82,821,082 bytes; SHA-256
-  `12da6a062df72b85f51398e8af7c25275d27cdee8cf62de6a7d4698744b14075`.
+- Archive: 82,903,388 bytes; SHA-256
+  `f1f6a7a63d5d7d2f700464fd722157b3d459f3199205ede7a1cd45b9f9edbc4c`.
 - Original manifest SHA-256:
-  `171aedbb142c712520b768f524ca848a79aab519081cfc0209e8781e96d7390d`.
-- Declared contents: 69 files / 221,486,715 bytes, plus `payload.json`.
+  `630813959c03e58c55a7f3f290bfdc99c017ba270617b3adee89a85543411323`.
+- Declared contents: 69 files / 221,925,489 bytes, plus `payload.json`.
 - Licenses and source instructions remain inside the package's notices tree.
   Model weights, indexes, credentials and the system NPU driver are excluded.
+
+Copied-package no-model acceptance passed the unchanged 90-second watchdog,
+including 1,000/1,100-result checks. CPU/NPU references and frozen retrieval passed;
+the separate warm top-20 latency gate still fails. Corresponding-source delivery,
+signing, installed acceptance and default Lumen cutover remain open.
 
 `bun run stage:winsearch` checks the archive before extraction, then verifies
 the original manifest against `src-tauri/winsearch-payload.lock.json` and

@@ -1,4 +1,5 @@
 mod embedding;
+pub(crate) mod engine_adapter;
 mod enrichment;
 mod extraction;
 mod index;

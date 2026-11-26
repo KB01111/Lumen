@@ -37,8 +37,9 @@ async function waitUntilReady(url, child, reuseExistingServer, hasStarted) {
       if (reuseExistingServer) return;
       // HTTP readiness alone can come from a competing checkout before Vite binds.
       if (hasStarted()) {
-        if (!ownsListener(url, child, deadline - Date.now()) || child.exitCode !== null || Date.now() >= deadline) throw new Error('Lumen development server listener is not owned by the spawned child within the startup deadline.');
-        return;
+        // Windows listener enumeration can lag successful HTTP readiness.
+        // Keep admission closed and retry within the same absolute deadline.
+        if (ownsListener(url, child, deadline - Date.now()) && child.exitCode === null && Date.now() < deadline) return;
       }
     }
     if (child.exitCode !== null) {

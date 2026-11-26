@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import {test} from 'node:test';
+import {mock, test} from 'node:test';
+import childProcess from 'node:child_process';
+import {syncBuiltinESMExports} from 'node:module';
 import {withLumenDevServer} from './lumen-dev-server.mjs';
 
 // Owned startup verifies the listening process with Get-NetTCPConnection, so these
@@ -62,4 +64,36 @@ ownedStartupTest('owned mode enters the callback after its own Vite startup and 
   }, url, {reuseExistingServer: false});
   assert.equal(calls, 1);
   await assert.rejects(fetch(url));
+});
+
+test('owned startup retries an unobserved listener before admitting its real child', async () => {
+  const reservation = await serverFixture((_request, response) => response.end());
+  const url = reservation.url;
+  await reservation.close();
+  const originalSpawn = childProcess.spawn;
+  let child;
+  let probes = 0;
+  let calls = 0;
+  const spawn = mock.method(childProcess, 'spawn', (...args) => {
+    child = originalSpawn(...args);
+    return child;
+  });
+  const ownership = mock.method(childProcess, 'execFileSync', () => {
+    probes += 1;
+    return JSON.stringify(probes === 1 ? [] : [child.pid]);
+  });
+  syncBuiltinESMExports();
+  try {
+    await withLumenDevServer(async (ownedUrl) => {
+      calls += 1;
+      assert.ok(probes >= 2, 'HTTP readiness cannot bypass listener ownership');
+      assert.match(await (await fetch(ownedUrl)).text(), /Lumen/);
+    }, url, {reuseExistingServer: false});
+    assert.equal(calls, 1);
+    await assert.rejects(fetch(url));
+  } finally {
+    ownership.mock.restore();
+    spawn.mock.restore();
+    syncBuiltinESMExports();
+  }
 });
