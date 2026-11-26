@@ -1,0 +1,731 @@
+use std::path::Path;
+use serde_json::Value;
+
+/// Fixed loopback-only base for the Go management API (`/v8` only; `/v0` is
+/// deprecated and must not be used).
+pub const MANAGEMENT_BASE: &str = "http://127.0.0.1:8317/v8/management";
+
+/// Bearer-auth HTTP client for the sidecar management surface.
+#[derive(Debug, Clone)]
+pub struct CliproxyClient {
+    base: String,
+    mgmt_key: String,
+    client: Result<reqwest::Client, String>,
+}
+
+impl CliproxyClient {
+    /// Create an authenticated client using the fixed loopback management URL.
+    pub fn new(mgmt_key: String) -> Self {
+        Self {
+            base: MANAGEMENT_BASE.to_owned(),
+            mgmt_key,
+            client: crate::local_http::client(std::time::Duration::from_secs(5))
+                .map_err(|_| "Cliproxy HTTP client is unavailable".to_owned()),
+        }
+    }
+
+    /// Test-only override for the base URL (mock servers bind an ephemeral
+    /// port; production always uses [`MANAGEMENT_BASE`]).
+    pub fn with_base(base: String, mgmt_key: String) -> Self {
+        Self {
+            base,
+            mgmt_key,
+            client: crate::local_http::client(std::time::Duration::from_secs(5))
+                .map_err(|_| "Cliproxy HTTP client is unavailable".to_owned()),
+        }
+    }
+
+    /// Return the configured management API base URL.
+    pub fn base(&self) -> &str {
+        &self.base
+    }
+
+    /// Send an authenticated GET and decode a successful JSON response.
+    async fn get(&self, path: &str) -> Result<Value, String> {
+        let response = self
+            .client
+            .as_ref()
+            .map_err(Clone::clone)?
+            .get(format!("{}{path}", self.base))
+            .bearer_auth(&self.mgmt_key)
+            .send()
+            .await
+            .map_err(|_| "Cliproxy request failed".to_owned())?;
+        check_status(response).await
+    }
+
+    /// `GET /v8/management/config` — persisted config in the v8 layout.
+    pub async fn get_config(&self) -> Result<ConfigSummary, String> {
+        Ok(config_summary(&self.get("/config").await?))
+    }
+
+    /// `PATCH /v8/management/config` — merges objects, replaces lists/scalars.
+    /// The patch value is sent directly (no `{value:}` envelope).
+    pub async fn patch_config(&self, patch: Value) -> Result<PatchResult, String> {
+        let response = self
+            .client
+            .as_ref()
+            .map_err(Clone::clone)?
+            .patch(format!("{}/config", self.base))
+            .bearer_auth(&self.mgmt_key)
+            .json(&patch)
+            .send()
+            .await
+            .map_err(|_| "Cliproxy request failed".to_owned())?;
+        let _ = check_status(response).await?;
+        Ok(PatchResult { ok: true })
+    }
+
+    /// `GET /v8/management/credentials` — credential-file metadata.
+    /// Returns only known provider labels and disabled state. File names and
+    /// arbitrary nested credential metadata never cross IPC.
+    pub async fn list_credentials(&self) -> Result<CredentialsSummary, String> {
+        Ok(credentials_summary(&self.get("/credentials").await?))
+    }
+
+    /// `GET /v8/management/oauth/auth-url?provider=` — starts a sidecar OAuth
+    /// flow and returns the sign-in URL plus the opaque session state.
+    pub async fn oauth_auth_url(&self, provider: &str) -> Result<OAuthStart, String> {
+        let provider = provider.trim();
+        if provider.is_empty() {
+            return Err("OAuth provider is required".to_owned());
+        }
+        let value = self
+            .get(&format!(
+                "/oauth/auth-url?provider={}",
+                encode_query(provider)
+            ))
+            .await?;
+        OAuthStart::from_sidecar(&value)
+    }
+
+    /// `GET /v8/management/oauth/status?state=` — polls a pending OAuth
+    /// session. Maps the sidecar `wait`/`ok`/`error` envelope to `{done, error?}`.
+    pub async fn oauth_status(&self, state: &str) -> Result<OAuthPoll, String> {
+        let state = state.trim();
+        if state.is_empty() {
+            return Err("OAuth state is required".to_owned());
+        }
+        let value = self
+            .get(&format!("/oauth/status?state={}", encode_query(state)))
+            .await?;
+        Ok(map_oauth_status(&value))
+    }
+
+    /// `DELETE /v8/management/oauth/session?state=` — cancels a pending OAuth
+    /// session. Returns the sidecar `cancelled` flag (false when the state was
+    /// already gone).
+    pub async fn oauth_cancel(&self, state: &str) -> Result<bool, String> {
+        let state = state.trim();
+        if state.is_empty() {
+            return Err("OAuth state is required".to_owned());
+        }
+        let response = self
+            .client
+            .as_ref()
+            .map_err(Clone::clone)?
+            .delete(format!(
+                "{}/oauth/session?state={}",
+                self.base,
+                encode_query(state)
+            ))
+            .bearer_auth(&self.mgmt_key)
+            .send()
+            .await
+            .map_err(|_| "Cliproxy request failed".to_owned())?;
+        let value = check_status(response).await?;
+        match (
+            value.get("status").and_then(Value::as_str),
+            value.get("cancelled").and_then(Value::as_bool),
+        ) {
+            (Some("ok"), Some(cancelled)) => Ok(cancelled),
+            _ => Err("Cliproxy did not confirm OAuth cancellation".to_owned()),
+        }
+    }
+
+    /// Boolean link status for one OAuth provider, derived from
+    /// `GET /v8/management/credentials` file metadata (`type`/`provider`
+    /// fields, ignoring disabled entries). Key material is never read.
+    pub async fn oauth_linked(&self, provider: &str) -> Result<bool, String> {
+        let provider = provider.trim();
+        if provider.is_empty() {
+            return Err("OAuth provider is required".to_owned());
+        }
+        let value = self.get("/credentials").await?;
+        Ok(credentials_linked(&value, provider))
+    }
+
+    /// `GET /v8/management/observability/usage/api-keys` — per-key request
+    /// counters (`{provider: {"base_url|api_key": {success, failed, ...}}}`).
+    /// Composite keys embed key material; fold counters in Rust before IPC.
+    pub async fn api_key_usage(&self) -> Result<Vec<ProviderUsage>, String> {
+        Ok(usage_summary(
+            &self.get("/observability/usage/api-keys").await?,
+        ))
+    }
+}
+
+const SAFE_PROVIDERS: &[&str] = &[
+    "codex",
+    "openai",
+    "claude",
+    "anthropic",
+    "gemini",
+    "qwen",
+    "xai",
+    "grok",
+    "iflow",
+    "kimi",
+    "antigravity",
+    "vertex",
+    "copilot",
+];
+const MAX_WEB_COUNT: u64 = 9_007_199_254_740_991;
+
+fn safe_provider(value: &str) -> Option<String> {
+    let normalized = value.trim().to_lowercase();
+    SAFE_PROVIDERS
+        .contains(&normalized.as_str())
+        .then_some(normalized)
+}
+
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+pub struct ProviderUsage {
+    pub provider: String,
+    pub success: u64,
+    pub failed: u64,
+    pub total: u64,
+}
+
+fn usage_summary(value: &Value) -> Vec<ProviderUsage> {
+    let Some(providers) = value.as_object() else {
+        return Vec::new();
+    };
+    let mut rows = Vec::new();
+    for (provider, keys) in providers {
+        let Some(provider) = safe_provider(provider) else {
+            continue;
+        };
+        let Some(keys) = keys.as_object() else {
+            continue;
+        };
+        let mut success = 0u64;
+        let mut failed = 0u64;
+        for entry in keys.values() {
+            success = success
+                .saturating_add(entry.get("success").and_then(Value::as_u64).unwrap_or(0))
+                .min(MAX_WEB_COUNT);
+            failed = failed
+                .saturating_add(entry.get("failed").and_then(Value::as_u64).unwrap_or(0))
+                .min(MAX_WEB_COUNT);
+        }
+        rows.push(ProviderUsage {
+            provider,
+            success,
+            failed,
+            total: success.saturating_add(failed).min(MAX_WEB_COUNT),
+        });
+    }
+    rows.sort_by(|left, right| {
+        right
+            .total
+            .cmp(&left.total)
+            .then(left.provider.cmp(&right.provider))
+    });
+    rows
+}
+
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+pub struct ProviderCount {
+    pub provider: String,
+    pub count: u64,
+}
+
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigSummary {
+    pub routing_strategy: Option<String>,
+    pub usage_statistics_enabled: bool,
+    pub provider_counts: Vec<ProviderCount>,
+}
+
+fn config_summary(value: &Value) -> ConfigSummary {
+    let routing_strategy = value
+        .pointer("/routing/strategy")
+        .and_then(Value::as_str)
+        .filter(|strategy| ["round-robin", "fill-first"].contains(strategy))
+        .map(str::to_owned);
+    let mut provider_counts = Vec::new();
+    for (field, provider) in [
+        ("codex-api-key", "codex"),
+        ("claude-api-key", "claude"),
+        ("gemini-api-key", "gemini"),
+        ("vertex-api-key", "vertex"),
+    ] {
+        if let Some(groups) = value
+            .pointer(&format!("/api-keys/{provider}"))
+            .and_then(Value::as_array)
+        {
+            let count = groups
+                .iter()
+                .filter_map(|group| group.get("keys").and_then(Value::as_array))
+                .fold(0u64, |count, keys| {
+                    count.saturating_add(keys.len() as u64).min(MAX_WEB_COUNT)
+                });
+            provider_counts.push(ProviderCount {
+                provider: provider.to_owned(),
+                count,
+            });
+        } else if let Some(entries) = value.get(field).and_then(Value::as_array) {
+            provider_counts.push(ProviderCount {
+                provider: provider.to_owned(),
+                count: entries.len() as u64,
+            });
+        }
+    }
+    ConfigSummary {
+        routing_strategy,
+        usage_statistics_enabled: value
+            .pointer("/observability/usage/usage-statistics-enabled")
+            .or_else(|| value.get("usage-statistics-enabled"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        provider_counts,
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+pub struct PatchResult {
+    pub ok: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+pub struct CredentialMetadata {
+    pub provider: String,
+    pub disabled: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+pub struct CredentialsSummary {
+    pub files: Vec<CredentialMetadata>,
+}
+
+fn credentials_summary(value: &Value) -> CredentialsSummary {
+    let files = value
+        .as_array()
+        .or_else(|| value.get("files").and_then(Value::as_array));
+    CredentialsSummary {
+        files: files
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| {
+                let provider = entry
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .and_then(safe_provider)
+                    .or_else(|| {
+                        entry
+                            .get("provider")
+                            .and_then(Value::as_str)
+                            .and_then(safe_provider)
+                    })?;
+                Some(CredentialMetadata {
+                    provider,
+                    disabled: entry
+                        .get("disabled")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false),
+                })
+            })
+            .collect(),
+    }
+}
+
+/// Percent-encodes one query-string value (RFC 3986 unreserved set passes
+/// through; everything else becomes `%XX`). Keeps OAuth `provider`/`state`
+/// values safe without adding a URL-encoding dependency.
+fn encode_query(value: &str) -> String {
+    const UNRESERVED: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
+    let mut out = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if UNRESERVED.contains(&byte) {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
+
+/// Sign-in URL plus opaque session state handed to the webview. `user_code`
+/// serializes as `userCode` for the `AuthCenterPanel` contract; no secret is
+/// ever part of this payload.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct OAuthStart {
+    pub url: String,
+    pub state: String,
+    pub user_code: Option<String>,
+}
+
+impl OAuthStart {
+    /// Parse OAuth URL and state, rejecting missing or blank required fields.
+    /// Trim the optional user code and omit it when empty.
+    fn from_sidecar(value: &Value) -> Result<Self, String> {
+        let url = value
+            .get("url")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_owned();
+        let state = value
+            .get("state")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_owned();
+        if url.is_empty() || state.is_empty() {
+            return Err("Cliproxy returned an incomplete OAuth URL".to_owned());
+        }
+        let user_code = value
+            .get("user_code")
+            .and_then(Value::as_str)
+            .map(|code| code.trim().to_owned())
+            .filter(|code| !code.is_empty());
+        Ok(Self {
+            url,
+            state,
+            user_code,
+        })
+    }
+}
+
+/// Boolean-only poll result for the webview (`AuthCenterPanel` contract).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct OAuthPoll {
+    pub done: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// Maps the sidecar `{"status": "wait"|"ok"|"error", "error"?: ...}` envelope.
+fn map_oauth_status(value: &Value) -> OAuthPoll {
+    match value.get("status").and_then(Value::as_str).unwrap_or("") {
+        "ok" => OAuthPoll {
+            done: true,
+            error: None,
+        },
+        "error" => OAuthPoll {
+            done: false,
+            error: Some("Authentication failed".to_owned()),
+        },
+        _ => OAuthPoll {
+            done: false,
+            error: None,
+        },
+    }
+}
+
+/// Provider aliases accepted when matching credential-file entries
+/// (`type`/`provider` fields, case-insensitive).
+fn provider_aliases(provider: &str) -> Vec<String> {
+    match provider.to_lowercase().as_str() {
+        "codex" | "chatgpt" | "openai" => vec![
+            "codex".to_owned(),
+            "chatgpt".to_owned(),
+            "openai".to_owned(),
+        ],
+        "claude" | "anthropic" => vec!["claude".to_owned(), "anthropic".to_owned()],
+        "xai" | "grok" => vec!["xai".to_owned(), "grok".to_owned()],
+        other => vec![other.to_owned()],
+    }
+}
+
+/// Match an enabled credential entry against normalized provider aliases.
+fn entry_matches_provider(entry: &Value, aliases: &[String]) -> bool {
+    if entry
+        .get("disabled")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    for field in ["type", "provider"] {
+        let candidate = entry
+            .get(field)
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_lowercase();
+        if !candidate.is_empty() && aliases.iter().any(|alias| alias == &candidate) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Scans a `GET /credentials` payload (`{"files": [...]}` or a bare array)
+/// for a non-disabled entry belonging to `provider`.
+fn credentials_linked(payload: &Value, provider: &str) -> bool {
+    let aliases = provider_aliases(provider);
+    let files = match payload {
+        Value::Array(files) => files.as_slice(),
+        Value::Object(_) => payload
+            .get("files")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]),
+        _ => &[],
+    };
+    files
+        .iter()
+        .any(|entry| entry_matches_provider(entry, &aliases))
+}
+
+/// Reject unsuccessful HTTP status codes, then decode the response as JSON.
+async fn check_status(response: reqwest::Response) -> Result<Value, String> {
+    let bytes = crate::local_http::body(response)
+        .await
+        .map_err(|error| error.message("Cliproxy"))?;
+    serde_json::from_slice(&bytes).map_err(|_| "Cliproxy returned invalid JSON".to_owned())
+}
+
+/// Resolves the management key without ever exposing it to UI layers:
+/// `CLIPROXY_MGMT_KEY` env (dev/tests) first, then `<app-data>/cliproxy/mgmt.key`.
+pub fn resolve_mgmt_key(data_dir: &Path) -> Result<String, String> {
+    if let Ok(key) = std::env::var("CLIPROXY_MGMT_KEY")
+        && !key.trim().is_empty()
+    {
+        return Ok(key);
+    }
+    let key_path = data_dir.join("cliproxy").join("mgmt.key");
+    let key = std::fs::read_to_string(&key_path)
+        .map_err(|_| "Cliproxy management key is not configured".to_owned())?;
+    let key = key.trim().to_owned();
+    if key.is_empty() {
+        return Err("Cliproxy management key is not configured".to_owned());
+    }
+    Ok(key)
+}
+
+/// Create a loopback client using the management key resolved for this app.
+pub fn client_for(data_dir: &Path) -> Result<CliproxyClient, String> {
+    Ok(CliproxyClient::new(resolve_mgmt_key(data_dir)?))
+}
+
+pub async fn cliproxy_get_config(data_dir: &Path) -> Result<ConfigSummary, String> {
+    client_for(data_dir)?.get_config().await
+}
+
+pub async fn cliproxy_patch_config(data_dir: &Path, patch: Value) -> Result<PatchResult, String> {
+    client_for(data_dir)?.patch_config(patch).await
+}
+
+pub async fn cliproxy_list_credentials(data_dir: &Path) -> Result<CredentialsSummary, String> {
+    client_for(data_dir)?.list_credentials().await
+}
+
+pub async fn cliproxy_oauth_auth_url(data_dir: &Path, provider: &str) -> Result<OAuthStart, String> {
+    client_for(data_dir)?.oauth_auth_url(provider).await
+}
+
+pub async fn cliproxy_oauth_poll(data_dir: &Path, state: &str) -> Result<OAuthPoll, String> {
+    client_for(data_dir)?.oauth_status(state).await
+}
+
+pub async fn cliproxy_oauth_cancel(data_dir: &Path, state: &str) -> Result<bool, String> {
+    client_for(data_dir)?.oauth_cancel(state).await
+}
+
+pub async fn cliproxy_oauth_linked(data_dir: &Path, provider: &str) -> Result<bool, String> {
+    client_for(data_dir)?.oauth_linked(provider).await
+}
+
+pub async fn cliproxy_usage(data_dir: &Path) -> Result<Vec<ProviderUsage>, String> {
+    client_for(data_dir)?.api_key_usage().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::local_http_tests as http;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn local_http_management_refuses_redirects() {
+        let (target, target_server) = http::server(http::json("{}"), Duration::ZERO);
+        let (base, server) = http::server(format!("HTTP/1.1 307 Temporary Redirect\r\nLocation: {target}/stolen\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").into_bytes(), Duration::ZERO);
+        let result = crate::async_runtime::block_on(
+            CliproxyClient::with_base(base, "fixture-secret".into())
+                .patch_config(serde_json::json!({"private":"fixture"})),
+        );
+        server.join().unwrap();
+        let redirected = target_server.join().unwrap();
+        assert!(result.is_err(), "redirect status must fail");
+        assert!(
+            redirected.is_empty(),
+            "no bearer or payload may reach redirect target"
+        );
+    }
+
+    #[test]
+    fn local_http_management_bounds_bodies() {
+        let mut bounded = Vec::new();
+        for chunked in [false, true] {
+            let (base, server) = http::server(http::oversized(chunked), Duration::ZERO);
+            let result = crate::async_runtime::block_on(
+                CliproxyClient::with_base(base, "fixture-secret".into()).get("/config"),
+            );
+            server.join().unwrap();
+            bounded.push(result.is_err());
+        }
+        assert_eq!(
+            bounded,
+            [true, true],
+            "declared and chunked bodies must be bounded"
+        );
+    }
+
+    #[test]
+    fn local_http_management_sanitizes_failures() {
+        let (base, server) = http::server(http::json("{fixture-secret"), Duration::ZERO);
+        let result = crate::async_runtime::block_on(
+            CliproxyClient::with_base(base.clone(), "fixture-secret".into())
+                .get("/oauth/status?state=private-state"),
+        );
+        server.join().unwrap();
+        assert_eq!(result.unwrap_err(), "Cliproxy returned invalid JSON");
+        let result = crate::async_runtime::block_on(
+            CliproxyClient::with_base(base, "fixture-secret".into())
+                .get("/oauth/status?state=private-state"),
+        );
+        assert_eq!(result.unwrap_err(), "Cliproxy request failed");
+    }
+
+    #[test]
+    fn local_http_management_has_total_deadline() {
+        let (base, server) = http::server(http::json("{}"), Duration::from_secs(6));
+        let began = Instant::now();
+        let result = crate::async_runtime::block_on(
+            CliproxyClient::with_base(base, "fixture-secret".into()).get("/config"),
+        );
+        let elapsed = began.elapsed();
+        server.join().unwrap();
+        assert!(result.is_err(), "stalled headers must time out");
+        assert!(elapsed < Duration::from_secs(6));
+    }
+
+    #[test]
+    fn local_http_management_deadline_includes_stalled_body() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let server = http::server_parts(
+            listener,
+            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n".to_vec(),
+            b"{}".to_vec(),
+            Duration::from_secs(6),
+        );
+        let began = Instant::now();
+        let result = crate::async_runtime::block_on(
+            CliproxyClient::with_base(base, "fixture-secret".into()).get("/config"),
+        );
+        let elapsed = began.elapsed();
+        server.join().unwrap();
+        assert!(result.is_err());
+        assert!(elapsed < Duration::from_secs(6));
+    }
+
+    #[test]
+    #[ignore = "invoked only by isolated proxy regression"]
+    fn local_http_proxy_probe_management() {
+        assert_eq!(
+            std::env::var("LUMEN_LOCAL_HTTP_PROXY_PROBE").as_deref(),
+            Ok("1")
+        );
+        let (base, server) = http::server(http::json("{}"), Duration::ZERO);
+        let result = crate::async_runtime::block_on(
+            CliproxyClient::with_base(base, "fixture-secret".into()).get_config(),
+        );
+        assert!(result.is_ok());
+        assert!(!server.join().unwrap().is_empty());
+    }
+
+    #[test]
+    fn base_is_loopback_v8() {
+        let client = CliproxyClient::new("mgmt-123".to_owned());
+        assert_eq!(client.base(), "http://127.0.0.1:8317/v8/management");
+    }
+
+    #[test]
+    fn query_encoding_keeps_unreserved_and_escapes_rest() {
+        assert_eq!(encode_query("codex"), "codex");
+        assert_eq!(encode_query("a b+c/d"), "a%20b%2Bc%2Fd");
+    }
+
+    #[test]
+    fn oauth_start_requires_url_and_state() {
+        let full = serde_json::json!({
+            "status": "ok",
+            "url": "https://example.com/auth",
+            "state": "state-123",
+            "user_code": "ABCD-1234",
+        });
+        let start = OAuthStart::from_sidecar(&full).expect("full payload");
+        assert_eq!(start.url, "https://example.com/auth");
+        assert_eq!(start.state, "state-123");
+        assert_eq!(start.user_code.as_deref(), Some("ABCD-1234"));
+        // Webview contract: camelCase `userCode`.
+        let serialized = serde_json::to_value(&start).expect("serialize");
+        assert_eq!(serialized["userCode"], "ABCD-1234");
+
+        let without_code = serde_json::json!({"url": "https://example.com/auth", "state": "s"});
+        let start = OAuthStart::from_sidecar(&without_code).expect("no user code");
+        assert_eq!(start.user_code, None);
+
+        assert!(
+            OAuthStart::from_sidecar(&serde_json::json!({"url": "https://example.com/auth"}))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn oauth_status_maps_wait_ok_error() {
+        assert_eq!(
+            map_oauth_status(&serde_json::json!({"status": "wait"})),
+            OAuthPoll {
+                done: false,
+                error: None
+            }
+        );
+        assert_eq!(
+            map_oauth_status(&serde_json::json!({"status": "ok"})),
+            OAuthPoll {
+                done: true,
+                error: None
+            }
+        );
+        assert_eq!(
+            map_oauth_status(&serde_json::json!({"status": "error", "error": "denied"})),
+            OAuthPoll {
+                done: false,
+                error: Some("Authentication failed".to_owned())
+            }
+        );
+    }
+
+    #[test]
+    fn credentials_linked_matches_aliases_and_skips_disabled() {
+        let payload = serde_json::json!({"files": [
+            {"name": "codex.json", "type": "codex", "provider": "codex", "disabled": false},
+            {"name": "old.json", "type": "claude", "provider": "claude", "disabled": true},
+        ]});
+        assert!(credentials_linked(&payload, "codex"));
+        assert!(credentials_linked(&payload, "ChatGPT"));
+        assert!(!credentials_linked(&payload, "claude"));
+        assert!(!credentials_linked(&payload, "xai"));
+        assert!(!credentials_linked(
+            &serde_json::json!({"files": []}),
+            "codex"
+        ));
+    }
+}

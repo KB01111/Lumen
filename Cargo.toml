@@ -1,0 +1,24 @@
+[workspace]
+members = [
+    "crates/lumen-core",
+    "crates/lumen-ui",
+]
+exclude = [
+    "src-tauri",
+    "lumen-agent-core",
+    "workers/improvement-runtime/rust-tests",
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+version = "0.1.0"
+authors = ["Bridgehammer"]
+
+# Keep Windows MSVC PDBs compact and fast to link across gpui-fast + lumen-core.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

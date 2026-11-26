@@ -4,6 +4,7 @@
 .openhands/
 
 # Package manager and build output
+/target/
 node_modules/
 dist/
 dist-ssr/
